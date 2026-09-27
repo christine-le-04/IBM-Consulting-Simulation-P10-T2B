@@ -1,0 +1,15 @@
+package com.ibm.consulting.sim.lead.domain;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface LeadRepository {
+    List<Lead> findByScenarioId(UUID scenarioId);
+    LeadCatalogPage findCatalog(LeadCatalogQuery query);
+    List<String> findCatalogIndustries();
+    Optional<Lead> findById(UUID id);
+    List<Lead> findByIdIn(List<UUID> ids);
+    Lead save(Lead lead);
+    void delete(Lead lead);
+}

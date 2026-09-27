@@ -1,0 +1,121 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import apiClient from '@/api/client'
+import type { Meeting, MeetingPreparation, ConversationTurn, MeetingResponseOptions, PersonaState } from '@/api/types'
+
+export const meetingKeys = {
+  preparation: (engagementId: string) => ['meeting-preparation', engagementId] as const,
+  meeting: (meetingId: string) => ['meeting', meetingId] as const,
+  transcript: (meetingId: string) => ['meeting-transcript', meetingId] as const,
+  personaState: (meetingId: string) => ['meeting-persona-state', meetingId] as const,
+  responseOptions: (meetingId: string) => ['meeting-response-options', meetingId] as const,
+}
+
+export function useMeetingPreparation(engagementId: string) {
+  return useQuery({
+    queryKey: meetingKeys.preparation(engagementId),
+    queryFn: async () => {
+      const res = await apiClient.get<MeetingPreparation>(
+        `/api/v1/engagements/${engagementId}/preparation`
+      )
+      return res.data
+    },
+    enabled: Boolean(engagementId),
+  })
+}
+
+export function useUpdateMeetingPreparation(engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { objective: string; agenda: string[]; discoveryQuestions: string[] }) => {
+      const res = await apiClient.put<MeetingPreparation>(
+        `/api/v1/engagements/${engagementId}/preparation`,
+        data
+      )
+      return res.data
+    },
+    onSuccess: (preparation) => {
+      // Retain the authoritative response in cache immediately. The editor owns
+      // unsaved local draft state, so background query refreshes cannot erase it.
+      qc.setQueryData(meetingKeys.preparation(engagementId), preparation)
+      void qc.invalidateQueries({ queryKey: ['engagements', engagementId] })
+    },
+  })
+}
+
+export function useStartMeeting(engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<Meeting>(`/api/v1/engagements/${engagementId}/meetings`)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['engagements', engagementId] }),
+  })
+}
+
+export function useMeeting(meetingId: string) {
+  return useQuery({
+    queryKey: meetingKeys.meeting(meetingId),
+    queryFn: async () => {
+      const res = await apiClient.get<Meeting>(`/api/v1/meetings/${meetingId}`)
+      return res.data
+    },
+    enabled: Boolean(meetingId),
+  })
+}
+
+export function useMeetingTranscript(meetingId: string) {
+  return useQuery({
+    queryKey: meetingKeys.transcript(meetingId),
+    queryFn: async () => {
+      const res = await apiClient.get<ConversationTurn[]>(`/api/v1/meetings/${meetingId}/transcript`)
+      return res.data
+    },
+    enabled: Boolean(meetingId),
+  })
+}
+
+export function usePersonaState(meetingId: string) {
+  return useQuery({
+    queryKey: meetingKeys.personaState(meetingId),
+    queryFn: async () => {
+      const res = await apiClient.get<PersonaState>(`/api/v1/meetings/${meetingId}/persona-state`)
+      return res.data
+    },
+    enabled: Boolean(meetingId),
+  })
+}
+
+export function useMeetingResponseOptions(meetingId: string, enabled = true) {
+  return useQuery({
+    queryKey: meetingKeys.responseOptions(meetingId),
+    queryFn: async () => {
+      const res = await apiClient.get<MeetingResponseOptions>(`/api/v1/meetings/${meetingId}/response-options`)
+      return res.data
+    },
+    enabled: Boolean(meetingId) && enabled,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useRetryMeeting(meetingId: string, engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<Meeting>(`/api/v1/meetings/${meetingId}/retry`)
+      return res.data
+    },
+    onSuccess: (meeting) => {
+      // Prime the new attempt with an empty client-side view before navigation.
+      // The first page render therefore cannot inherit transcript/options/state
+      // from the failed meeting while its own queries are in flight.
+      qc.setQueryData(meetingKeys.meeting(meeting.id), meeting)
+      qc.setQueryData(meetingKeys.transcript(meeting.id), [])
+      qc.removeQueries({ queryKey: meetingKeys.personaState(meeting.id) })
+      qc.removeQueries({ queryKey: meetingKeys.responseOptions(meeting.id) })
+      void qc.invalidateQueries({ queryKey: ['engagements', engagementId] })
+      void qc.invalidateQueries({ queryKey: ['engagements'] })
+    },
+  })
+}

@@ -1,0 +1,865 @@
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2rem;
+}
+
+.header,
+.sectionHeader,
+.featuredTitleRow,
+.featuredContent {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header {
+  align-items: flex-start;
+}
+
+.subheading,
+.sectionHeader p,
+.modalHelp {
+  color: #525252;
+  margin-top: 0.5rem;
+}
+
+.performanceStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #e0e0e0;
+  background: #e0e0e0;
+  gap: 1px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.performanceStat {
+  background: #ffffff;
+  padding: 1rem 1.25rem;
+  min-width: 0;
+}
+
+.performanceStatLabel,
+.blockLabel,
+.sectionEyebrow {
+  color: #525252;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.performanceStatValue {
+  display: block;
+  color: #161616;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.featuredPanel,
+.section,
+.recommendationPanel,
+.failedMeetingsSection,
+.catalogueSection,
+.sidePanel {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.featuredPanel {
+  padding: 1.25rem;
+}
+
+.featuredContent {
+  align-items: stretch;
+  margin-top: 1rem;
+}
+
+.featuredMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.featuredTitleRow {
+  align-items: flex-start;
+
+  h2 {
+    color: #161616;
+    font-size: 1.5rem;
+    line-height: 1.25;
+    margin: 0;
+  }
+}
+
+.featuredMeta,
+.compactMeta,
+.scenarioTags,
+.featuredFacts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.featuredMeta,
+.compactMeta,
+.featuredFacts {
+  color: #525252;
+  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+}
+
+.featuredProgressBlock {
+  max-width: 520px;
+}
+
+.progressLabel {
+  display: flex;
+  justify-content: space-between;
+  color: #525252;
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+}
+
+.phaseCount {
+  display: block;
+  color: #6f6f6f;
+  font-size: 0.75rem;
+  margin-top: 0.375rem;
+}
+
+.nextActionBlock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f4f4f4;
+  border-left: 3px solid #0f62fe;
+  padding: 0.875rem 1rem;
+
+  p {
+    color: #161616;
+    margin: 0.25rem 0 0;
+    line-height: 1.4;
+  }
+}
+
+.featuredFacts {
+  gap: 1.25rem;
+
+  strong {
+    color: #161616;
+  }
+}
+
+.featuredCta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.section {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(20rem, 0.95fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.dashboardAside {
+  display: grid;
+  gap: 1rem;
+}
+
+.sidePanel {
+  padding: 1rem;
+}
+
+.sidePanelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  h3 {
+    color: #161616;
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  p,
+  .sideEmpty {
+    color: #6f6f6f;
+    font-size: 0.75rem;
+    margin: 0.25rem 0 0;
+  }
+}
+
+.textAction {
+  border: 0;
+  background: transparent;
+  color: #0f62fe;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.25rem;
+  white-space: nowrap;
+}
+
+.recentlyCompletedList {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.recentlyCompletedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #ffffff;
+  cursor: pointer;
+  padding: 0.75rem;
+  text-align: left;
+
+  &:hover {
+    border-color: #78a9ff;
+    background: #f4f7ff;
+  }
+
+  h4 {
+    color: #161616;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    margin: 0;
+  }
+}
+
+.recentlyCompletedResult {
+  display: grid;
+  justify-items: end;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+
+  strong {
+    color: #161616;
+    font-size: 0.8125rem;
+  }
+}
+
+.sideEmpty {
+  color: #6f6f6f;
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.catalogueSection {
+  padding: 1.5rem;
+  border-top: 3px solid #0f62fe;
+  background: linear-gradient(135deg, #ffffff 0%, #f7faff 100%);
+}
+
+.catalogueCount {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: #e8f0ff;
+  color: #0f62fe;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.catalogueControls {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(12rem, 0.7fr) minmax(10rem, 0.45fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.catalogueLoading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  color: #525252;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.catalogueLoadingState {
+  padding-bottom: 3rem;
+}
+
+.catalogueGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+.catalogueLeadCard {
+  display: flex;
+  min-width: 0;
+  min-height: 15rem;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1rem;
+  border: 1px solid #d9e2f2;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 38 71 / 5%);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    border-color: #78a9ff;
+    box-shadow: 0 6px 18px rgb(15 98 254 / 12%);
+    transform: translateY(-1px);
+  }
+
+  h4 {
+    overflow: hidden;
+    margin: 0;
+    color: #161616;
+    font-size: 1rem;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  p {
+    display: -webkit-box;
+    overflow: hidden;
+    flex: 1;
+    margin: 0;
+    color: #525252;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  :global(.cds--btn) {
+    align-self: flex-start;
+  }
+}
+
+.catalogueLeadTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.catalogueLeadIcon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 7px;
+  background: #edf3ff;
+  color: #0f62fe;
+}
+
+.catalogueSignals {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 2.5rem;
+
+  span {
+    overflow: hidden;
+    color: #6f6f6f;
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &::before {
+      content: '•';
+      margin-right: 0.375rem;
+      color: #0f62fe;
+    }
+  }
+}
+
+.cataloguePagination {
+  margin-top: 1.25rem;
+  border-top: 1px solid #d9e2f2;
+}
+
+.failedMeetingsSection {
+  padding: 1.25rem;
+  border-left: 4px solid #da1e28;
+}
+
+.sectionHeader {
+  align-items: flex-start;
+
+  h3 {
+    color: #161616;
+    margin: 0;
+  }
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1fr) 11rem 10rem;
+  gap: 0.75rem;
+  min-width: min(100%, 36rem);
+  margin: 1.25rem 0;
+}
+
+.compactList,
+.completedList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.compactRow,
+.completedRow {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    border-color: #0f62fe;
+    background: #f4f7ff;
+  }
+}
+
+.failedMeetingRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #da1e28;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 1rem;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #da1e28;
+    background: #fff1f1;
+  }
+}
+
+.failedMeetingAction {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  color: #a2191f;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.compactRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(11rem, 0.8fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.compactTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  h4 {
+    color: #161616;
+    font-size: 1rem;
+    margin: 0;
+  }
+}
+
+.compactNext {
+  display: block;
+  color: #525252;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  margin-top: 0.5rem;
+}
+
+.compactStatus {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  color: #0f62fe;
+}
+
+.completedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+
+  h4 {
+    color: #161616;
+    font-size: 1rem;
+    margin: 0;
+  }
+}
+
+.completedScore {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  color: #161616;
+  font-weight: 600;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #525252;
+  background: #f4f4f4;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.scenarioGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.scenarioCard {
+  border: 1px solid #d9e2f2;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 38 71 / 5%);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 15rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    border-color: #78a9ff;
+    box-shadow: 0 6px 18px rgb(15 98 254 / 12%);
+    transform: translateY(-1px);
+  }
+
+  h4 {
+    color: #161616;
+    margin: 0;
+  }
+
+  p {
+    color: #525252;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    margin: 0;
+    flex: 1;
+  }
+}
+
+.difficultyStars {
+  color: #6b5300;
+  font-family: monospace;
+  letter-spacing: 0;
+}
+
+.recommendationPanel {
+  padding: 1rem;
+  display: grid;
+  gap: 0.875rem;
+  border-color: #b8d3ff;
+  background: linear-gradient(135deg, #edf5ff 0%, #ffffff 80%);
+
+  h3 {
+    color: #161616;
+    margin: 0.25rem 0;
+  }
+
+  p {
+    color: #525252;
+    max-width: 30rem;
+    margin: 0;
+  }
+}
+
+.briefingSection {
+  margin-bottom: 1.25rem;
+
+  h5 {
+    color: #525252;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.375rem;
+  }
+
+  p,
+  li {
+    color: #161616;
+    line-height: 1.5;
+    font: inherit;
+  }
+
+  ul {
+    margin: 0;
+  }
+}
+
+.briefingMetaRow {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+
+  span {
+    color: #525252;
+    font-size: 0.75rem;
+    display: block;
+  }
+
+  strong {
+    color: #161616;
+  }
+}
+
+.problemBriefGrid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  > div {
+    border-left: 3px solid #0f62fe;
+    min-width: 0;
+    padding-left: 0.75rem;
+  }
+
+  span {
+    color: #525252;
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  p,
+  ul {
+    margin: 0.25rem 0 0;
+    font: inherit;
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 0;
+    margin-left: 0;
+  }
+}
+
+.difficultyDimensions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+
+  div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #525252;
+    font: inherit;
+  }
+}
+
+@media (max-width: 960px) {
+  .performanceStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .featuredContent,
+  .sectionHeader,
+  .recommendationPanel {
+    flex-direction: column;
+  }
+
+  .dashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .featuredCta {
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .catalogueControls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .catalogueLoading {
+    justify-content: flex-start;
+  }
+
+  .catalogueGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compactRow {
+    grid-template-columns: 1fr;
+  }
+
+  .failedMeetingRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .failedMeetingAction {
+    justify-content: flex-start;
+  }
+
+  .compactStatus {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 520px) {
+  .page {
+    padding: 1rem;
+  }
+
+  .performanceStrip {
+    grid-template-columns: 1fr;
+  }
+
+  .catalogueSection {
+    padding: 1rem;
+  }
+
+  .catalogueControls,
+  .catalogueGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .completedRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .completedScore {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .problemBriefGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.scenarioMore {
+  color: #525252;
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+}
+
+.scenarioSearch {
+  max-width: 28rem;
+  margin-bottom: 1rem;
+}
+
+/* Groups everything below the featured engagement. main designs this page as
+   an ordinary scrolling dashboard rather than a fixed canvas, so this is a
+   container, not a scrollport: splitting it left the catalogue 54px tall. */
+.browseBody { display: grid; align-content: start; gap: 2rem; }
+
+/* ── First visit ──────────────────────────────────────────────────────────── */
+
+.firstRun {
+  border: 1px solid #d0d0d0;
+  border-left: 4px solid #0f62fe;
+  background: #ffffff;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.firstRunHeading {
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.25;
+  margin: 0.25rem 0 1rem;
+}
+
+.firstRunArc {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  max-width: 46rem;
+
+  li { color: #525252; line-height: 1.5; }
+  strong { color: #161616; }
+}
+
+.firstRunNote {
+  color: #525252;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 1.5rem;
+  max-width: 46rem;
+}
+
+.firstRunStarter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border: 1px solid #d0d0d0;
+  background: #f4f4f4;
+  padding: 1rem 1.25rem;
+
+  h3 { font-size: 1.125rem; margin: 0.25rem 0 0.25rem; }
+  p { color: #525252; font-size: 0.875rem; margin: 0; }
+}
+
+.firstRunAlt {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-top: 1rem;
+  color: #0f62fe;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:focus-visible { outline: 2px solid #0f62fe; outline-offset: 2px; }
+}

@@ -1,0 +1,167 @@
+package com.ibm.consulting.sim.identity.api;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ibm.consulting.sim.identity.application.AdminUserService;
+import com.ibm.consulting.sim.identity.application.AdminUserPage;
+import com.ibm.consulting.sim.identity.application.UserSummary;
+import com.ibm.consulting.sim.identity.domain.UserDirectoryQuery;
+import com.ibm.consulting.sim.identity.domain.UserRepository;
+import com.ibm.consulting.sim.identity.domain.UserRole;
+import com.ibm.consulting.sim.identity.infrastructure.JwtTokenProvider;
+import com.ibm.consulting.sim.identity.infrastructure.SecurityConfig;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * Verifies that the admin user-management API enforces {@code ADMINISTRATOR}-only
+ * access, regardless of what other authenticated role is calling it.
+ */
+@WebMvcTest(AdminUserController.class)
+@Import(SecurityConfig.class)
+class AdminUserControllerSecurityTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockBean
+    private AdminUserService adminUserService;
+
+    @MockBean
+    private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private UserRepository userRepository;
+
+    @Test
+    void anonymousRequestIsRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/users"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "LEARNER")
+    void learnerCannotListUsers() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/users"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "REVIEWER")
+    void reviewerCannotChangeRoles() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/users/{id}/role", UUID.randomUUID())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new RoleBody(UserRole.SCENARIO_AUTHOR))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRATOR")
+    void administratorCanListUsers() throws Exception {
+        when(adminUserService.listUsers(any(UserDirectoryQuery.class))).thenReturn(
+                new AdminUserPage(
+                        java.util.List.of(new UserSummary(UUID.randomUUID(), "a@ibm.com", "A", UserRole.LEARNER, true, true)),
+                        1, 0, 25, 1));
+
+        mockMvc.perform(get("/api/v1/admin/users"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRATOR")
+    void administratorCannotChangeUserToNullRole() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/users/{id}/role", UUID.randomUUID())
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations.role").exists());
+
+        verifyNoInteractions(adminUserService);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRATOR")
+    void administratorCanChangeUserToAValidRole() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(adminUserService.changeRole(userId, UserRole.REVIEWER)).thenReturn(
+                new UserSummary(userId, "reviewer@example.com", "Reviewer", UserRole.REVIEWER, true, true));
+
+        mockMvc.perform(patch("/api/v1/admin/users/{id}/role", userId)
+                        .contentType("application/json")
+                        .content("{\"role\":\"REVIEWER\"}"))
+                .andExpect(status().isOk());
+
+        verify(adminUserService).changeRole(userId, UserRole.REVIEWER);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRATOR")
+    void administratorCannotCreateUserWithAWhitespaceOnlyDisplayName() throws Exception {
+        assertInvalidDisplayName("  ");
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRATOR")
+    void administratorCannotCreateUserWithATooShortDisplayName() throws Exception {
+        assertInvalidDisplayName("A");
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRATOR")
+    void administratorForwardsTheCompleteUserCreationRequest() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(adminUserService.createUser(
+                "new.learner@example.com", "StrongPassword123!", "  Alice Example  ", UserRole.LEARNER, false))
+                .thenReturn(new UserSummary(userId, "new.learner@example.com", "Alice Example",
+                        UserRole.LEARNER, true, false));
+
+        mockMvc.perform(post("/api/v1/admin/users")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "email": "new.learner@example.com",
+                                  "password": "StrongPassword123!",
+                                  "displayName": "  Alice Example  ",
+                                  "role": "LEARNER",
+                                  "skipEmailVerification": false
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(adminUserService).createUser(
+                "new.learner@example.com", "StrongPassword123!", "  Alice Example  ", UserRole.LEARNER, false);
+    }
+
+    private void assertInvalidDisplayName(String displayName) throws Exception {
+        mockMvc.perform(post("/api/v1/admin/users")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new CreateUserBody(
+                                "new.learner@example.com", "StrongPassword123!", displayName,
+                                UserRole.LEARNER, false))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations.displayName").exists());
+
+        verifyNoInteractions(adminUserService);
+    }
+
+    private record RoleBody(UserRole role) {}
+    private record CreateUserBody(
+            String email, String password, String displayName, UserRole role, boolean skipEmailVerification) {}
+}

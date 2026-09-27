@@ -1,0 +1,193 @@
+import { useEffect } from 'react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import apiClient from '@/api/client'
+import type { LeadCatalogPage, LeadIntelligence, LeadSummary, ResearchArtifact, ResearchEvidence, ResearchGateStatus, ResearchSourceDeck, SaveResearchPayload } from '@/api/types'
+
+export interface LeadCatalogFilters {
+  scenarioId?: string
+  search?: string
+  industry?: string
+  difficulty?: LeadSummary['difficulty']
+  page: number
+  size: number
+}
+
+const LEAD_CATALOG_STALE_TIME = 60_000
+const LEADS_BY_SCENARIO_STALE_TIME = 10 * 60_000
+const RESEARCH_SOURCE_DECK_STALE_TIME = 10 * 60_000
+
+async function fetchLeadCatalog(filters: LeadCatalogFilters) {
+  const res = await apiClient.get<LeadCatalogPage>('/api/v1/lead-catalog', { params: filters })
+  return res.data
+}
+
+export function useLeadCatalog(filters: LeadCatalogFilters) {
+  const queryClient = useQueryClient()
+  const result = useQuery({
+    queryKey: ['lead-catalog', filters],
+    queryFn: () => fetchLeadCatalog(filters),
+    placeholderData: keepPreviousData,
+    staleTime: LEAD_CATALOG_STALE_TIME,
+  })
+
+  useEffect(() => {
+    if (!result.data || filters.page + 1 >= result.data.totalPages) return
+    const nextFilters = { ...filters, page: filters.page + 1 }
+    void queryClient.prefetchQuery({
+      queryKey: ['lead-catalog', nextFilters],
+      queryFn: () => fetchLeadCatalog(nextFilters),
+      staleTime: LEAD_CATALOG_STALE_TIME,
+    })
+  }, [filters, queryClient, result.data])
+
+  return result
+}
+
+export function useLeadCatalogIndustries() {
+  return useQuery({
+    queryKey: ['lead-catalog', 'industries'],
+    queryFn: async () => (await apiClient.get<string[]>('/api/v1/lead-catalog/industries')).data,
+    staleTime: 10 * 60_000,
+  })
+}
+
+export function useLeads(scenarioId: string) {
+  return useQuery({
+    queryKey: ['leads', scenarioId],
+    queryFn: async () => {
+      const res = await apiClient.get<LeadSummary[]>(`/api/v1/scenarios/${scenarioId}/leads`)
+      return res.data
+    },
+    enabled: Boolean(scenarioId),
+    staleTime: LEADS_BY_SCENARIO_STALE_TIME,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useSelectLead(engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (leadId: string) => {
+      await apiClient.post(`/api/v1/engagements/${engagementId}/lead-selection`, { leadId })
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['engagements', engagementId] }),
+  })
+}
+
+export function useResearch(engagementId: string) {
+  return useQuery({
+    queryKey: ['research', engagementId],
+    queryFn: async () => {
+      const res = await apiClient.get<ResearchEvidence[]>(
+        `/api/v1/engagements/${engagementId}/research`
+      )
+      return res.data
+    },
+    enabled: Boolean(engagementId),
+  })
+}
+
+export function useSaveResearch(engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: SaveResearchPayload) => {
+      const res = await apiClient.post<ResearchEvidence>(
+        `/api/v1/engagements/${engagementId}/research`,
+        data
+      )
+      return res.data
+    },
+    onSuccess: (savedEvidence) => {
+      // The POST response is the authoritative newly-created row. Put it into
+      // the active query immediately, then revalidate related server-derived
+      // views in the background. This keeps the gate responsive without a
+      // page refresh while preserving the backend as the source of truth.
+      qc.setQueryData<ResearchEvidence[]>(['research', engagementId], (current = []) => {
+        const withoutSavedRow = current.filter((item) => item.id !== savedEvidence.id)
+        return [...withoutSavedRow, savedEvidence]
+      })
+
+      void qc.invalidateQueries({ queryKey: ['research', engagementId] })
+      void qc.invalidateQueries({ queryKey: ['lead-intelligence', engagementId] })
+      void qc.invalidateQueries({ queryKey: ['research-gate', engagementId] })
+    },
+  })
+}
+
+/** Immutable scenario-authored source deck. The API fans out lanes concurrently. */
+export function useResearchSourceDeck(engagementId: string) {
+  return useQuery({
+    queryKey: ['research-source-deck', engagementId],
+    queryFn: async () => {
+      const res = await apiClient.get<ResearchSourceDeck>(`/api/v1/engagements/${engagementId}/research-source-deck`)
+      return res.data
+    },
+    enabled: Boolean(engagementId),
+    staleTime: RESEARCH_SOURCE_DECK_STALE_TIME,
+    gcTime: 30 * 60_000,
+    refetchInterval: (query) => query.state.data?.enrichmentPending ? 2_000 : false,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
+}
+
+export function useAnalyzeUserContext(engagementId: string) {
+  return useMutation({
+    mutationFn: async (context: string) => {
+      const res = await apiClient.post<ResearchArtifact>(
+        `/api/v1/engagements/${engagementId}/research-intelligence/user-context`,
+        { context }
+      )
+      return res.data
+    },
+  })
+}
+
+/** Powers the Client Intelligence "Client Profile" panel — hidden fields revealed
+ *  progressively as research evidence accumulates. */
+export function useLeadIntelligence(engagementId: string) {
+  return useQuery({
+    queryKey: ['lead-intelligence', engagementId],
+    queryFn: async () => {
+      const res = await apiClient.get<LeadIntelligence>(
+        `/api/v1/engagements/${engagementId}/lead-intelligence`
+      )
+      return res.data
+    },
+    enabled: Boolean(engagementId),
+  })
+}
+
+/** The "Proceed to Outreach" requirements checklist — polled so the gate UI
+ *  stays in sync as the learner adds evidence. */
+export function useResearchGateStatus(engagementId: string) {
+  return useQuery({
+    queryKey: ['research-gate', engagementId],
+    queryFn: async () => {
+      const res = await apiClient.get<ResearchGateStatus>(
+        `/api/v1/engagements/${engagementId}/research-readiness`
+      )
+      return res.data
+    },
+    enabled: Boolean(engagementId),
+  })
+}
+
+/** Advances the engagement CLIENT_INTELLIGENCE -> HYPOTHESIS_READY once the gate
+ *  conditions are met, unlocking Outreach. Rejected with 422 (surfaced via
+ *  mutation.error) if the learner hasn't satisfied the requirements yet. */
+export function useCompleteResearch(engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<ResearchGateStatus>(
+        `/api/v1/engagements/${engagementId}/research/complete`
+      )
+      return res.data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['research-gate', engagementId] })
+      qc.invalidateQueries({ queryKey: ['engagements', engagementId] })
+    },
+  })
+}
