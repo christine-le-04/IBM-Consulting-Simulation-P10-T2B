@@ -24,6 +24,7 @@ spring:
     enabled: ${SPRING_FLYWAY_ENABLED:true}
     locations: classpath:db/migration
     baseline-on-migrate: true
+    baseline-version: 0
 
 server:
   # Railway (and most PaaS platforms) assign a dynamic port at runtime via $PORT;
