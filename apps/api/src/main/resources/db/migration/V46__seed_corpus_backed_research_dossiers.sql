@@ -60,6 +60,7 @@ WITH lanes(collection, lane_label, lens) AS (
     FROM scenarios s
     CROSS JOIN lanes
     CROSS JOIN focuses
+    WHERE focuses.position <= 4
 ), documents AS (
     SELECT scenario_id,
            collection,
@@ -137,7 +138,7 @@ WITH lanes(collection, lane_label, lens) AS (
                COALESCE(NULLIF(split_part(s.unknowns_to_validate, '|', (focuses.position - 1) % 4 + 1), ''),
                         'which scenario evidence must be corroborated before a decision is made')
            ) AS content
-    FROM scenarios s CROSS JOIN lanes CROSS JOIN focuses
+    FROM scenarios s CROSS JOIN lanes CROSS JOIN focuses WHERE focuses.position <= 4
 ), documents AS (
     SELECT scenario_id, collection,
            ('d4600000-' || substr(md5('research-dossier:' || scenario_id::text || ':' || collection), 1, 4) || '-' ||

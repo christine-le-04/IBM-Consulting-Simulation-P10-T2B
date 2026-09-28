@@ -40,17 +40,21 @@ WITH verticals AS (
 ), regions AS (
     SELECT ARRAY['Pacific', 'Northern', 'Urban', 'Coastal', 'Summit', 'Cedar', 'Atlas', 'Meridian', 'Pioneer', 'Aurora'] AS names
 )
-SELECT vertical.*, sequence.n AS scenario_number,
-       regions.names[((sequence.n - 1) % cardinality(regions.names)) + 1] AS region
-FROM generate_series(1, 2000) AS sequence(n)
-JOIN verticals vertical ON vertical.number = ((sequence.n - 1) % 24) + 1
+SELECT vertical.*,
+    ((variant.n - 1) * 24 + vertical.number) AS scenario_number,
+    variant.n AS variant_number,
+    2 + ((variant.n - 1) / 8) AS scenario_difficulty,
+    ((variant.n - 1) % 4) + 1 AS variation_number,
+    regions.names[((variant.n - 1) % cardinality(regions.names)) + 1] AS region
+FROM verticals vertical
+CROSS JOIN generate_series(1, 24) AS variant(n)
 CROSS JOIN regions;
 
 CREATE TEMP TABLE v33_lead_seed ON COMMIT DROP AS
 SELECT scenario_seed.*, lead_number,
        row_number() OVER (ORDER BY scenario_number, lead_number) AS lead_sequence
 FROM v33_scenario_seed scenario_seed
-CROSS JOIN LATERAL generate_series(1, CASE WHEN scenario_number % 3 = 0 THEN 4 ELSE 3 END) AS lead_number;
+CROSS JOIN LATERAL generate_series(1, CASE WHEN variant_number % 3 = 0 THEN 4 ELSE 3 END) AS lead_number;
 
 INSERT INTO scenarios (
     id, title, industry, description, status, difficulty, content_version,
@@ -65,16 +69,16 @@ SELECT
     'A ' || industry || ' consulting scenario where the learner must improve ' || operating_area ||
         ' through ' || opportunity || ' while responding to the client pressure that ' || pain_signal || '.',
     'ACTIVE',
-    CASE WHEN scenario_number % 5 IN (1, 2) THEN 2 WHEN scenario_number % 5 IN (3, 4) THEN 3 ELSE 4 END,
+    scenario_difficulty,
     1,
     ('62000000-0000-0000-0000-' || lpad(scenario_number::text, 12, '0'))::uuid,
-    CASE WHEN scenario_number % 5 IN (1, 2) THEN 2 WHEN scenario_number % 5 = 3 THEN 3 ELSE 4 END,
-    CASE WHEN scenario_number % 4 = 0 THEN 4 ELSE 3 END,
-    CASE WHEN scenario_number % 3 = 0 THEN 4 ELSE 3 END,
+    scenario_difficulty,
+    CASE WHEN variation_number IN (2, 4) THEN 4 ELSE 3 END,
+    CASE WHEN variation_number IN (3, 4) THEN 4 ELSE 3 END,
     'Enterprise Transformation Consultant',
     'Discover the operating constraints around ' || operating_area || ', build a grounded hypothesis and earn agreement on a low-risk next step.',
     'Identify the operational problem|Validate stakeholder priorities|Quantify a credible impact|Secure agreement on a measured pilot',
-    CASE WHEN scenario_number % 3 = 0 THEN 14 ELSE 10 END,
+    CASE WHEN variation_number IN (3, 4) THEN 14 ELSE 10 END,
     NOW(), NOW(), 0
 FROM v33_scenario_seed
 ON CONFLICT (id) DO NOTHING;
@@ -109,8 +113,7 @@ SELECT
         (ARRAY['Operations', 'Services', 'Networks', 'Partners'])[lead_number] || ' Opportunity',
     industry,
     'A ' || industry || ' organisation evaluating ' || opportunity || ' to improve ' || operating_area || ' without disrupting critical delivery.',
-    CASE WHEN (scenario_number + lead_number) % 5 IN (1, 2) THEN 'EASY'
-         WHEN (scenario_number + lead_number) % 5 IN (3, 4) THEN 'MEDIUM' ELSE 'HARD' END,
+    CASE (variant_number + lead_number - 2) % 3 WHEN 0 THEN 'EASY' WHEN 1 THEN 'MEDIUM' ELSE 'HARD' END,
     CASE WHEN lead_number = 1 THEN '$750K - $1.8M' WHEN lead_number = 2 THEN '$1.2M - $3M' ELSE '$2M - $5M' END,
     CASE WHEN lead_number = 4 THEN 'Unconfirmed sponsor - stakeholder mapping required'
          ELSE persona_name || ' ' || region || ', ' || persona_title END,
