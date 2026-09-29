@@ -19,8 +19,15 @@ vi.mock('@/api/hooks/useMeeting', () => ({
   usePersonaState: vi.fn(),
   useMeetingResponseOptions: vi.fn(),
   useRetryMeeting: vi.fn(),
+  useMeetingPreparation: () => ({ data: { objective: 'Validate the problem', agenda: ['Confirm objectives'], discoveryQuestions: ['Which site hurts most?'] } }),
 }))
-vi.mock('@/api/hooks/useEngagements', () => ({ useRetryEngagement: vi.fn() }))
+vi.mock('@/api/hooks/useEngagements', () => ({
+  useRetryEngagement: vi.fn(),
+  useEngagement: () => ({ data: { scenarioId: 'scn-1', leadCompanyName: 'MediCare' } }),
+}))
+vi.mock('@/api/hooks/useScenarios', () => ({
+  useScenario: () => ({ data: { personas: [{ id: 'persona-1', name: 'Sarah Chen', jobTitle: 'Chief Operating Officer', organisation: 'MediCare' }] } }),
+}))
 vi.mock('@/api/hooks/useMeetingSocket', () => ({ useMeetingSocket: vi.fn() }))
 vi.mock('@/components/shared/ObjectiveTourProvider', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -157,7 +164,7 @@ describe('LiveMeetingPage status', () => {
 
     expect(screen.getByText('Meeting passed')).toBeInTheDocument()
     expect(screen.getByText('You navigated the discovery conversation well.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue to Discovery Synthesis' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue to the proposal' })).toBeInTheDocument()
 
     expect(screen.getByText('Hello')).toBeInTheDocument()
   })
@@ -179,5 +186,31 @@ describe('LiveMeetingPage status', () => {
     expect(screen.getByText('Meeting not passed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Retry live meeting \(2 remaining\)/ })).toBeInTheDocument()
     expect(screen.getByText('Begin with a focused discovery question.')).toBeInTheDocument()
+  })
+})
+
+describe('LiveMeetingPage without numbers', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows the client by name and describes the last answer in words, never as scores (SRS FR-14)', () => {
+    setup(
+      makeMeeting({
+        behaviourLedger: [{
+          quality: 'STRONG_DISCOVERY',
+          trustDelta: 6,
+          interestDelta: 4,
+          patienceDelta: -2,
+          verifiedBehaviours: ['asked_open_question'],
+          explanation: 'You asked what would make the time worthwhile.',
+          nextBestAction: 'Ask which site loses the most time.',
+        }],
+      }),
+      [{ id: 't1', meetingId: 'meeting-1', actor: 'PERSONA', content: 'Thanks for coming.', sequence: 0, signals: null, createdAt: '2026-08-01T10:00:00Z' }],
+    )
+    renderPage()
+
+    expect(screen.getByLabelText('Conversation with Sarah Chen')).toBeInTheDocument()
+    expect(screen.getByText('They trust you a little more. Their interest went up. It cost a little of their patience.')).toBeInTheDocument()
+    expect(screen.queryByText(/\/100|\+6|points to threshold/)).not.toBeInTheDocument()
   })
 })
