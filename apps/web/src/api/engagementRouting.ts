@@ -1,4 +1,5 @@
 import type { Engagement, EngagementPhase } from '@/api/types'
+import { getChosenContact } from '@/store/contactSelectionStore'
 
 /**
  * Maps an engagement's current phase to the workspace route the learner
@@ -15,10 +16,16 @@ export function resolveEngagementRoute(engagement: Engagement): string {
   if (engagement.state === 'MEETING_FAILED') {
     return engagement.meetingId ? `${base}/meetings/${engagement.meetingId}` : `${base}/leads`
   }
+
+
   switch (engagement.phase) {
     case 'LEAD':
       return `${base}/leads`
     case 'CLIENT_INTELLIGENCE':
+      // Research finished (HYPOTHESIS_READY): choose a contact, then write.
+      if (engagement.state === 'HYPOTHESIS_READY') {
+        return getChosenContact(engagement.id) ? `${base}/outreach` : `${base}/contact`
+      }
       return `${base}/intelligence`
     case 'OUTREACH':
       return `${base}/outreach`

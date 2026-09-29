@@ -28,6 +28,7 @@ import ManualSourceForm from './ManualSourceForm'
 import { deckSources, readinessFor, RESEARCH_AREAS, TRUST_LABEL } from './research'
 import SourceDocument from './SourceDocument'
 import styles from './ClientIntelligencePage.module.scss'
+import { PHASE_LABEL } from '@/lifecycle/phases'
 
 /** The walkthrough: where things are, never what to conclude. */
 const CLIENT_INTELLIGENCE_OBJECTIVES = [
@@ -86,19 +87,20 @@ export default function ClientIntelligencePage() {
   // A new source opens at its top, like turning to a new document.
   useEffect(() => { readingRef.current?.scrollTo({ top: 0 }) }, [source?.id])
 
-  const toOutreach = () => navigate(`/dashboard/engagements/${engagementId}/outreach`)
+  const toContact = () => navigate(`/dashboard/engagements/${engagementId}/contact`)
+  
   const proceed = () => {
-    if (gate?.researchCompleted) return toOutreach()
-    completeResearch.mutate(undefined, { onSuccess: toOutreach })
+    if (gate?.researchCompleted) return toContact()
+    completeResearch.mutate(undefined, { onSuccess: toContact })
   }
 
   // Dana speaks the gate's own coaching; the way on sits beside her.
   useMentor(
     completeResearch.isError
       ? 'The engagement could not move on yet. Tick off what is missing, then try again.'
-      : gate?.coaching?.[0] ?? (gate?.ready ? 'You have enough to go on. Contact the client when you are ready.' : null),
+      : gate?.coaching?.[0] ?? (gate?.ready ? 'You have enough to go on. Now decide who can actually say yes.' : null),
     {
-      label: completeResearch.isPending ? 'Advancing…' : 'Proceed to outreach',
+      label: completeResearch.isPending ? 'Advancing…' : `Choose who to contact`,
       ready: Boolean(gate?.ready),
       checklist: readinessFor(gate),
       checklistTitle: 'Before you contact the client',

@@ -27,6 +27,7 @@ import styles from './OutreachWorkspacePage.module.scss'
 import { PHASE_LABEL } from '@/lifecycle/phases'
 import OutreachSelfCheck from '@/lifecycle/components/OutreachSelfCheck'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
+import ContactLine from '@/pages/ChooseContact/ContactLine'
 
 const emailSchema = z.object({
   subject: z.string().min(5, 'Enter a clear subject').max(200),
@@ -440,6 +441,7 @@ export default function OutreachWorkspacePage() {
 
         <main className={styles.workspace}>
           <section className={styles.primaryColumn}>
+            <ContactLine engagementId={engagementId!} attempts={attempts ?? []} />
             {meetingSecured && (
               <section className={styles.meetingOutcome}>
                 <Tile className={styles.successPanel}>

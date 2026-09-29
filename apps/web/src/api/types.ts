@@ -326,7 +326,7 @@ export interface EngagementEvent {
 
 export type EngagementPhase =
     | 'LEAD'
-    | 'CLIENT_INTELLIGENCE'
+    | 'CLIENT_INTELLIGENCE' 
     | 'OUTREACH'
     | 'MEETING_PREPARATION'
     | 'LIVE_MEETING'
