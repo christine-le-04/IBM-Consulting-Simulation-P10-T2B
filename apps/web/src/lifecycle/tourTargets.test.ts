@@ -75,6 +75,9 @@ describe('walkthrough targets', () => {
     // Client context before the first outreach, and the client's reply after
     // it; the learner is on one side of that line or the other.
     'objective-client',
+    // The Office's catalogue opener: "Or choose a different client" on a first
+    // visit, "Start new" once the learner has engagements. Never both.
+    'objective-scenario-catalogue',
   ])
 
   it.each(declared.filter((target) => !MUTUALLY_EXCLUSIVE.has(target.className)))(
