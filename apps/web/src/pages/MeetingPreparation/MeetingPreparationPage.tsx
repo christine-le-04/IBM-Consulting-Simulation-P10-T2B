@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, InlineLoading, InlineNotification, Tag } from '@carbon/react'
+import { Button, InlineLoading, InlineNotification } from '@carbon/react'
 import { Add, TrashCan, ArrowRight, CheckmarkFilled, Calendar } from '@carbon/icons-react'
 import {
   useMeetingPreparation,
