@@ -8,11 +8,14 @@
  * Three changes follow SRS v2: review scores become words and the outline's
  * counters become a word-only "Before you submit" checklist (FR-14), and
  * Submit is never locked — pressed early, it shows what is missing first.
+ *
+ * Once submitted, /proposal opens on the client's decision; `?view=proposal`
+ * shows the proposal that was sent, read-only (it can be submitted once).
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { Button, InlineLoading, InlineNotification, Tag } from '@carbon/react'
-import { Add, Checkmark, CheckmarkFilled, ChevronLeft, ChevronRight, Renew, Send, TrashCan, WarningAlt } from '@carbon/icons-react'
+import { Add, ArrowLeft, Checkmark, CheckmarkFilled, ChevronLeft, ChevronRight, Renew, Send, TrashCan, WarningAlt } from '@carbon/icons-react'
 import { useEngagement } from '@/api/hooks/useEngagements'
 import { useScenario } from '@/api/hooks/useScenarios'
 import { getApiProblem } from '@/api/problemDetails'
@@ -60,52 +63,55 @@ function band(score: number) {
 
 const filled = (value: string | number) => String(value).trim().length > 0
 
-function Table<T extends object>({ columns, rows, empty, onChange }: {
+function Table<T extends object>({ columns, rows, empty, onChange, readOnly = false }: {
   columns: [keyof T & string, string][]
   rows: T[]
   empty: T
   onChange: (rows: T[]) => void
+  readOnly?: boolean
 }) {
   const edit = (index: number, key: keyof T & string, value: string) =>
     onChange(rows.map((item, position) => (position === index ? { ...item, [key]: value } : item)))
   return (
     <div className={styles.table}>
       <table>
-        <thead><tr>{columns.map(([, label]) => <th key={label}>{label}</th>)}<th aria-label="Remove" /></tr></thead>
+        <thead><tr>{columns.map(([, label]) => <th key={label}>{label}</th>)}{!readOnly && <th aria-label="Remove" />}</tr></thead>
         <tbody>
           {rows.map((row, index) => (
             <tr key={index}>
               {columns.map(([key, label]) => (
                 <td key={key}>
                   {key === 'severity' ? (
-                    <Choice id={`severity-${index}`} label={label} hideLabel size="sm" value={String(row[key])} options={SEVERITY} onChange={(value) => edit(index, key, value)} />
+                    <Choice id={`severity-${index}`} label={label} hideLabel size="sm" disabled={readOnly} value={String(row[key])} options={SEVERITY} onChange={(value) => edit(index, key, value)} />
                   ) : (
-                    <input aria-label={`${label} ${index + 1}`} value={String(row[key] ?? '')} placeholder={label} onChange={(event) => edit(index, key, event.target.value)} />
+                    <input aria-label={`${label} ${index + 1}`} readOnly={readOnly} value={String(row[key] ?? '')} placeholder={label} onChange={(event) => edit(index, key, event.target.value)} />
                   )}
                 </td>
               ))}
-              <td className={styles.remove}>
-                <button type="button" aria-label={`Remove row ${index + 1}`} onClick={() => onChange(rows.length === 1 ? [empty] : rows.filter((_, position) => position !== index))}><TrashCan size={14} /></button>
-              </td>
+              {!readOnly && (
+                <td className={styles.remove}>
+                  <button type="button" aria-label={`Remove row ${index + 1}`} onClick={() => onChange(rows.length === 1 ? [empty] : rows.filter((_, position) => position !== index))}><TrashCan size={14} /></button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
-      <button type="button" className={styles.addRow} onClick={() => onChange([...rows, empty])}><Add size={14} /> Add row</button>
+      {!readOnly && <button type="button" className={styles.addRow} onClick={() => onChange([...rows, empty])}><Add size={14} /> Add row</button>}
     </div>
   )
 }
 
-function Bullets({ items, placeholder, onChange }: { items: string[]; placeholder: string; onChange: (items: string[]) => void }) {
+function Bullets({ items, label, placeholder, onChange, readOnly = false }: { items: string[]; label: string; placeholder: string; onChange: (items: string[]) => void; readOnly?: boolean }) {
   return (
     <ul className={styles.bullets}>
       {items.map((item, index) => (
         <li key={index}>
-          <input value={item} placeholder={placeholder} aria-label={`${placeholder} ${index + 1}`} onChange={(event) => onChange(items.map((value, position) => (position === index ? event.target.value : value)))} />
-          <button type="button" aria-label={`Remove item ${index + 1}`} onClick={() => onChange(items.length === 1 ? [''] : items.filter((_, position) => position !== index))}><TrashCan size={14} /></button>
+          <input value={item} readOnly={readOnly} placeholder={placeholder} aria-label={`${label} ${index + 1}`} onChange={(event) => onChange(items.map((value, position) => (position === index ? event.target.value : value)))} />
+          {!readOnly && <button type="button" aria-label={`Remove item ${index + 1}`} onClick={() => onChange(items.length === 1 ? [''] : items.filter((_, position) => position !== index))}><TrashCan size={14} /></button>}
         </li>
       ))}
-      <li><button type="button" className={styles.addRow} onClick={() => onChange([...items, ''])}><Add size={14} /> Add item</button></li>
+      {!readOnly && <li><button type="button" className={styles.addRow} onClick={() => onChange([...items, ''])}><Add size={14} /> Add item</button></li>}
     </ul>
   )
 }
@@ -132,6 +138,7 @@ export default function ProposalStudioPage() {
   const studio = useProposalStudio(engagementId)
   const { data: engagement } = useEngagement(engagementId)
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
+  const [searchParams, setSearchParams] = useSearchParams()
   const [panel, setPanel] = useState<'evidence' | 'coach'>('evidence')
   const [sourcePage, setSourcePage] = useState(0)
 
@@ -167,8 +174,12 @@ export default function ProposalStudioPage() {
     { label: 'You have run a proposal review', done: Boolean(studio.review) },
   ]
 
+  const readOnly = studio.submitted
+  const readingSent = readOnly && searchParams.get('view') === 'proposal'
+
   useMentor(
-    studio.submitted ? null : !sectionLinks.length
+    readingSent ? 'This is what you sent. Compare it with what they said.'
+      : studio.submitted ? 'Read what they said before the scores. Then open your review.' : !sectionLinks.length
       ? `Attach one source to “${activeLabel}” so the proposal stays traceable.`
       : 'Write this section from the evidence you attached, then run a review.',
   )
@@ -177,7 +188,16 @@ export default function ProposalStudioPage() {
   if (studio.workspace.isError) {
     return <InlineNotification kind="error" title="Proposal workspace unavailable" subtitle="Please return to the Office and reopen this engagement." hideCloseButton />
   }
-  if (studio.submitted && studio.proposal) return <ProposalOutcomeView proposal={studio.proposal} engagementId={engagementId} />
+  if (studio.submitted && studio.proposal && !readingSent) {
+    return (
+      <ProposalOutcomeView
+        proposal={studio.proposal}
+        engagementId={engagementId}
+        onReadProposal={() => setSearchParams({ view: 'proposal' })}
+        client={{ company: engagement?.leadCompanyName, contactName: contact?.name, contactTitle: contact?.jobTitle, subject: engagement?.scenarioTitle }}
+      />
+    )
+  }
 
   const review = () => {
     setPanel('coach')
@@ -188,7 +208,7 @@ export default function ProposalStudioPage() {
     void studio.challengeCurrentDraft()
   }
 
-  const saveLabel = isReviewing ? 'Reviewing proposal…' : isSubmitting ? 'Submitting to client…'
+  const saveLabel = readOnly ? 'Submitted to the client · read only' : isReviewing ? 'Reviewing proposal…' : isSubmitting ? 'Submitting to client…'
     : studio.saveState === 'saving' ? 'Saving draft…' : studio.saveState === 'saved' ? 'Draft saved'
       : studio.saveState === 'error' ? 'Save failed' : 'Draft changes save automatically'
   const busy = isReviewing || isSubmitting || studio.saveDraft.isPending
@@ -204,26 +224,39 @@ export default function ProposalStudioPage() {
               <span className={styles.saveState}>{saveLabel}</span>
             </div>
           </div>
-          <div className={styles.docActions}>
-            {studio.saveState === 'error' && <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => void studio.retrySave()} disabled={studio.saveDraft.isPending}>Retry save</Button>}
-            <Button kind="tertiary" size="md" renderIcon={Renew} className="objective-review" onClick={review} disabled={busy}>
-              {isReviewing ? 'Reviewing proposal' : 'Review proposal'}
-            </Button>
-            <GatedButton
-              size="md"
-              renderIcon={Send}
-              notReadyKind="secondary"
-              disabled={busy}
-              ready={checklist.every((item) => item.done)}
-              checklist={checklist}
-              title="Before you submit to the client"
-              stayLabel="Keep editing"
-              onGo={() => void studio.submit()}
-            >
-              {isSubmitting ? 'Submitting to client' : 'Submit to client'}
-            </GatedButton>
-          </div>
+          {readOnly ? (
+            <div className={styles.docActions}>
+              <Button kind="secondary" size="md" renderIcon={ArrowLeft} onClick={() => setSearchParams({})}>Back to their decision</Button>
+            </div>
+          ) : (
+            <div className={styles.docActions}>
+              {studio.saveState === 'error' && <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => void studio.retrySave()} disabled={studio.saveDraft.isPending}>Retry save</Button>}
+              <Button kind="tertiary" size="md" renderIcon={Renew} className="objective-review" onClick={review} disabled={busy}>
+                {isReviewing ? 'Reviewing proposal' : 'Review proposal'}
+              </Button>
+              <GatedButton
+                size="md"
+                renderIcon={Send}
+                notReadyKind="secondary"
+                disabled={busy}
+                ready={checklist.every((item) => item.done)}
+                checklist={checklist}
+                title="Before you submit to the client"
+                stayLabel="Keep editing"
+                onGo={() => void studio.submit()}
+              >
+                {isSubmitting ? 'Submitting to client' : 'Submit to client'}
+              </GatedButton>
+            </div>
+          )}
         </header>
+
+        {isSubmitting && (
+          <div className={styles.submitting} role="status" aria-live="polite">
+            <InlineLoading description="Applying the client decision" />
+            <span>Persisting the deterministic outcome. The client narrative will continue in the background.</span>
+          </div>
+        )}
 
         {proposalProblem && (
           <div className={styles.problem}>
@@ -248,9 +281,11 @@ export default function ProposalStudioPage() {
                 </button>
               )
             })}
-            <section className={styles.health} aria-label="Before you submit">
-              <p className={styles.outlineTitle}>Before you submit</p>
-              <ReadinessList items={checklist} />
+            <section className={styles.health} aria-label={readOnly ? 'What you submitted' : 'Before you submit'}>
+              <p className={styles.outlineTitle}>{readOnly ? 'What you submitted' : 'Before you submit'}</p>
+              {/* Whether a review was run is not stored with the proposal, so
+                  once it is submitted that line cannot be answered honestly. */}
+              <ReadinessList items={readOnly ? checklist.slice(0, 3) : checklist} />
             </section>
           </nav>
 
@@ -259,7 +294,7 @@ export default function ProposalStudioPage() {
             <article className={styles.page}>
               <header className={styles.pageHead}>
                 <span className={styles.ibm}>IBM Consulting</span>
-                <span>{contact ? `Proposal to ${contact.name}, ${contact.jobTitle}` : 'Proposal'} · Draft</span>
+                <span>{contact ? `Proposal to ${contact.name}, ${contact.jobTitle}` : 'Proposal'} · {readOnly ? 'Submitted' : 'Draft'}</span>
               </header>
 
               {activeSection === 'PROBLEM' && (
@@ -268,12 +303,12 @@ export default function ProposalStudioPage() {
                   <p className={styles.guide}>State the client problem, then make the recommendation logic clear.</p>
                   <h2>Problem framing</h2>
                   <p className={styles.fieldHelp}>Describe the observed operational, commercial or risk impact.</p>
-                  <textarea className={styles.prose} aria-label="Problem statement" value={draft.problemStatement} onChange={(event) => updateDraft((current) => ({ ...current, problemStatement: event.target.value }))} />
+                  <textarea className={styles.prose} aria-label="Problem statement" readOnly={readOnly} value={draft.problemStatement} onChange={(event) => updateDraft((current) => ({ ...current, problemStatement: event.target.value }))} />
                   <h2>Recommended solution</h2>
                   <p className={styles.fieldHelp}>Explain how the recommendation addresses the client problem.</p>
-                  <textarea className={styles.prose} aria-label="Recommended solution" value={draft.solutionStrategy} onChange={(event) => updateDraft((current) => ({ ...current, solutionStrategy: event.target.value }))} />
+                  <textarea className={styles.prose} aria-label="Recommended solution" readOnly={readOnly} value={draft.solutionStrategy} onChange={(event) => updateDraft((current) => ({ ...current, solutionStrategy: event.target.value }))} />
                   <h2>Solution components</h2>
-                  <Bullets items={draft.components} placeholder="Solution component" onChange={(components) => updateDraft((current) => ({ ...current, components }))} />
+                  <Bullets readOnly={readOnly} items={draft.components} label="Solution component" placeholder="e.g. Integration pilot and workflow redesign" onChange={(components) => updateDraft((current) => ({ ...current, components }))} />
                 </>
               )}
 
@@ -283,6 +318,7 @@ export default function ProposalStudioPage() {
                   <p className={styles.guide}>Make the outcome measurable and distinguish consultant estimates from confirmed client facts.</p>
                   <h2>Expected business outcomes and KPIs</h2>
                   <Table
+                    readOnly={readOnly}
                     columns={[['outcome', 'Business outcome'], ['metric', 'Metric'], ['target', 'Target']]}
                     rows={draft.businessOutcomes}
                     empty={{ outcome: '', metric: '', target: '' }}
@@ -290,11 +326,11 @@ export default function ProposalStudioPage() {
                   />
                   <h2>Commercials</h2>
                   <div className={styles.commercial}>
-                    <label>Estimated budget (USD)<input type="number" min={0} value={draft.budget} onChange={(event) => updateDraft((current) => ({ ...current, budget: Number(event.target.value) || 0 }))} /></label>
+                    <label>Estimated budget (USD)<input type="number" min={0} readOnly={readOnly} value={draft.budget} onChange={(event) => updateDraft((current) => ({ ...current, budget: Number(event.target.value) || 0 }))} /></label>
                     <div className={styles.choiceCell}>
-                      <Choice id="budget-confidence" label="Confidence" value={draft.budgetConfidence} options={BUDGET_CONFIDENCE} onChange={(budgetConfidence) => updateDraft((current) => ({ ...current, budgetConfidence }))} />
+                      <Choice id="budget-confidence" label="Confidence" disabled={readOnly} value={draft.budgetConfidence} options={BUDGET_CONFIDENCE} onChange={(budgetConfidence) => updateDraft((current) => ({ ...current, budgetConfidence }))} />
                     </div>
-                    <label>Source / basis<input value={draft.budgetSource} onChange={(event) => updateDraft((current) => ({ ...current, budgetSource: event.target.value }))} /></label>
+                    <label>Source / basis<input readOnly={readOnly} value={draft.budgetSource} onChange={(event) => updateDraft((current) => ({ ...current, budgetSource: event.target.value }))} /></label>
                   </div>
                 </>
               )}
@@ -304,10 +340,11 @@ export default function ProposalStudioPage() {
                   <h1>3. Timeline and milestones</h1>
                   <p className={styles.guide}>Translate the delivery window into observable milestones the client can evaluate.</p>
                   <div className={styles.commercial}>
-                    <label>Total timeline (weeks)<input type="number" min={1} value={draft.timelineWeeks} onChange={(event) => updateDraft((current) => ({ ...current, timelineWeeks: Number(event.target.value) || 1 }))} /></label>
+                    <label>Total timeline (weeks)<input type="number" min={1} readOnly={readOnly} value={draft.timelineWeeks} onChange={(event) => updateDraft((current) => ({ ...current, timelineWeeks: Number(event.target.value) || 1 }))} /></label>
                   </div>
                   <h2>Milestones</h2>
                   <Table
+                    readOnly={readOnly}
                     columns={[['phase', 'Phase / milestone'], ['duration', 'Timing']]}
                     rows={draft.milestones}
                     empty={{ phase: '', duration: '' }}
@@ -321,6 +358,7 @@ export default function ProposalStudioPage() {
                   <h1>4. Risks and mitigations</h1>
                   <p className={styles.guide}>Show how delivery, operational and adoption risks will be controlled.</p>
                   <Table
+                    readOnly={readOnly}
                     columns={[['risk', 'Risk'], ['severity', 'Severity'], ['mitigation', 'Mitigation']]}
                     rows={draft.risks}
                     empty={{ risk: '', severity: 'MEDIUM', mitigation: '' }}
@@ -334,7 +372,7 @@ export default function ProposalStudioPage() {
                   <h1>5. Evidence and assumptions</h1>
                   <p className={styles.guide}>Make the conditions behind the recommendation explicit. Attached evidence stays traceable by section.</p>
                   <h2>Assumptions and dependencies</h2>
-                  <Bullets items={draft.assumptions} placeholder="Assumption or dependency" onChange={(assumptions) => updateDraft((current) => ({ ...current, assumptions }))} />
+                  <Bullets readOnly={readOnly} items={draft.assumptions} label="Assumption or dependency" placeholder="e.g. Client SMEs are available for targeted validation" onChange={(assumptions) => updateDraft((current) => ({ ...current, assumptions }))} />
                   <h2>Attached sources</h2>
                   {draft.evidenceLinks.length ? (
                     <ul className={styles.attachedList}>
@@ -388,16 +426,26 @@ export default function ProposalStudioPage() {
                       </div>
                       <h3>{source.label}</h3>
                       <p>{source.content}</p>
-                      <Button kind={attached ? 'secondary' : 'tertiary'} size="sm" renderIcon={attached ? Checkmark : Add} onClick={() => (attached ? studio.detach(source.id) : studio.attach(source))}>
-                        {attached ? 'Attached' : 'Attach source'}
-                      </Button>
+                      {readOnly ? (
+                        attached && <Tag type="blue" size="sm">Attached to {activeLabel}</Tag>
+                      ) : (
+                        <Button kind={attached ? 'secondary' : 'tertiary'} size="sm" renderIcon={attached ? Checkmark : Add} onClick={() => (attached ? studio.detach(source.id) : studio.attach(source))}>
+                          {attached ? 'Attached' : 'Attach source'}
+                        </Button>
+                      )}
                     </article>
                   )
                 })}
               </div>
             )}
 
-            {panel === 'coach' && (
+            {panel === 'coach' && readOnly && (
+              <div className={styles.marginBody}>
+                <p className={styles.marginHint}>This proposal has been submitted, so the coach is closed. Their decision explains how it landed.</p>
+              </div>
+            )}
+
+            {panel === 'coach' && !readOnly && (
               <div className={styles.marginBody}>
                 <p className={styles.marginHint}>The coach reviews your reasoning; it never writes the proposal for you.</p>
                 <div className={styles.coachActions}>
@@ -405,7 +453,6 @@ export default function ProposalStudioPage() {
                   <Button kind="ghost" size="sm" onClick={challenge} disabled={studio.challengeProposal.isPending || busy}>Challenge my proposal</Button>
                 </div>
                 {isReviewing && <div className={styles.comment}><InlineLoading description="Checking evidence, client alignment and delivery risk" /></div>}
-                {isSubmitting && <div className={styles.comment}><InlineLoading description="Applying the client decision" /></div>}
                 {studio.challengeProposal.isPending && <div className={styles.comment}><InlineLoading description="Preparing client concerns" /></div>}
                 {studio.challengeProposal.data?.concerns[0] && (
                   <div className={`${styles.comment} ${styles.commentClient}`}>

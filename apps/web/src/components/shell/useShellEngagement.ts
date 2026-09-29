@@ -5,7 +5,7 @@
 import { useLocation } from 'react-router-dom'
 import { useEngagement } from '@/api/hooks/useEngagements'
 import type { Engagement, EngagementPhase } from '@/api/types'
-import { phaseFromPath } from '@/lifecycle/phases'
+import { phaseFromPath, phaseIndex } from '@/lifecycle/phases'
 
 export function engagementIdFromPath(pathname: string): string | null {
   return /\/dashboard\/engagements\/([^/]+)/.exec(pathname)?.[1] ?? null
@@ -19,12 +19,15 @@ export interface ShellEngagement {
 }
 
 export function useShellEngagement(): ShellEngagement {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const engagementId = engagementIdFromPath(pathname)
   const { data: engagement } = useEngagement(engagementId ?? '')
-  return {
-    engagementId,
-    engagement,
-    viewingPhase: phaseFromPath(pathname) ?? engagement?.phase ?? null,
+  let viewingPhase = phaseFromPath(pathname) ?? engagement?.phase ?? null
+  // After submission /proposal opens on the client's decision, unless the
+  // learner asked to read the proposal itself.
+  if (viewingPhase === 'PROPOSAL' && engagement && phaseIndex(engagement.phase) >= phaseIndex('OUTCOME')
+    && new URLSearchParams(search).get('view') !== 'proposal') {
+    viewingPhase = 'OUTCOME'
   }
+  return { engagementId, engagement, viewingPhase }
 }

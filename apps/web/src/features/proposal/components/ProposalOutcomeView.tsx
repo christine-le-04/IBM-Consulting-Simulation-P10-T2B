@@ -1,148 +1,178 @@
-import { Button, Heading, InlineLoading, Tag } from '@carbon/react'
-import { Chat, CheckmarkFilled, Renew, Send, WarningFilled } from '@carbon/icons-react'
+/**
+ * Their decision — the client's answer to a submitted proposal.
+ *
+ * The client's letter comes first: who decided, what they decided and what
+ * they said. The three detail views stay (why it went this way, how the
+ * client weighed it, your claims checked), in words. Decision confidence,
+ * learner performance and the dimension scores are left to the assessment,
+ * where the numbers live (SRS FR-14).
+ */
+import { Button, InlineLoading, Tag } from '@carbon/react'
+import { ArrowRight, Chat, Document, Renew, WarningFilled } from '@carbon/icons-react'
 import { useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import type { Proposal } from '@/api/types'
-import {
-  useProposalCounterfactual,
-  useProposalDecisionExplanation,
-} from '@/api/hooks/useProposal'
+import { useProposalCounterfactual, useProposalDecisionExplanation } from '@/api/hooks/useProposal'
 import { decisionInsights, outcomePresentation } from '../services/proposalOutcomeService'
-import styles from '@/pages/ProposalStudio/ProposalStudioPage.module.scss'
+import styles from './ProposalOutcomeView.module.scss'
 
-export function ProposalOutcomeView({ proposal, engagementId }: { proposal: Proposal; engagementId: string }) {
+export interface OutcomeClient {
+  /** The client organisation, e.g. the lead company. */
+  company?: string | null
+  /** The contact who decided. */
+  contactName?: string | null
+  contactTitle?: string | null
+  /** What the proposal was about, for the letter's subject line. */
+  subject?: string | null
+}
+
+/** How much a dimension weighed in the decision, in words. */
+function band(score: number) {
+  return score >= 80 ? 'Carried the decision' : score >= 65 ? 'Helped' : 'Held it back'
+}
+
+type View = 'overview' | 'score' | 'evidence'
+
+export function ProposalOutcomeView({ proposal, engagementId, client = {}, onReadProposal }: {
+  proposal: Proposal
+  engagementId: string
+  client?: OutcomeClient
+  /** Opens the proposal that was sent, read-only. */
+  onReadProposal?: () => void
+}) {
   const navigate = useNavigate()
   const explain = useProposalDecisionExplanation(engagementId)
   const counterfactual = useProposalCounterfactual(engagementId)
-  const [activeView, setActiveView] = useState<'overview' | 'score' | 'evidence'>('overview')
-  const [impactPage, setImpactPage] = useState(0)
+  const [view, setView] = useState<View>('overview')
+  const [impact, setImpact] = useState(0)
   const presentation = outcomePresentation(proposal.clientDecisionOutcome)
-  const clientDecisionMessage = proposal.clientResponse
-    ?? proposal.decisionRationale
-    ?? 'The client response is not yet available.'
+  const letter = proposal.clientResponse ?? proposal.decisionRationale ?? 'The client response is not yet available.'
   const strengths = decisionInsights(proposal.decisionInsights, 'STRENGTH')
   const concerns = decisionInsights(proposal.decisionInsights, 'CONCERN')
   const conditions = decisionInsights(proposal.decisionInsights, 'CONDITION')
-  const supportCounts = proposal.evidenceImpacts.reduce<Record<string, number>>((counts, impact) => {
-    counts[impact.supportLevel] = (counts[impact.supportLevel] ?? 0) + 1
-    return counts
-  }, {})
-  const visibleImpact = proposal.evidenceImpacts[impactPage]
-  const impactPageCount = proposal.evidenceImpacts.length
-  const strongestDimension = useMemo(
+  const counts = proposal.evidenceImpacts.reduce<Record<string, number>>((all, item) => ({ ...all, [item.supportLevel]: (all[item.supportLevel] ?? 0) + 1 }), {})
+  const current = proposal.evidenceImpacts[impact]
+  const strongest = useMemo(
     () => [...proposal.decisionDimensions].sort((left, right) => right.score - left.score)[0],
     [proposal.decisionDimensions],
   )
-
-  const selectView = (view: 'overview' | 'score' | 'evidence') => {
-    setActiveView(view)
-  }
+  const company = client.company ?? 'The client'
+  const submitted = new Date(proposal.submittedAt)
+  const coachBusy = explain.isPending || counterfactual.isPending
 
   return (
-    <main className={styles.outcomePage}>
-      <header className={styles.outcomeHeader}>
-        <div>
-          <Heading>Proposal Outcome</Heading>
-          <p className={styles.subtitle}>A clear view of the client decision, its conditions and your learning result.</p>
-        </div>
-        <div className={styles.outcomeHeaderStats}>
-          <OutcomeStat label="Decision confidence" value={`${proposal.decisionConfidence}%`} />
-          <OutcomeStat label="Learner performance" value={`${proposal.learnerPerformanceScore}/100`} />
-        </div>
-      </header>
-
-      <section className={styles.outcomeCanvas}>
-        <aside className={styles.decisionRail}>
-          <Tag type={presentation.tagType}>{presentation.label}</Tag>
-          <div className={styles.outcomeIcon}><CheckmarkFilled size={28} /></div>
-          <h2>{presentation.subtitle}</h2>
-          {proposal.decisionRationale && <p className={styles.decisionRationale}>{proposal.decisionRationale}</p>}
-          <div className={styles.railMetric}>
-            <span>Strongest factor</span>
-            <strong>{strongestDimension ? `${strongestDimension.dimension} ${strongestDimension.score}/100` : 'Decision recorded'}</strong>
+    <div className={styles.page}>
+      <div className={styles.layout}>
+        <article className={styles.letter} aria-label="The client's decision">
+          <header className={styles.letterhead}>
+            <div className={styles.crest} aria-hidden="true">{company.charAt(0)}</div>
+            <div>
+              <strong>{company}</strong>
+              {client.contactTitle && <span>Office of the {client.contactTitle}</span>}
+            </div>
+          </header>
+          {!Number.isNaN(submitted.getTime()) && (
+            <p className={styles.dateLine}>{submitted.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          )}
+          <p className={styles.re}>Re: Proposal{client.subject ? ` — ${client.subject}` : ''}</p>
+          <div className={styles.outcomeLine}>
+            <Tag type={presentation.tagType}>{presentation.label}</Tag>
+            <span>{presentation.subtitle}</span>
           </div>
-        </aside>
+          <p className={styles.letterBody}>{letter}</p>
+          {client.contactName && (
+            <p className={styles.signoff}>{client.contactName}{client.contactTitle && <><br /><span>{client.contactTitle}</span></>}</p>
+          )}
+        </article>
 
-        <section className={styles.outcomeWorkspace}>
-          <div className={styles.outcomeTabs} role="tablist" aria-label="Proposal outcome detail">
-            <OutcomeTab active={activeView === 'overview'} onClick={() => selectView('overview')} label="Decision summary" />
-            <OutcomeTab active={activeView === 'score'} onClick={() => selectView('score')} label="Decision score" />
-            <OutcomeTab active={activeView === 'evidence'} onClick={() => selectView('evidence')} label={`Evidence impact (${proposal.evidenceImpacts.length})`} />
-          </div>
-
-          <div className={styles.outcomeView}>
-            {activeView === 'overview' && <DecisionOverview strengths={strengths} concerns={concerns} conditions={conditions} clientResponse={clientDecisionMessage} />}
-            {activeView === 'score' && <DecisionScore dimensions={proposal.decisionDimensions} />}
-            {activeView === 'evidence' && <EvidenceImpact impact={visibleImpact} current={impactPage} total={impactPageCount} counts={supportCounts} onPrevious={() => setImpactPage((current) => Math.max(0, current - 1))} onNext={() => setImpactPage((current) => Math.min(impactPageCount - 1, current + 1))} />}
-          </div>
-        </section>
-
-        <aside className={styles.actionRail}>
-          <div className={styles.nextStep}>
+        <aside className={styles.side}>
+          <section className={styles.nextStep}>
             <p className={styles.eyebrow}>Recommended next step</p>
             <h2>{presentation.nextAction}</h2>
-            <Button renderIcon={Send} onClick={() => navigate(`/dashboard/engagements/${engagementId}/assessment`)}>View full assessment</Button>
-          </div>
-
-          <section className={styles.decisionCoach}>
+            <Button renderIcon={ArrowRight} onClick={() => navigate(`/dashboard/engagements/${engagementId}/assessment`)}>View full assessment</Button>
+            {onReadProposal && <Button kind="ghost" renderIcon={Document} onClick={onReadProposal}>Read the proposal you sent</Button>}
+          </section>
+          <section className={styles.coach}>
             <p className={styles.eyebrow}>Decision coach</p>
             <h3>{explain.data ? 'Decision explanation' : counterfactual.data ? 'What could have changed' : 'Understand the outcome'}</h3>
-            {(explain.isPending || counterfactual.isPending) ? <InlineLoading description="Preparing decision coaching" /> : <p>{explain.data?.message ?? counterfactual.data?.message ?? 'Review the decision score and evidence impact, then open a focused coaching view when you need it.'}</p>}
+            {coachBusy
+              ? <InlineLoading description="Preparing decision coaching" />
+              : <p>{explain.data?.message ?? counterfactual.data?.message ?? 'Read the reasons below, then open a focused coaching view when you need it.'}</p>}
             <div className={styles.coachActions}>
-              <Button kind="tertiary" size="sm" renderIcon={Chat} onClick={() => explain.mutate()} disabled={explain.isPending || counterfactual.isPending}>Explain decision</Button>
-              <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => counterfactual.mutate()} disabled={explain.isPending || counterfactual.isPending}>What could change?</Button>
+              <Button kind="tertiary" size="sm" renderIcon={Chat} onClick={() => explain.mutate()} disabled={coachBusy}>Explain decision</Button>
+              <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => counterfactual.mutate()} disabled={coachBusy}>What could change?</Button>
             </div>
           </section>
         </aside>
+      </div>
+
+      <section className={styles.details}>
+        <div className={styles.tabs} role="tablist" aria-label="Decision detail">
+          <button type="button" role="tab" aria-selected={view === 'overview'} onClick={() => setView('overview')}>Why it went this way</button>
+          <button type="button" role="tab" aria-selected={view === 'score'} onClick={() => setView('score')}>How they weighed it</button>
+          <button type="button" role="tab" aria-selected={view === 'evidence'} onClick={() => setView('evidence')}>Your claims, checked ({proposal.evidenceImpacts.length})</button>
+        </div>
+
+        {view === 'overview' && (
+          <div className={styles.cards}>
+            <section className={styles.card}>
+              <p className={styles.eyebrow}>Why it moved forward</p>
+              {strengths.length ? <ul className={styles.positive}>{strengths.slice(0, 3).map((item) => <li key={item.detail}>{item.detail}</li>)}</ul> : <p className={styles.empty}>No material strengths were recorded.</p>}
+            </section>
+            <section className={styles.card}>
+              <p className={styles.eyebrow}>Conditions to carry forward</p>
+              {conditions.length ? <ul className={styles.neutral}>{conditions.slice(0, 3).map((item) => <li key={item.detail}>{item.detail}</li>)}</ul> : <p className={styles.empty}>No additional conditions were recorded.</p>}
+            </section>
+            <section className={`${styles.card} ${styles.cardWarn}`}>
+              <p className={styles.eyebrow}>Watch-outs</p>
+              {concerns.length ? <ul className={styles.warning}>{concerns.slice(0, 3).map((item) => <li key={item.detail}>{item.detail}</li>)}</ul> : <p className={styles.empty}>No material concerns were recorded.</p>}
+            </section>
+          </div>
+        )}
+
+        {view === 'score' && (
+          <div>
+            <p className={styles.rule}>The decision is calculated from scenario rules — relationship, facts discovered and proposal fit. AI explains the result; it does not decide it. Scores are in your assessment.</p>
+            <div className={styles.cards}>
+              {proposal.decisionDimensions.map((dimension) => (
+                <section key={dimension.dimension} className={styles.card}>
+                  <div className={styles.dimHead}><strong>{dimension.dimension}</strong><span>{band(dimension.score)}</span></div>
+                  <p>{dimension.interpretation}</p>
+                </section>
+              ))}
+            </div>
+            {strongest && <p className={styles.strongest}>Strongest factor: <strong>{strongest.dimension}</strong></p>}
+          </div>
+        )}
+
+        {view === 'evidence' && (
+          <div className={styles.evidence}>
+            <div className={styles.counts}>
+              <div className={styles.countGreen}><span>Well supported</span><strong>{counts.WELL_SUPPORTED ?? 0}</strong></div>
+              <div className={styles.countGray}><span>Partially supported</span><strong>{counts.PARTIALLY_SUPPORTED ?? 0}</strong></div>
+              <div className={styles.countRed}><span>Unsupported</span><strong>{counts.UNSUPPORTED ?? 0}</strong></div>
+            </div>
+            {current ? (
+              <article className={styles.impact}>
+                <div className={styles.impactHead}>
+                  <Tag type={current.supportLevel === 'WELL_SUPPORTED' ? 'green' : current.supportLevel === 'PARTIALLY_SUPPORTED' ? 'warm-gray' : 'red'}>{current.supportLevel.replace('_', ' ').toLowerCase()}</Tag>
+                  <span>{impact + 1} of {proposal.evidenceImpacts.length}</span>
+                </div>
+                <h3>“{current.claim}”</h3>
+                <p>{current.explanation}</p>
+                {proposal.evidenceImpacts.length > 1 && (
+                  <div className={styles.pager}>
+                    <Button kind="ghost" size="sm" disabled={impact === 0} onClick={() => setImpact(impact - 1)}>Previous</Button>
+                    <Button kind="tertiary" size="sm" disabled={impact >= proposal.evidenceImpacts.length - 1} onClick={() => setImpact(impact + 1)}>Next claim</Button>
+                  </div>
+                )}
+              </article>
+            ) : (
+              <div className={styles.emptyImpact}><WarningFilled size={20} /> This proposal predates detailed evidence-impact tracking.</div>
+            )}
+          </div>
+        )}
       </section>
-    </main>
-  )
-}
-
-function OutcomeStat({ label, value }: { label: string; value: string }) {
-  return <div><span>{label}</span><strong>{value}</strong></div>
-}
-
-function OutcomeTab({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return <button type="button" role="tab" aria-selected={active} className={active ? styles.outcomeTabActive : styles.outcomeTab} onClick={onClick}>{label}</button>
-}
-
-function DecisionOverview({ strengths, concerns, conditions, clientResponse }: { strengths: Proposal['decisionInsights']; concerns: Proposal['decisionInsights']; conditions: Proposal['decisionInsights']; clientResponse: string }) {
-  return <div className={styles.summaryView}>
-    <section className={styles.summaryCard}><p className={styles.eyebrow}>Why it moved forward</p><InsightList items={strengths} empty="No material strengths were recorded." tone="positive" /></section>
-    <section className={styles.summaryCard}><p className={styles.eyebrow}>Conditions to carry forward</p><InsightList items={conditions} empty="No additional conditions were recorded." tone="neutral" /></section>
-    <section className={`${styles.summaryCard} ${styles.concernCard}`}><p className={styles.eyebrow}>Watch-outs</p><InsightList items={concerns} empty="No material concerns were recorded." tone="warning" /></section>
-    <section className={`${styles.summaryCard} ${styles.clientResponseCard}`}><p className={styles.eyebrow}>What the client said</p><p>{clientResponse}</p></section>
-  </div>
-}
-
-function InsightList({ items, empty, tone }: { items: Proposal['decisionInsights']; empty: string; tone: 'positive' | 'neutral' | 'warning' }) {
-  if (!items.length) return <p className={styles.empty}>{empty}</p>
-  return <ul className={styles[`insight${tone[0].toUpperCase()}${tone.slice(1)}`]}>{items.slice(0, 3).map((item) => <li key={item.detail}>{item.detail}</li>)}</ul>
-}
-
-function DecisionScore({ dimensions }: { dimensions: Proposal['decisionDimensions'] }) {
-  return <section className={styles.scoreView}>
-    <div className={styles.scoreSummary}><p className={styles.eyebrow}>Deterministic decision score</p><p>Client outcome is calculated from scenario rules, evidence and relationship state. AI explains the result; it does not decide it.</p></div>
-    <div className={styles.dimensionGrid}>{dimensions.map((dimension) => <article key={dimension.dimension} className={styles.dimensionCard}><div><strong>{dimension.dimension}</strong><span>{dimension.score}/100</span></div><div className={styles.scoreBar}><i style={{ width: `${dimension.score}%` }} /></div><p>{dimension.interpretation}</p></article>)}</div>
-  </section>
-}
-
-function EvidenceImpact({ impact, current, total, counts, onPrevious, onNext }: { impact: Proposal['evidenceImpacts'][number] | undefined; current: number; total: number; counts: Record<string, number>; onPrevious: () => void; onNext: () => void }) {
-  return <section className={styles.evidenceView}>
-    <div className={styles.evidenceCountGrid}>
-      <EvidenceCount label="Well supported" value={counts.WELL_SUPPORTED ?? 0} tone="green" />
-      <EvidenceCount label="Partially supported" value={counts.PARTIALLY_SUPPORTED ?? 0} tone="gray" />
-      <EvidenceCount label="Unsupported" value={counts.UNSUPPORTED ?? 0} tone="red" />
     </div>
-    {impact ? <article className={styles.impactCard}>
-      <div className={styles.impactHeader}><Tag type={impact.supportLevel === 'WELL_SUPPORTED' ? 'green' : impact.supportLevel === 'PARTIALLY_SUPPORTED' ? 'warm-gray' : 'red'}>{impact.supportLevel.replace('_', ' ')}</Tag><span>{current + 1} of {total}</span></div>
-      <h3>{impact.claim}</h3><p>{impact.explanation}</p>
-      {total > 1 && <div className={styles.impactPager}><Button kind="ghost" size="sm" disabled={current === 0} onClick={onPrevious}>Previous</Button><Button kind="tertiary" size="sm" disabled={current === total - 1} onClick={onNext}>Next claim</Button></div>}
-    </article> : <div className={styles.emptyImpact}><WarningFilled size={20} /><p>This proposal predates detailed evidence-impact tracking.</p></div>}
-  </section>
-}
-
-function EvidenceCount({ label, value, tone }: { label: string; value: number; tone: 'green' | 'gray' | 'red' }) {
-  return <div className={styles[`evidenceCount${tone[0].toUpperCase()}${tone.slice(1)}`]}><span>{label}</span><strong>{value}</strong></div>
+  )
 }

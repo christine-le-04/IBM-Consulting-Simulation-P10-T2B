@@ -42,9 +42,9 @@ describe('rooms', () => {
     })
   })
 
-  it('never lists debrief or the decision as a page of their own', () => {
+  it('never lists the debrief as a page of its own, but keeps the decision beside the proposal', () => {
     expect(PAGE_PHASES).not.toContain('MEETING_REVIEW')
-    expect(PAGE_PHASES).not.toContain('OUTCOME')
+    expect(roomPages(ROOMS[4])).toEqual(['PROPOSAL', 'OUTCOME'])
     expect(roomPages(ROOMS[0])).toEqual(PHASE_ORDER.filter((phase) => phase === 'LEAD' || phase === 'CLIENT_INTELLIGENCE'))
   })
 
@@ -58,6 +58,11 @@ describe('rooms', () => {
 describe('phaseRoute', () => {
   it('has a page for every phase', () => {
     PHASE_ORDER.forEach((phase) => expect(phaseRoute(engagement(), phase)).toMatch(/^\/dashboard\//))
+  })
+
+  it('keeps the submitted proposal readable apart from the client decision', () => {
+    expect(phaseRoute(engagement(), 'PROPOSAL')).toBe('/dashboard/engagements/eng-1/proposal?view=proposal')
+    expect(phaseRoute(engagement(), 'OUTCOME')).toBe('/dashboard/engagements/eng-1/proposal')
   })
 
   it('opens the live meeting once there is one, and prep before that', () => {

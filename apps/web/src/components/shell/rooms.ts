@@ -22,12 +22,10 @@ export const ROOMS: Room[] = [
 ]
 
 /**
- * Phases that have a page of their own, in lifecycle order. Debrief and the
- * client's decision are read on other pages, so they are never a row.
+ * Phases that have a page of their own, in lifecycle order. The debrief is
+ * read on the assessment, so it is never a row.
  */
-export const PAGE_PHASES: EngagementPhase[] = PHASE_ORDER.filter(
-  (phase) => phase !== 'MEETING_REVIEW' && phase !== 'OUTCOME',
-)
+export const PAGE_PHASES: EngagementPhase[] = PHASE_ORDER.filter((phase) => phase !== 'MEETING_REVIEW')
 
 export function roomIndex(phase: EngagementPhase): number {
   return ROOMS.findIndex((room) => room.phases.includes(phase))

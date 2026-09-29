@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ProposalOutcomeView } from './ProposalOutcomeView'
 import { useProposalCounterfactual, useProposalDecisionExplanation } from '@/api/hooks/useProposal'
 import type { Proposal } from '@/api/types'
-import styles from '@/pages/ProposalStudio/ProposalStudioPage.module.scss'
 
 // mock the decision coaching hooks so tests can control their state
 vi.mock('@/api/hooks/useProposal', () => ({
@@ -62,7 +62,11 @@ function makeProposal(overrides: Partial<Proposal> = {}): Proposal {
 function renderOutcome(proposal: Proposal) {
   return render(
     <MemoryRouter>
-      <ProposalOutcomeView proposal={proposal} engagementId="engagement-1" />
+      <ProposalOutcomeView
+        proposal={proposal}
+        engagementId="engagement-1"
+        client={{ company: 'MediCare Regional Hospital Network', contactName: 'Sarah Chen', contactTitle: 'Chief Operating Officer', subject: 'Ward re-entry' }}
+      />
     </MemoryRouter>,
   )
 }
@@ -74,59 +78,61 @@ describe('ProposalOutcomeView component', () => {
     mockedUseCounterfactual.mockReturnValue(idleMutation())
   })
 
-  it('does not render a decision rationale paragraph when decisionRationale is empty', () => {
-    const { container } = renderOutcome(makeProposal({ decisionRationale: '' }))
+  it('opens with the client’s letter: who decided, what they decided and what they said', () => {
+    renderOutcome(makeProposal({ clientDecisionOutcome: 'PILOT_APPROVED', clientResponse: 'We will approve the pilot.' }))
 
-    expect(container.querySelector(`.${styles.decisionRationale}`)).not.toBeInTheDocument()
-    expect(screen.getByText('Strongest factor')).toBeInTheDocument()
+    const letter = screen.getByRole('article', { name: 'The client\'s decision' })
+    expect(letter).toHaveTextContent('MediCare Regional Hospital Network')
+    expect(letter).toHaveTextContent('Office of the Chief Operating Officer')
+    expect(letter).toHaveTextContent('Re: Proposal — Ward re-entry')
+    expect(letter).toHaveTextContent('We will approve the pilot.')
+    expect(letter).toHaveTextContent('Sarah Chen')
   })
 
-  it('renders the decision rationale paragraph when decisionRationale is present', () => {
-    const { container } = renderOutcome(
-      makeProposal({ decisionRationale: 'Strong evidence coverage across every dimension.' }),
-    )
+  it('falls back to the decision rationale when the client has not replied', () => {
+    renderOutcome(makeProposal({ clientResponse: null, decisionRationale: 'Rationale used because no client response exists.' }))
 
-    expect(container.querySelector(`.${styles.decisionRationale}`),).toHaveTextContent('Strong evidence coverage across every dimension.')
+    expect(screen.getByText('Rationale used because no client response exists.')).toBeInTheDocument()
   })
 
-  it('falls back to clientResponse for "What the client said" when it is present', () => {
+  it('shows the default message when there is neither a reply nor a rationale', () => {
+    renderOutcome(makeProposal({ clientResponse: null, decisionRationale: null as unknown as string }))
+
+    expect(screen.getByText('The client response is not yet available.')).toBeInTheDocument()
+  })
+
+  it('keeps confidence, performance and dimension scores for the assessment (SRS FR-14)', async () => {
+    const user = userEvent.setup()
     renderOutcome(makeProposal({
-      clientResponse: 'The client accepted the pilot proposal outright.',
-      decisionRationale: 'Rationale text that should not be used here.',
+      decisionConfidence: 70,
+      learnerPerformanceScore: 78,
+      decisionDimensions: [
+        { dimension: 'Commercial logic', score: 100, interpretation: 'Budget and phasing were credible.' },
+        { dimension: 'Client alignment', score: 23, interpretation: 'The priorities were only partly addressed.' },
+      ],
     }))
 
-    expect(screen.getByText('The client accepted the pilot proposal outright.')).toBeInTheDocument()
-    expect(screen.getByText('Rationale text that should not be used here.')).toBeInTheDocument()
+    expect(screen.queryByText(/70%|78\/100/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'How they weighed it' }))
+    expect(screen.getByText('Carried the decision')).toBeInTheDocument()
+    expect(screen.getByText('Held it back')).toBeInTheDocument()
+    expect(screen.getByText('Commercial logic', { selector: 'p strong' })).toBeInTheDocument()
+    expect(screen.queryByText(/\/100/)).not.toBeInTheDocument()
   })
 
-  it('falls back to decisionRationale for "What the client said" when clientResponse is absent', () => {
+  it('shows each checked claim with its support level', async () => {
+    const user = userEvent.setup()
     renderOutcome(makeProposal({
-      clientResponse: null,
-      decisionRationale: 'Rationale used because no client response exists.',
+      evidenceImpacts: [
+        { claim: 'Re-entry costs nursing time', supportLevel: 'WELL_SUPPORTED', explanation: 'Backed by E-01.' },
+        { claim: 'It can be funded divisionally', supportLevel: 'UNSUPPORTED', explanation: 'No evidence attached.' },
+      ],
     }))
 
-    // appears twice - once in the decision rail and once as the client-response fallback
-    expect(screen.getAllByText('Rationale used because no client response exists.'),).toHaveLength(2)
-  })
-
-  // checks the default client response when both values are nullish
-  it('shows the default message when clientResponse and decisionRationale are both nullish', () => {
-    renderOutcome(makeProposal({
-      clientResponse: null,
-      decisionRationale: undefined as unknown as string,
-    }))
-
-    const clientResponseCard = screen.getByText('What the client said').closest('section')
-    expect(clientResponseCard).toHaveTextContent('The client response is not yet available.')
-  })
-
-  // checks the empty client response when no client response or rationale is provided
-  it('renders an empty client response section when decisionRationale is "" and clientResponse is absent', () => {
-    renderOutcome(makeProposal({ clientResponse: null, decisionRationale: '' }))
-
-    const clientResponseParagraphs = screen.getByText('What the client said').closest('section')?.querySelectorAll('p')
-
-    expect(clientResponseParagraphs).toHaveLength(2)
-    expect(clientResponseParagraphs?.[1]).toHaveTextContent('')
+    await user.click(screen.getByRole('tab', { name: 'Your claims, checked (2)' }))
+    expect(screen.getByText('“Re-entry costs nursing time”')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next claim' }))
+    expect(screen.getByText('“It can be funded divisionally”')).toBeInTheDocument()
   })
 })
