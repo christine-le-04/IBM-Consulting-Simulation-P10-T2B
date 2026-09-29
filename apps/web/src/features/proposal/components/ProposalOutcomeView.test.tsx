@@ -149,4 +149,17 @@ describe('ProposalOutcomeView component', () => {
     await user.click(screen.getByRole('button', { name: /Unsupported/ }))
     expect(screen.getByText('“Re-entry costs nursing time”')).toBeInTheDocument()
   })
+
+  it('shows the coaching view the learner asked for last', async () => {
+    const user = userEvent.setup()
+    mockedUseExplanation.mockReturnValue({ ...idleMutation(), data: { message: 'Explanation text.' } } as unknown as ReturnType<typeof useProposalDecisionExplanation>)
+    mockedUseCounterfactual.mockReturnValue({ ...idleMutation(), data: { message: 'Counterfactual text.' } } as unknown as ReturnType<typeof useProposalCounterfactual>)
+    renderOutcome(makeProposal())
+
+    await user.click(screen.getByRole('button', { name: 'Explain decision' }))
+    expect(screen.getByText('Explanation text.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'What could change?' }))
+    expect(screen.getByText('Counterfactual text.')).toBeInTheDocument()
+    expect(screen.getByText('What could have changed')).toBeInTheDocument()
+  })
 })

@@ -52,6 +52,8 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
   const counterfactual = useProposalCounterfactual(engagementId)
   const [view, setView] = useState<View>('overview')
   const [support, setSupport] = useState<Support | null>(null)
+  // The coach shows whichever view the learner asked for last.
+  const [coachView, setCoachView] = useState<'explain' | 'counterfactual' | null>(null)
   const presentation = outcomePresentation(proposal.clientDecisionOutcome)
   const letter = proposal.clientResponse ?? proposal.decisionRationale ?? 'The client response is not yet available.'
   const strengths = decisionInsights(proposal.decisionInsights, 'STRENGTH')
@@ -101,13 +103,13 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
           </section>
           <section className={styles.coach}>
             <p className={styles.eyebrow}>Decision coach</p>
-            <h3>{explain.data ? 'Decision explanation' : counterfactual.data ? 'What could have changed' : 'Understand the outcome'}</h3>
+            <h3>{coachView === 'explain' && explain.data ? 'Decision explanation' : coachView === 'counterfactual' && counterfactual.data ? 'What could have changed' : 'Understand the outcome'}</h3>
             {coachBusy
               ? <InlineLoading description="Preparing decision coaching" />
-              : <p>{explain.data?.message ?? counterfactual.data?.message ?? 'Read the reasons below, then open a focused coaching view when you need it.'}</p>}
+              : <p>{(coachView === 'explain' ? explain.data?.message : coachView === 'counterfactual' ? counterfactual.data?.message : null) ?? 'Read the reasons below, then open a focused coaching view when you need it.'}</p>}
             <div className={styles.coachActions}>
-              <Button kind="tertiary" size="sm" renderIcon={Chat} onClick={() => explain.mutate()} disabled={coachBusy}>Explain decision</Button>
-              <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => counterfactual.mutate()} disabled={coachBusy}>What could change?</Button>
+              <Button kind="tertiary" size="sm" renderIcon={Chat} onClick={() => { setCoachView('explain'); explain.mutate() }} disabled={coachBusy}>Explain decision</Button>
+              <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => { setCoachView('counterfactual'); counterfactual.mutate() }} disabled={coachBusy}>What could change?</Button>
             </div>
           </section>
         </aside>
