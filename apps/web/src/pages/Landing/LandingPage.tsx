@@ -1,132 +1,148 @@
+/**
+ * The landing page — the first thing a visitor sees.
+ *
+ * One job: in a glance, say what this is (a consulting simulation), what you
+ * get out of it (practice on a client who reacts, and feedback on it), and
+ * give one obvious next step. The pictures are fragments of real screens, in
+ * the order a learner meets them; there are no logos, figures or testimonials
+ * we cannot stand behind. Signed-in learners never land here — "/" sends them
+ * to their office.
+ */
 import { Link } from 'react-router-dom'
-import { Grid, Column, Button, Tag, Tile } from '@carbon/react'
-import { ArrowRight, Growth, ChatBot, DocumentAdd, Result } from '@carbon/icons-react'
-import PublicHeader from '@/components/layout/PublicHeader'
+import { Button } from '@carbon/react'
+import { ArrowDown, ArrowRight } from '@carbon/icons-react'
+import { ROOMS } from '@/components/shell/rooms'
+import styles from './LandingPage.module.scss'
 
-const PHASES = [
-  {
-    icon: Growth,
-    title: 'Research & Lead Discovery',
-    description:
-      'Investigate realistic client leads, uncover business signals and build the evidence base for your pitch.',
-  },
-  {
-    icon: DocumentAdd,
-    title: 'Outreach & Meeting Prep',
-    description:
-      'Craft personalised outreach, secure the meeting, then prepare an agenda and discovery questions.',
-  },
-  {
-    icon: ChatBot,
-    title: 'AI-Powered Client Meetings',
-    description:
-      'Practice live, evolving conversations with a watsonx-grounded persona that reacts to your approach in real time.',
-  },
-  {
-    icon: Result,
-    title: 'Proposal & Assessment',
-    description:
-      'Submit a proposal grounded in what you discovered, then receive a detailed competency assessment and coaching feedback.',
-  },
-]
+const ROOM_LINE: Record<string, string> = {
+  RESEARCH: 'Research the company, choose who to contact',
+  MAIL: 'Earn a meeting by email',
+  PREP: 'Plan what you need to learn',
+  MEETING: 'Talk it through with the client',
+  PROPOSAL: 'Pitch, then hear their decision',
+  REVIEW: 'See exactly how you did',
+}
+
+const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 
 export default function LandingPage() {
   return (
-    <div style={{ background: '#ffffff', minHeight: '100vh' }}>
-      <PublicHeader />
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <Link className={styles.brand} to="/">
+          <span className={styles.brandIbm}>IBM</span> Consulting Simulation
+        </Link>
+        <nav className={styles.nav} aria-label="Page sections">
+          <a href="#how" onClick={(event) => { event.preventDefault(); scrollTo('how') }}>How it works</a>
+          <a href="#get" onClick={(event) => { event.preventDefault(); scrollTo('get') }}>What you get</a>
+        </nav>
+        <div className={styles.headerActions}>
+          <Button as={Link} to="/login" kind="ghost" size="md">Log in</Button>
+          <Button as={Link} to="/register" size="md">Sign up</Button>
+        </div>
+      </header>
 
-      {/* Hero */}
-      <section
-        style={{
-          background: 'linear-gradient(135deg, #ffffff 0%, #edf5ff 100%)',
-          padding: '6rem 2rem 5rem',
-        }}
-      >
-        <Grid fullWidth>
-          <Column lg={10} md={8} sm={4}>
-            <Tag type="blue" style={{ marginBottom: '1.5rem' }}>
-              IBM × RMIT Capstone
-            </Tag>
-            <h1
-              style={{
-                color: '#161616',
-                fontSize: 'clamp(2.5rem, 5vw, 4rem)',
-                fontWeight: 600,
-                lineHeight: 1.1,
-                marginBottom: '1.5rem',
-              }}
-            >
-              Master consulting, the IBM way.
-            </h1>
-            <p
-              style={{
-                color: '#525252',
-                fontSize: '1.25rem',
-                lineHeight: 1.5,
-                maxWidth: '640px',
-                marginBottom: '2.5rem',
-              }}
-            >
-              An AI-powered training simulation that puts you through a full consulting
-              engagement — from lead research to a live client meeting and a winning proposal.
-            </p>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <Button as={Link} to="/register" renderIcon={ArrowRight} size="lg">
-                Get started free
-              </Button>
-              <Button as={Link} to="/login" kind="tertiary" size="lg">
-                Sign in
-              </Button>
+      <section className={styles.hero} id="top">
+        <div className={styles.heroText}>
+          <p className={styles.eyebrow}>IBM Consulting · Training simulation</p>
+          <h1>Win your first client before you meet a real one.</h1>
+          <p className={styles.lede}>
+            Research a company, email the decision maker, run the meeting and pitch — to an AI client who reacts to everything you do.
+          </p>
+          <div className={styles.ctas}>
+            <Button as={Link} to="/register" size="lg" renderIcon={ArrowRight}>Start your first engagement</Button>
+            <Button size="lg" kind="tertiary" renderIcon={ArrowDown} onClick={() => scrollTo('how')}>See how it works</Button>
+          </div>
+          <p className={styles.reassure}>No consulting experience needed. Every step tells you what to do.</p>
+        </div>
+
+        {/* Fragments of three steps, in the order a learner meets them. */}
+        <div className={styles.showcase} aria-label="What the simulation looks like">
+          <figure className={`${styles.shot} ${styles.shotNews}`}>
+            <figcaption>Research</figcaption>
+            <div className={styles.newsMast}>The Client Observer</div>
+            <p className={styles.newsHead}>Regional network delays clinical systems review as winter pressures mount</p>
+            <p className={styles.newsSaved}><span>Saved as evidence</span> “Staff re-enter patient details into three separate systems.”</p>
+          </figure>
+          <figure className={`${styles.shot} ${styles.shotMail}`}>
+            <figcaption>Outreach</figcaption>
+            <p className={styles.mailFrom}><strong>Sarah Chen</strong> replied</p>
+            <p className={styles.mailBody}>“This is useful, and the phasing answers my main worry. I can give you 30 minutes on Thursday.”</p>
+            <span className={styles.mailTag}>Meeting accepted</span>
+          </figure>
+          <figure className={`${styles.shot} ${styles.shotMeeting}`}>
+            <figcaption>Meeting</figcaption>
+            <p className={styles.bubbleClient}>“I have heard ‘we can fix that’ from three vendors. Why is your version different?”</p>
+            <p className={styles.cue}><i aria-hidden="true" /> Sceptical — wants specifics before she believes you.</p>
+          </figure>
+        </div>
+      </section>
+
+      <section className={styles.how} id="how">
+        <div className={styles.sectionHead}>
+          <p className={styles.eyebrowDark}>How it works</p>
+          <h2>One engagement, six rooms.</h2>
+        </div>
+        <ol className={styles.track}>
+          {ROOMS.map((room, index) => (
+            <li key={room.id}>
+              <span className={styles.trackNo}>{String(index + 1).padStart(2, '0')}</span>
+              <strong>{room.name}</strong>
+              <span>{ROOM_LINE[room.id]}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className={styles.get} id="get">
+        <div className={styles.sectionHead}>
+          <p className={styles.eyebrowDark}>What you get</p>
+          <h2>Real practice. Honest feedback.</h2>
+        </div>
+        <div className={styles.benefits}>
+          <article>
+            <div className={styles.proof}>
+              <p className={styles.cueLight}><i aria-hidden="true" /> Polite, but nothing you have said lands on a problem she owns.</p>
             </div>
-          </Column>
-        </Grid>
+            <h3>A client who pushes back</h3>
+            <p>She stays in character, raises objections and only shares what you earn by asking the right question.</p>
+          </article>
+          <article>
+            <div className={styles.proof}>
+              {([['Research & Discovery', 86], ['Relationship', 84], ['Commercial reasoning', 58]] as const).map(([name, score]) => (
+                <div key={name} className={styles.bar}>
+                  <span>{name}</span>
+                  <b style={{ width: `${score}%` }} />
+                  <em>{score}</em>
+                </div>
+              ))}
+            </div>
+            <h3>Feedback you can act on</h3>
+            <p>A score for each competency, with coaching tied to what you actually did — not generic tips.</p>
+          </article>
+          <article>
+            <div className={styles.proof}>
+              <svg viewBox="0 0 240 72" className={styles.trend} role="img" aria-label="Competency trend rising across three engagements">
+                <polyline points="8,58 120,34 232,14" fill="none" stroke="#0f62fe" strokeWidth="2" />
+                <polyline points="8,48 120,40 232,22" fill="none" stroke="#24a148" strokeWidth="2" />
+                {[[8, 58], [120, 34], [232, 14], [8, 48], [120, 40], [232, 22]].map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="3" fill="#fff" stroke="#161616" />)}
+              </svg>
+            </div>
+            <h3>A record of your growth</h3>
+            <p>Contracts won, relationship health and how each skill moves from one engagement to the next.</p>
+          </article>
+        </div>
       </section>
 
-      {/* Phases */}
-      <section style={{ padding: '5rem 2rem' }}>
-        <Grid fullWidth>
-          <Column lg={16} md={8} sm={4} style={{ marginBottom: '3rem' }}>
-            <h2 style={{ color: '#161616', fontSize: '2rem', fontWeight: 600 }}>
-              One simulation, four disciplines
-            </h2>
-            <p style={{ color: '#525252', marginTop: '0.5rem', fontSize: '1rem' }}>
-              Every engagement takes you through the full lifecycle a real consultant follows.
-            </p>
-          </Column>
-
-          {PHASES.map((phase) => {
-            const Icon = phase.icon
-            return (
-              <Column key={phase.title} lg={4} md={4} sm={4} style={{ marginBottom: '1.5rem' }}>
-                <Tile style={{ height: '100%' }}>
-                  <Icon size={32} style={{ fill: '#0f62fe', marginBottom: '1rem' }} />
-                  <h4 style={{ color: '#161616', marginBottom: '0.5rem' }}>{phase.title}</h4>
-                  <p style={{ color: '#525252', fontSize: '0.875rem', lineHeight: 1.5 }}>
-                    {phase.description}
-                  </p>
-                </Tile>
-              </Column>
-            )
-          })}
-        </Grid>
+      <section className={styles.close}>
+        <h2>Your first client is waiting.</h2>
+        <Button as={Link} to="/register" size="lg" kind="secondary" renderIcon={ArrowRight}>Start your first engagement</Button>
       </section>
 
-      {/* CTA footer */}
-      <section
-        style={{
-          padding: '4rem 2rem',
-          borderTop: '1px solid #e0e0e0',
-          background: '#f4f4f4',
-          textAlign: 'center',
-        }}
-      >
-        <h3 style={{ color: '#161616', fontSize: '1.5rem', marginBottom: '1.5rem' }}>
-          Ready to run your first engagement?
-        </h3>
-        <Button as={Link} to="/register" renderIcon={ArrowRight} size="lg">
-          Create your free account
-        </Button>
-      </section>
+      <footer className={styles.footer}>
+        <span><b>IBM</b> Consulting Simulation</span>
+        <span>IBM × RMIT Capstone</span>
+      </footer>
     </div>
   )
 }

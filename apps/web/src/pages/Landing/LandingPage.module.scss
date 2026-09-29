@@ -1,0 +1,474 @@
+// The landing page, ported from the UX prototype (src/prototype/screens/landing/landing.module.scss).
+
+// IBM brand on Carbon: Gray 100 hero, Blue 60 action, Plex Sans Light display,
+// Plex Mono labels, square corners, 2x grid spacing.
+.page {
+  background: #fff;
+  color: #161616;
+  min-height: 100vh;
+  padding-bottom: 64px; // room for the prototype bar
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  height: 56px;
+  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  color: #161616;
+}
+
+.brand {
+  color: #161616;
+  text-decoration: none;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.brandIbm {
+  font-weight: 600;
+  margin-right: 0.15rem;
+}
+
+.nav {
+  display: flex;
+  gap: 1.5rem;
+  margin-right: auto;
+
+  a {
+    color: #525252;
+    text-decoration: none;
+    font-size: 0.875rem;
+
+    &:hover { color: #161616; }
+  }
+
+  @media (max-width: 720px) {
+    display: none;
+  }
+}
+
+.headerActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+// ─── Hero ────────────────────────────────────────────────────────────────────
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+  padding-block: clamp(3rem, 7vw, 6rem) clamp(3rem, 6vw, 5rem);
+  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  background:
+    radial-gradient(ellipse 55% 75% at 85% 35%, #d0e2ff, transparent 70%),
+    linear-gradient(180deg, #fff 0%, #f6f9ff 100%);
+  color: #161616;
+  border-bottom: 1px solid #e0e0e0;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.heroText {
+  max-width: 620px;
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2.5rem, 5.2vw, 4.25rem);
+    font-weight: 300;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+}
+
+.eyebrow,
+.eyebrowDark {
+  margin: 0 0 1.25rem;
+  font-family: var(--sim-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.eyebrow { color: #0f62fe; }
+.eyebrowDark { color: #0f62fe; }
+
+.lede {
+  margin: 1.5rem 0 2.25rem;
+  font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+  line-height: 1.5;
+  color: #525252;
+  max-width: 34em;
+}
+
+.ctas {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+
+.reassure {
+  margin: 1.25rem 0 0;
+  font-size: 0.875rem;
+  color: #6f6f6f;
+}
+
+.resume p {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid #0f62fe;
+  background: #edf5ff;
+  font-size: 1rem;
+  color: #393939;
+
+  strong { color: #161616; font-weight: 600; }
+}
+
+// Showcase: three real fragments, stacked like pages on a desk
+.showcase {
+  position: relative;
+  min-height: 540px;
+
+  @media (max-width: 960px) {
+    min-height: 0;
+    display: grid;
+    gap: 1rem;
+  }
+}
+
+.shot {
+  margin: 0;
+  padding: 1.1rem 1.25rem 1.25rem;
+  color: #161616;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 24px 44px -22px rgba(0, 29, 108, 0.45);
+  position: absolute;
+  width: min(420px, 88%);
+
+  figcaption {
+    margin: 0 0 0.6rem;
+    font-family: var(--sim-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6f6f6f;
+  }
+
+  @media (max-width: 960px) {
+    position: relative;
+    inset: auto !important;
+    width: 100%;
+    margin-top: 1.75rem;
+    transform: none !important;
+  }
+}
+
+.shotNews {
+  top: 0;
+  left: 0;
+  background: #fffefb;
+  border: 1px solid #ebe6da;
+  transform: rotate(-1.5deg);
+}
+
+.newsMast {
+  font-family: 'UnifrakturMaguntia', serif;
+  font-size: 1.5rem;
+  text-align: center;
+  border-bottom: 3px double #161616;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.6rem;
+}
+
+.newsHead {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 900;
+  font-size: 1.25rem;
+  line-height: 1.15;
+}
+
+.newsSaved {
+  margin: 0.75rem 0 0;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 0.875rem;
+  background: #fde68a;
+  padding: 0.3rem 0.4rem;
+
+  span {
+    display: block;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #0e6027;
+    margin-bottom: 2px;
+  }
+}
+
+.shotMail {
+  top: 236px;
+  right: 0;
+  background: #fff;
+  border-top: 4px solid #0f62fe;
+  transform: rotate(1deg);
+}
+
+.mailFrom {
+  margin: 0 0 0.4rem;
+  font-size: 0.875rem;
+  color: #525252;
+
+  strong { color: #161616; }
+}
+
+.mailBody {
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.mailTag {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  background: #a7f0ba;
+  color: #044317;
+  border-radius: 12px;
+}
+
+.shotMeeting {
+  top: 396px;
+  left: 6%;
+  background: #262626;
+  color: #f4f4f4;
+  border: 1px solid #393939;
+  transform: rotate(-0.5deg);
+
+  figcaption { color: #a8a8a8; }
+}
+
+.bubbleClient {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  background: #f2edff;
+  color: #161616;
+  border-radius: 8px 8px 8px 2px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.cue,
+.cueLight {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+
+  i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #fa4d56;
+    margin-top: 4px;
+    flex: none;
+  }
+}
+
+.cue { color: #c6c6c6; }
+
+.cueLight {
+  color: #393939;
+
+  i { background: #f1c21b; }
+}
+
+// ─── How it works ────────────────────────────────────────────────────────────
+.how,
+.get {
+  padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem);
+}
+
+.how {
+  background: #f4f4f4;
+}
+
+.sectionHead {
+  max-width: 1200px;
+  margin: 0 auto 2.5rem;
+
+  h2 {
+    margin: 0;
+    font-size: clamp(2rem, 3.6vw, 2.75rem);
+    font-weight: 300;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+}
+
+.track {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-top: 2px solid #161616;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.25rem 1rem 0 0;
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -7px;
+      left: 0;
+      width: 12px;
+      height: 12px;
+      background: #0f62fe;
+    }
+  }
+
+  strong {
+    font-size: 1.125rem;
+    font-weight: 500;
+  }
+
+  span:last-child {
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    color: #525252;
+  }
+
+  @media (max-width: 1000px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 2rem;
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trackNo {
+  font-family: var(--sim-mono);
+  font-size: 0.75rem;
+  color: #6f6f6f;
+}
+
+// ─── What you get ────────────────────────────────────────────────────────────
+.benefits {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+
+  article {
+    display: flex;
+    flex-direction: column;
+  }
+
+  h3 {
+    margin: 1.25rem 0 0.4rem;
+    font-size: 1.25rem;
+    font-weight: 500;
+  }
+
+  p {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #525252;
+  }
+}
+
+.proof {
+  height: 132px;
+  background: #f4f4f4;
+  border: 1px solid #e0e0e0;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 140px 1fr 28px;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.75rem;
+  color: #393939;
+
+  b {
+    display: block;
+    height: 6px;
+    background: #0f62fe;
+  }
+
+  em {
+    font-style: normal;
+    font-family: var(--sim-mono);
+    text-align: right;
+  }
+}
+
+.trend {
+  width: 100%;
+  height: 72px;
+}
+
+// ─── Closing call to action ─────────────────────────────────────────────────
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-block: clamp(2.5rem, 5vw, 4rem);
+  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  background: #0f62fe;
+  color: #fff;
+
+  h2 {
+    margin: 0;
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    font-weight: 300;
+  }
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-block: 1.5rem;
+  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  background: #fff;
+  border-top: 1px solid #e0e0e0;
+  color: #6f6f6f;
+  font-size: 0.8125rem;
+
+  b { color: #161616; }
+}
