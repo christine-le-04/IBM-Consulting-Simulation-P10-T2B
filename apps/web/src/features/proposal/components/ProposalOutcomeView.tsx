@@ -4,8 +4,8 @@
  * The client's letter comes first: who decided, what they decided and what
  * they said. The three detail views stay (why it went this way, how the
  * client weighed it, your claims checked), in words. Decision confidence,
- * learner performance and the dimension scores are left to the assessment,
- * where the numbers live (SRS FR-14).
+ * learner performance, the rationale and the dimension scores are one click
+ * away under "Show the numbers" — words first (SRS FR-14), nothing lost.
  */
 import { Button, InlineLoading, Tag } from '@carbon/react'
 import { ArrowRight, Chat, Document, Renew, WarningFilled } from '@carbon/icons-react'
@@ -32,6 +32,13 @@ function band(score: number) {
 }
 
 type View = 'overview' | 'score' | 'evidence'
+type Support = Proposal['evidenceImpacts'][number]['supportLevel']
+
+const SUPPORT: { level: Support; label: string; tone: 'countGreen' | 'countGray' | 'countRed'; tag: 'green' | 'warm-gray' | 'red' }[] = [
+  { level: 'WELL_SUPPORTED', label: 'Well supported', tone: 'countGreen', tag: 'green' },
+  { level: 'PARTIALLY_SUPPORTED', label: 'Partially supported', tone: 'countGray', tag: 'warm-gray' },
+  { level: 'UNSUPPORTED', label: 'Unsupported', tone: 'countRed', tag: 'red' },
+]
 
 export function ProposalOutcomeView({ proposal, engagementId, client = {}, onReadProposal }: {
   proposal: Proposal
@@ -44,14 +51,14 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
   const explain = useProposalDecisionExplanation(engagementId)
   const counterfactual = useProposalCounterfactual(engagementId)
   const [view, setView] = useState<View>('overview')
-  const [impact, setImpact] = useState(0)
+  const [support, setSupport] = useState<Support | null>(null)
   const presentation = outcomePresentation(proposal.clientDecisionOutcome)
   const letter = proposal.clientResponse ?? proposal.decisionRationale ?? 'The client response is not yet available.'
   const strengths = decisionInsights(proposal.decisionInsights, 'STRENGTH')
   const concerns = decisionInsights(proposal.decisionInsights, 'CONCERN')
   const conditions = decisionInsights(proposal.decisionInsights, 'CONDITION')
   const counts = proposal.evidenceImpacts.reduce<Record<string, number>>((all, item) => ({ ...all, [item.supportLevel]: (all[item.supportLevel] ?? 0) + 1 }), {})
-  const current = proposal.evidenceImpacts[impact]
+  const claims = support ? proposal.evidenceImpacts.filter((item) => item.supportLevel === support) : proposal.evidenceImpacts
   const strongest = useMemo(
     () => [...proposal.decisionDimensions].sort((left, right) => right.score - left.score)[0],
     [proposal.decisionDimensions],
@@ -142,33 +149,66 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
               ))}
             </div>
             {strongest && <p className={styles.strongest}>Strongest factor: <strong>{strongest.dimension}</strong></p>}
+            {/* Words first; the figures are one click away, never lost. */}
+            <details className={styles.numbers}>
+              <summary>Show the numbers behind the decision</summary>
+              <dl className={styles.numberGrid}>
+                <div><dt>Decision confidence</dt><dd>{proposal.decisionConfidence}%</dd></div>
+                <div><dt>Learner performance</dt><dd>{proposal.learnerPerformanceScore}/100</dd></div>
+              </dl>
+              {proposal.decisionRationale && <p className={styles.rationale}>{proposal.decisionRationale}</p>}
+              <ul className={styles.dimensionScores}>
+                {proposal.decisionDimensions.map((dimension) => (
+                  <li key={dimension.dimension}>
+                    <span>{dimension.dimension}</span>
+                    <b aria-hidden="true"><i style={{ width: `${dimension.score}%` }} /></b>
+                    <strong>{dimension.score}/100</strong>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </div>
         )}
 
         {view === 'evidence' && (
           <div className={styles.evidence}>
-            <div className={styles.counts}>
-              <div className={styles.countGreen}><span>Well supported</span><strong>{counts.WELL_SUPPORTED ?? 0}</strong></div>
-              <div className={styles.countGray}><span>Partially supported</span><strong>{counts.PARTIALLY_SUPPORTED ?? 0}</strong></div>
-              <div className={styles.countRed}><span>Unsupported</span><strong>{counts.UNSUPPORTED ?? 0}</strong></div>
+            {/* Each count is a filter: press one to see only those claims, press it again for all. */}
+            <div className={styles.counts} role="group" aria-label="Filter claims by support">
+              <button type="button" className={styles.countAll} aria-pressed={support === null} onClick={() => setSupport(null)}>
+                <span>All claims</span><strong>{proposal.evidenceImpacts.length}</strong>
+              </button>
+              {SUPPORT.map((item) => (
+                <button
+                  key={item.level}
+                  type="button"
+                  className={styles[item.tone]}
+                  aria-pressed={support === item.level}
+                  onClick={() => setSupport(support === item.level ? null : item.level)}
+                >
+                  <span>{item.label}</span><strong>{counts[item.level] ?? 0}</strong>
+                </button>
+              ))}
             </div>
-            {current ? (
-              <article className={styles.impact}>
-                <div className={styles.impactHead}>
-                  <Tag type={current.supportLevel === 'WELL_SUPPORTED' ? 'green' : current.supportLevel === 'PARTIALLY_SUPPORTED' ? 'warm-gray' : 'red'}>{current.supportLevel.replace('_', ' ').toLowerCase()}</Tag>
-                  <span>{impact + 1} of {proposal.evidenceImpacts.length}</span>
-                </div>
-                <h3>“{current.claim}”</h3>
-                <p>{current.explanation}</p>
-                {proposal.evidenceImpacts.length > 1 && (
-                  <div className={styles.pager}>
-                    <Button kind="ghost" size="sm" disabled={impact === 0} onClick={() => setImpact(impact - 1)}>Previous</Button>
-                    <Button kind="tertiary" size="sm" disabled={impact >= proposal.evidenceImpacts.length - 1} onClick={() => setImpact(impact + 1)}>Next claim</Button>
-                  </div>
-                )}
-              </article>
-            ) : (
+
+            {proposal.evidenceImpacts.length === 0 ? (
               <div className={styles.emptyImpact}><WarningFilled size={20} /> This proposal predates detailed evidence-impact tracking.</div>
+            ) : claims.length === 0 ? (
+              <p className={styles.empty}>No claims in this group.</p>
+            ) : (
+              <ol className={styles.claims} aria-label="Claims">
+                {claims.map((claim) => {
+                  const meta = SUPPORT.find((item) => item.level === claim.supportLevel)
+                  return (
+                    <li key={`${claim.claim}-${claim.supportLevel}`} className={styles.impact}>
+                      <div className={styles.impactHead}>
+                        <Tag type={meta?.tag ?? 'gray'}>{meta?.label.toLowerCase() ?? claim.supportLevel}</Tag>
+                      </div>
+                      <h3>“{claim.claim}”</h3>
+                      <p>{claim.explanation}</p>
+                    </li>
+                  )
+                })}
+              </ol>
             )}
           </div>
         )}

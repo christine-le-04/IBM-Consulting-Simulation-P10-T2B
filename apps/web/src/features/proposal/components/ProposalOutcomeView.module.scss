@@ -256,20 +256,45 @@
 
 .counts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
 
-  div {
+  button {
     padding: 0.6rem 0.75rem;
+    border: 0;
     border-left: 4px solid;
     background: #f4f4f4;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    font: inherit;
     font-size: 0.8125rem;
+    color: var(--sim-ink);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover { background: #e8e8e8; }
+
+    &:focus-visible {
+      outline: 2px solid var(--sim-blue);
+      outline-offset: 2px;
+    }
+
+    &[aria-pressed='true'] {
+      background: #fff;
+      box-shadow: inset 0 0 0 1px var(--sim-ink);
+      font-weight: 600;
+    }
   }
 
   strong { font-size: 1.125rem; }
+
+  @media (max-width: 672px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
+
+.countAll { border-color: var(--sim-blue) !important; }
 
 .countGreen { border-color: #24a148 !important; }
 .countGray { border-color: #8d8d8d !important; }
@@ -301,12 +326,6 @@
   color: var(--sim-ink-2);
 }
 
-.pager {
-  display: flex;
-  gap: 0.35rem;
-  margin-top: 0.75rem;
-}
-
 .emptyImpact {
   display: flex;
   gap: 0.5rem;
@@ -320,3 +339,80 @@
   color: var(--sim-ink-2);
 }
 .neutral li::marker { color: #0f62fe; }
+
+.claims {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.75rem;
+}
+
+.numbers {
+  margin-top: 1rem;
+  border-top: 1px solid var(--sim-line);
+  padding-top: 0.75rem;
+
+  summary {
+    cursor: pointer;
+    color: var(--sim-blue);
+    font-size: 0.875rem;
+  }
+}
+
+.numberGrid {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0.75rem 0;
+
+  dt {
+    font-size: 0.75rem;
+    color: var(--sim-ink-2);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+}
+
+.rationale {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--sim-ink-2);
+  line-height: 1.5;
+}
+
+.dimensionScores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+
+  li {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr) 4rem;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.8125rem;
+  }
+
+  b {
+    display: block;
+    height: 0.4rem;
+    background: #e0e0e0;
+  }
+
+  i {
+    display: block;
+    height: 100%;
+    background: var(--sim-blue);
+  }
+
+  strong {
+    text-align: right;
+    font-family: var(--sim-mono);
+  }
+}

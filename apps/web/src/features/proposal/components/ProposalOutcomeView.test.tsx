@@ -101,38 +101,52 @@ describe('ProposalOutcomeView component', () => {
     expect(screen.getByText('The client response is not yet available.')).toBeInTheDocument()
   })
 
-  it('keeps confidence, performance and dimension scores for the assessment (SRS FR-14)', async () => {
+  it('leads with words and keeps the numbers one click away (SRS FR-14)', async () => {
     const user = userEvent.setup()
     renderOutcome(makeProposal({
       decisionConfidence: 70,
       learnerPerformanceScore: 78,
+      decisionRationale: 'Client alignment 23 and commercial logic 100 produced a decision score of 72.',
       decisionDimensions: [
         { dimension: 'Commercial logic', score: 100, interpretation: 'Budget and phasing were credible.' },
         { dimension: 'Client alignment', score: 23, interpretation: 'The priorities were only partly addressed.' },
       ],
     }))
 
-    expect(screen.queryByText(/70%|78\/100/)).not.toBeInTheDocument()
-
     await user.click(screen.getByRole('tab', { name: 'How they weighed it' }))
     expect(screen.getByText('Carried the decision')).toBeInTheDocument()
     expect(screen.getByText('Held it back')).toBeInTheDocument()
-    expect(screen.getByText('Commercial logic', { selector: 'p strong' })).toBeInTheDocument()
-    expect(screen.queryByText(/\/100/)).not.toBeInTheDocument()
+
+    // The figures sit in a closed disclosure until the learner asks for them.
+    const numbers = screen.getByText('Show the numbers behind the decision').closest('details')!
+    expect(numbers).not.toHaveAttribute('open')
+    expect(numbers).toHaveTextContent('70%')
+    expect(numbers).toHaveTextContent('78/100')
+    expect(numbers).toHaveTextContent('Client alignment 23 and commercial logic 100')
+    expect(numbers).toHaveTextContent('100/100')
+    await user.click(screen.getByText('Show the numbers behind the decision'))
+    expect(numbers).toHaveAttribute('open')
   })
 
-  it('shows each checked claim with its support level', async () => {
+  it('lists every claim at once and filters by support level', async () => {
     const user = userEvent.setup()
     renderOutcome(makeProposal({
       evidenceImpacts: [
         { claim: 'Re-entry costs nursing time', supportLevel: 'WELL_SUPPORTED', explanation: 'Backed by E-01.' },
+        { claim: 'Ward sisters back the pilot', supportLevel: 'PARTIALLY_SUPPORTED', explanation: 'One source.' },
         { claim: 'It can be funded divisionally', supportLevel: 'UNSUPPORTED', explanation: 'No evidence attached.' },
       ],
     }))
 
-    await user.click(screen.getByRole('tab', { name: 'Your claims, checked (2)' }))
-    expect(screen.getByText('“Re-entry costs nursing time”')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Next claim' }))
+    await user.click(screen.getByRole('tab', { name: 'Your claims, checked (3)' }))
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+
+    await user.click(screen.getByRole('button', { name: /Unsupported/ }))
     expect(screen.getByText('“It can be funded divisionally”')).toBeInTheDocument()
+    expect(screen.queryByText('“Re-entry costs nursing time”')).not.toBeInTheDocument()
+
+    // Pressing the same filter again shows every claim.
+    await user.click(screen.getByRole('button', { name: /Unsupported/ }))
+    expect(screen.getByText('“Re-entry costs nursing time”')).toBeInTheDocument()
   })
 })

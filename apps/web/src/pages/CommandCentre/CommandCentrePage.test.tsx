@@ -251,3 +251,64 @@ describe('Office: scenario catalogue', () => {
     expect(mockedScenarioCatalog).toHaveBeenLastCalledWith(expect.objectContaining({ difficulty: 4 }))
   })
 })
+
+describe('Office: finding an engagement', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const three = () => [
+    makeEngagement({ id: 'eng-featured', createdAt: '2026-08-05T10:00:00Z', leadCompanyName: 'Featured Client' }),
+    makeEngagement({ id: 'eng-review', state: 'REVIEW', createdAt: '2026-08-01T10:00:00Z', leadCompanyName: 'Review Client', scenarioTitle: 'B scenario', progressPercent: 90 }),
+    makeEngagement({ id: 'eng-other', createdAt: '2026-07-01T10:00:00Z', leadCompanyName: 'Other Client', scenarioTitle: 'A scenario', progressPercent: 20 }),
+  ]
+
+  it('filters the other engagements by status, and back to all', async () => {
+    const user = userEvent.setup()
+    setup(three())
+    renderPage()
+
+    await user.click(screen.getByRole('combobox', { name: 'Filter' }))
+    await user.click(await screen.findByRole('option', { name: 'Ready for review' }))
+    expect(screen.getByText('Review Client')).toBeInTheDocument()
+    expect(screen.queryByText('Other Client')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: 'Filter' }))
+    await user.click(await screen.findByRole('option', { name: 'All engagements' }))
+    expect(screen.getByText('Other Client')).toBeInTheDocument()
+  })
+
+  it('searches and sorts the other engagements', async () => {
+    const user = userEvent.setup()
+    setup(three())
+    renderPage()
+
+    await user.click(screen.getByRole('combobox', { name: 'Sort' }))
+    await user.click(await screen.findByRole('option', { name: 'Scenario' }))
+    const names = screen.getAllByText(/^(Review|Other) Client$/).map((node) => node.textContent)
+    expect(names).toEqual(['Other Client', 'Review Client'])
+
+    await user.type(screen.getByPlaceholderText('Search engagements'), 'review')
+    expect(screen.queryByText('Other Client')).not.toBeInTheDocument()
+  })
+
+  it('labels repeated attempts at the same scenario', () => {
+    setup([
+      makeEngagement({ id: 'eng-2', createdAt: '2026-08-05T10:00:00Z' }),
+      makeEngagement({ id: 'eng-1', createdAt: '2026-08-01T10:00:00Z' }),
+    ])
+    renderPage()
+
+    expect(screen.getByText('Attempt #2')).toBeInTheDocument()
+    expect(screen.getByText(/Attempt #1/)).toBeInTheDocument()
+  })
+
+  it('recommends a scenario the learner has not started yet', () => {
+    setup([makeEngagement({ scenarioId: 'scn-running' })])
+    withCatalogue([scenario({ id: 'scn-running', title: 'Already running' }), scenario({ title: 'Retail returns' })])
+    renderPage()
+
+    expect(screen.getByText('Recommended for you')).toBeInTheDocument()
+    expect(screen.getByText('Retail returns')).toBeInTheDocument()
+    expect(screen.queryByText('Already running')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start scenario' })).toBeInTheDocument()
+  })
+})

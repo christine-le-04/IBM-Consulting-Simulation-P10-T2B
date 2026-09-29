@@ -5,8 +5,9 @@
  * the play screens).
  */
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button, Checkbox, Tag } from '@carbon/react'
-import { TrophyFilled, Locked } from '@carbon/icons-react'
+import { ArrowRight, TrophyFilled, Locked } from '@carbon/icons-react'
 import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfolio'
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -181,7 +182,7 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
     .includes(engagement.outcome)
   const rejected = ['REJECTED', 'PROPOSAL_REJECTED', 'LOST'].includes(engagement.outcome)
   return (
-    <article className={styles.historyCard}>
+    <Link className={styles.historyCard} to={`/dashboard/engagements/${engagement.engagementId}/assessment`} aria-label={`Open the review of ${engagement.scenarioTitle}`}>
       <div className={styles.historyHead}>
         <IndustryArt industry={engagement.industry} size={44} />
         <h3>{engagement.scenarioTitle}</h3>
@@ -194,7 +195,8 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
         <span>{engagement.completedAt ? new Date(engagement.completedAt).toLocaleDateString('en-GB') : 'In review'}</span>
         <strong>{engagement.overallScore}/100</strong>
       </div>
-    </article>
+      <span className={styles.historyOpen}>Open review <ArrowRight size={16} /></span>
+    </Link>
   )
 }
 
