@@ -911,6 +911,10 @@
   }
 }
 
+.readyActionsSingle {
+  grid-template-columns: 1fr;
+}
+
 // ─── Frame ──────────────────────────────────────────────────────────────────
 // Everything below Carbon's fixed header: the mentor's line, the step brief,
 // then the page. The header's height is reserved once, here.

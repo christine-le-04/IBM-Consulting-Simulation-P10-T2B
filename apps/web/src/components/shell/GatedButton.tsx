@@ -20,10 +20,12 @@ export interface GatedButtonProps {
   notReadyKind?: 'secondary' | 'tertiary'
   renderIcon?: CarbonIconType
   disabled?: boolean
+  /** False when the step cannot be taken until the checklist is met. */
+  allowEarly?: boolean
   className?: string
 }
 
-export default function GatedButton({ ready, checklist, title, stayLabel, onGo, children, size, notReadyKind = 'tertiary', renderIcon, disabled, className }: GatedButtonProps) {
+export default function GatedButton({ ready, checklist, title, stayLabel, onGo, children, size, notReadyKind = 'tertiary', renderIcon, disabled, allowEarly = true, className }: GatedButtonProps) {
   const [open, setOpen] = useState(false)
   const warn = !ready && !!checklist
   const button = (
@@ -47,10 +49,14 @@ export default function GatedButton({ ready, checklist, title, stayLabel, onGo, 
         <div className={styles.readyPop}>
           <p className={styles.eyebrow}>{title}</p>
           <ReadinessList items={checklist} />
-          <p className={styles.muted}>You can still go now. What is missing will show in how the client responds.</p>
-          <div className={styles.readyActions}>
+          <p className={styles.muted}>
+            {allowEarly
+              ? 'You can still go now. What is missing will show in how the client responds.'
+              : 'Tick these off first — this step opens once they are done.'}
+          </p>
+          <div className={`${styles.readyActions} ${allowEarly ? '' : styles.readyActionsSingle}`}>
             <Button kind="secondary" size="sm" onClick={() => setOpen(false)}>{stayLabel}</Button>
-            <Button kind="primary" size="sm" onClick={() => { setOpen(false); onGo() }}>Continue anyway</Button>
+            {allowEarly && <Button kind="primary" size="sm" onClick={() => { setOpen(false); onGo() }}>Continue anyway</Button>}
           </div>
         </div>
       </PopoverContent>

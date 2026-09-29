@@ -15,8 +15,15 @@ export interface ReadinessItem {
 
 export interface NextStep {
   label: string
-  /** Route to open. */
-  to: string
+  /** Route to open, unless `onGo` is given. */
+  to?: string
+  /** Runs instead of opening `to`, e.g. to advance the engagement first. */
+  onGo?: () => void
+  /**
+   * False while the backend still refuses the step until the checklist is met:
+   * the checklist then offers only the "stay" button, never "Continue anyway".
+   */
+  allowEarly?: boolean
   /** True once the step's checklist is met; the button then turns primary. */
   ready: boolean
   /** Word-only conditions shown when the step is taken before they are met. */

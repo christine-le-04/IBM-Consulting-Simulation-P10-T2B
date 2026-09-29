@@ -17,7 +17,8 @@ export default function NextStepButton() {
       checklist={nextStep.checklist}
       title={nextStep.checklistTitle ?? 'Before you move on'}
       stayLabel={nextStep.stayLabel ?? 'Keep working'}
-      onGo={() => navigate(nextStep.to)}
+      allowEarly={nextStep.allowEarly ?? true}
+      onGo={() => (nextStep.onGo ? nextStep.onGo() : nextStep.to && navigate(nextStep.to))}
       className={styles.nextPopover}
     >
       {nextStep.label}
