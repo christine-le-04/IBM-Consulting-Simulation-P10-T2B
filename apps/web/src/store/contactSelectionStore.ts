@@ -7,22 +7,28 @@ import { persist } from 'zustand/middleware'
  */
 export interface ContactChoice {
   personaId: string
+  /** Saved with the choice so the map and Make contact can show it without loading the scenario. */
+  name: string
+  jobTitle: string
   /** Emails already sent when this contact was chosen. Emails after this count toward this contact. */
   emailsBefore: number
 }
 
 interface ContactSelectionState {
   byEngagement: Record<string, ContactChoice>
-  choose: (engagementId: string, personaId: string, emailsSoFar: number) => void
+  choose: (engagementId: string, contact: { id: string; name: string; jobTitle: string }, emailsSoFar: number) => void
 }
 
 export const useContactSelectionStore = create<ContactSelectionState>()(
   persist(
     (set) => ({
       byEngagement: {},
-      choose: (engagementId, personaId, emailsSoFar) =>
+      choose: (engagementId, contact, emailsSoFar) =>
         set((state) => ({
-          byEngagement: { ...state.byEngagement, [engagementId]: { personaId, emailsBefore: emailsSoFar } },
+          byEngagement: {
+            ...state.byEngagement,
+            [engagementId]: { personaId: contact.id, name: contact.name, jobTitle: contact.jobTitle, emailsBefore: emailsSoFar },
+          },
         })),
     }),
     { name: 'ibm-sim-contact-selection' },

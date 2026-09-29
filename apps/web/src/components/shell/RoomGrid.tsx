@@ -9,7 +9,8 @@ import type { Engagement, EngagementPhase } from '@/api/types'
 import { phaseRoute } from '@/api/engagementRouting'
 import { PHASE_LABEL, phaseIndex } from '@/lifecycle/phases'
 import { ROOMS, isPhaseReached, roomIndex, roomPages } from './rooms'
-import ContactRoomRow, { useOnContactPage } from './ContactRoomRow'
+import ContactRoomRow from './ContactRoomRow'
+import { useOnContactPage } from './useOnContactPage'
 import styles from './shell.module.scss'
 
 export interface RoomGridProps {

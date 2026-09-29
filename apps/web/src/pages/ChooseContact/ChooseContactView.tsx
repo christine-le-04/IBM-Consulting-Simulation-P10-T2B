@@ -1,13 +1,8 @@
 import { Button, InlineNotification } from '@carbon/react'
 import { ArrowRight } from '@carbon/icons-react'
 import type { PersonaSummary } from '@/api/types'
-import type { ContactStatus } from '@/lifecycle/contactSelection'
 import styles from './ChooseContactPage.module.scss'
-
-const stripTitle = (name: string) => name.replace(/^(Dr|Mr|Ms|Mrs)\.?\s+/i, '')
-export const firstName = (name: string) => stripTitle(name).split(/\s+/)[0]
-const initials = (name: string) =>
-  stripTitle(name).split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()
+import { firstName, initials, type ContactStatus } from '@/lifecycle/contactSelection'
 
 export interface ChooseContactViewProps {
   company: string

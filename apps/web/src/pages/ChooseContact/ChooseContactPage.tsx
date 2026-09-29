@@ -6,8 +6,8 @@ import { useMentor } from '@/components/shell/useMentor'
 import LoadingState from '@/components/shared/LoadingState'
 import ErrorState from '@/components/shared/ErrorState'
 import { useChosenContact, useContactSelectionStore } from '@/store/contactSelectionStore'
-import { contactStatus } from '@/lifecycle/contactSelection'
-import { ChooseContactView, firstName } from './ChooseContactView'
+import { contactStatus, firstName } from '@/lifecycle/contactSelection'
+import { ChooseContactView } from './ChooseContactView'
 
 /** Route: /dashboard/engagements/:engagementId/contact */
 export default function ChooseContactPage() {
@@ -45,7 +45,10 @@ export default function ChooseContactPage() {
       contacts={scenario.personas}
       chosenId={choice?.personaId ?? null}
       status={status}
-      onChoose={(personaId) => choose(engagementId!, personaId, attempts.length)}
+      onChoose={(personaId) => {
+        const contact = scenario.personas.find((p) => p.id === personaId)
+        if (contact) choose(engagementId!, contact, attempts.length)
+      }}
       onContinue={() => navigate(`${base}/outreach`)}
       onBackToResearch={() => navigate(`${base}/intelligence`)}
     />
