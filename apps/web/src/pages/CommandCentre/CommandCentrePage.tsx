@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Button, InlineNotification, Tag, TextInput } from '@carbon/react'
+import { Button, InlineNotification, Tag } from '@carbon/react'
 import { Add, ArrowRight } from '@carbon/icons-react'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'

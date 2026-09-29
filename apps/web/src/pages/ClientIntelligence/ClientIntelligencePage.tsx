@@ -28,7 +28,6 @@ import ManualSourceForm from './ManualSourceForm'
 import { deckSources, readinessFor, RESEARCH_AREAS, TRUST_LABEL } from './research'
 import SourceDocument from './SourceDocument'
 import styles from './ClientIntelligencePage.module.scss'
-import { PHASE_LABEL } from '@/lifecycle/phases'
 
 /** The walkthrough: where things are, never what to conclude. */
 const CLIENT_INTELLIGENCE_OBJECTIVES = [
