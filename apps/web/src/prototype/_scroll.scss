@@ -1,0 +1,27 @@
+// A scroll area whose scrollbar is always drawn. macOS hides overlay
+// scrollbars until you scroll, so a long pane gives no hint that it holds more.
+// Custom WebKit scrollbars are classic (never overlay); `scrollbar-width` and
+// `scrollbar-color` are left unset on purpose, as setting either one makes
+// Chrome ignore these rules.
+@mixin visible-scroll($track: #f4f4f4) {
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $track;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #a8a8a8;
+    border: 2px solid $track;
+    border-radius: 5px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #8d8d8d;
+  }
+}

@@ -1,0 +1,57 @@
+// Carbon without its own @font-face rules: IBM Plex is loaded from Google Fonts
+// in prototype.html, so the bundle works on hosts that block the IBM CDN.
+@use '@carbon/react/scss/config' with (
+  $css--font-face: false
+);
+@use '@carbon/react';
+
+:root {
+  color-scheme: light;
+  --proto-bg: #f4f4f4;
+  --proto-surface: #ffffff;
+  --proto-ink: #161616;
+  --proto-ink-2: #525252;
+  --proto-ink-3: #8d8d8d;
+  --proto-line: #e0e0e0;
+  --proto-line-2: #c6c6c6;
+  --proto-blue: #0f62fe;
+  --proto-blue-ink: #0043ce;
+  --proto-blue-soft: #edf5ff;
+  --proto-green: #198038;
+  --proto-green-soft: #defbe6;
+  --proto-amber: #8e6a00;
+  --proto-amber-soft: #fcf4d6;
+  --proto-red: #da1e28;
+  --proto-red-soft: #fff1f1;
+  --proto-purple: #8a3ffc;
+  --proto-purple-soft: #f6f2ff;
+  --proto-header: 48px;
+  /** Height of the manager's line under the header on engagement screens. */
+  --proto-subbar: 36px;
+  --proto-serif: 'IBM Plex Serif', Georgia, serif;
+  --proto-mono: 'IBM Plex Mono', Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--proto-bg);
+  color: var(--proto-ink);
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
