@@ -1,0 +1,264 @@
+.page {
+  flex: 1;
+  padding: 1.5rem 1rem 3rem;
+  background: #eef1f5;
+}
+
+.event {
+  max-width: 1180px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #d5dbe3;
+  box-shadow: 0 10px 30px -22px rgba(0, 0, 0, 0.4);
+}
+
+.eventBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--proto-line);
+  border-top: 4px solid #5b5fc7;
+}
+
+.eventTitle {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+
+  svg { fill: #5b5fc7; margin-top: 4px; flex: none; }
+
+  h1 {
+    margin: 0;
+    font-size: 1.375rem;
+    font-weight: 400;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+    font-size: 0.875rem;
+    color: var(--proto-ink-2);
+  }
+}
+
+.eventActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.saveState {
+  font-size: 0.75rem;
+  color: var(--proto-ink-2);
+  margin-right: 0.25rem;
+}
+
+.eventMeta {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--proto-line);
+  font-size: 0.8125rem;
+  color: var(--proto-ink-2);
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.invite {
+  padding: 1.25rem;
+  border-right: 1px solid var(--proto-line);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--proto-ink-2);
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.objective {
+  display: block;
+
+  textarea {
+    width: 100%;
+    border: 1px solid var(--proto-line-2);
+    padding: 0.7rem;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+
+    &:focus { border-color: #5b5fc7; }
+  }
+
+  small {
+    display: block;
+    text-align: right;
+    font-family: var(--proto-mono);
+    font-size: 0.6875rem;
+    color: var(--proto-ink-2);
+  }
+}
+
+.agendaList,
+.linedList {
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    font: inherit;
+    background: transparent;
+  }
+
+  li button {
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: var(--proto-ink-3);
+    display: flex;
+    opacity: 0;
+
+    &:hover { color: var(--proto-red); }
+    &:focus-visible { opacity: 1; }
+  }
+
+  li:hover button { opacity: 1; }
+}
+
+.agendaList {
+  li {
+    border-bottom: 1px solid var(--proto-line);
+    padding: 0.6rem 0;
+  }
+
+  input { font-size: 0.9375rem; }
+}
+
+.itemNumber {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e8e8f7;
+  color: #3d3fa0;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex: none;
+}
+
+.addItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  border: 0;
+  background: none;
+  color: #4f52b2;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+
+  &:hover { text-decoration: underline; }
+}
+
+// The notepad: a yellow legal pad
+.notepad {
+  position: relative;
+  background:
+    linear-gradient(90deg, transparent 46px, #f3a6a6 46px, #f3a6a6 48px, transparent 48px),
+    repeating-linear-gradient(#fffbe6 0 31px, #b9d3ee 31px 32px);
+  background-color: #fffbe6;
+  padding: 32px 1.25rem 2rem 64px;
+  min-height: 420px;
+}
+
+.notepadTitle {
+  margin: 0;
+  font-family: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
+  font-size: 1.375rem;
+  line-height: 32px;
+  font-weight: 600;
+}
+
+.notepadHint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 32px;
+  color: #6f6f6f;
+}
+
+.linedList {
+  li {
+    height: 32px;
+  }
+
+  .itemNumber {
+    background: none;
+    color: #9f1853;
+    width: auto;
+    margin-left: -30px;
+    font-family: var(--proto-mono);
+  }
+
+  input {
+    font-family: 'Caveat', 'Bradley Hand', cursive;
+    font-size: 1.25rem;
+    color: #1d3a6e;
+    height: 32px;
+  }
+
+  .addItem {
+    margin-top: 0;
+    height: 32px;
+    color: #9f1853;
+  }
+}
+
+.readiness {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid var(--proto-line);
+  background: #f4f4f4;
+  padding: 0.75rem 1rem;
+}

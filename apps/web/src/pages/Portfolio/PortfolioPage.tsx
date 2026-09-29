@@ -1,43 +1,24 @@
+/**
+ * Portfolio — the learner's consultant profile: stats, competency progression
+ * with its history toggle and chart, completed engagements, replay comparison
+ * and achievements. This is where the numbers live (SRS FR-14 keeps them off
+ * the play screens).
+ */
 import { useMemo, useState } from 'react'
-import { Grid, Column, Stack, Tile, Tag, Select, SelectItem, ProgressBar, Button, Checkbox } from '@carbon/react'
-import { TrophyFilled, Locked } from '@carbon/icons-react'
+import { Link } from 'react-router-dom'
+import { Button, Checkbox, Tag } from '@carbon/react'
+import { ArrowRight, TrophyFilled, Locked } from '@carbon/icons-react'
 import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfolio'
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import LoadingState from '@/components/shared/LoadingState'
 import ErrorState from '@/components/shared/ErrorState'
 import type { AchievementSummary, CompetencyTrend, CompletedEngagementView } from '@/api/types'
-import PageHeader from '@/lifecycle/components/PageHeader'
+import Choice from '@/components/shell/Choice'
+import IndustryArt from '@/components/shell/IndustryArt'
 import styles from './PortfolioPage.module.scss'
 import { achievementDescription } from '@/features/achievement/achievementPresentation'
 import { useAuthStore } from '@/store/authStore'
-
-function StatTile({
-  label,
-  value,
-  accent,
-  helper,
-}: {
-  label: string
-  value: string | number
-  accent?: 'success' | 'danger'
-  helper?: string
-}) {
-  return (
-    <Tile className={styles.statTile}>
-      <Stack gap={2}>
-        <p className={styles.statLabel}>{label}</p>
-        <span className={`${styles.statValue} ${
-            accent === 'success' ? styles.statValueSuccess
-            : accent === 'danger' ? styles.statValueDanger
-            : ''
-          }`}>{value}
-        </span>
-        {helper && <p className={styles.statHelper}>{helper}</p>}
-      </Stack>
-    </Tile>
-  )
-}
 
 /** Lightweight competency trend visualisation: one row per historical score,
  *  avoiding a chart-library dependency while still showing progression clearly. */
@@ -50,33 +31,23 @@ function CompetencyTrendCard({ trend, showHistory }: { trend: CompetencyTrend, s
   const delta = orderedPoints.length > 1 ? latest.score - first.score : 0
   const visiblePoints = showHistory ? orderedPoints : [latest]
   return (
-    <Tile className={styles.trendTile}>
-      <Stack gap={3}>
-        <div className={styles.trendHeader}>
-          <h5>{trend.competencyName}</h5>
-          {trend.points.length > 1 && (
-            <Tag type={delta >= 0 ? 'green' : 'red'} size="sm">
-              {delta >= 0 ? '+' : ''}{delta} since first attempt
-            </Tag>
-          )}
+    <div className={styles.trend}>
+      <div className={styles.trendHead}>
+        <strong>{trend.competencyName}</strong>
+        {trend.points.length > 1 && (
+          <Tag type={delta >= 0 ? 'green' : 'red'} size="sm">
+            {delta >= 0 ? '+' : ''}{delta} since first attempt
+          </Tag>
+        )}
+      </div>
+      {visiblePoints.map((p) => (
+        <div key={p.engagementId} className={styles.trendRow}>
+          <span>{new Date(p.generatedAt).toLocaleDateString('en-GB')}</span>
+          <div className={styles.bar}><i style={{ width: `${p.score}%` }} /></div>
+          <strong className={styles.trendScore}>{p.score}</strong>
         </div>
-        <Stack gap={2}>
-          {visiblePoints.map((p) => (
-            <div key={p.engagementId} className={styles.trendRow}>
-              <span className={styles.trendDate}>
-                {new Date(p.generatedAt).toLocaleDateString()}
-              </span>
-              <div className={styles.trendProgress}>
-                <ProgressBar label="" hideLabel value={p.score} max={100} size="small" />
-              </div>
-              <span className={styles.trendScore}>
-                {p.score}
-              </span>
-            </div>
-          ))}
-        </Stack>
-      </Stack>
-    </Tile>
+      ))}
+    </div>
   )
 }
 
@@ -84,12 +55,12 @@ const colors = ['#0f62fe', '#24a148', '#1192e8', '#da1e28']
 
 function CompetencyGraphLegend({ trends, hiddenCompetencies, toggleCompetency } : { trends: CompetencyTrend[], hiddenCompetencies: Set<string>, toggleCompetency: (competencyName: string) => void}) {
   return (
-    <div className={styles.combinedGraphLegend}>
+    <div className={styles.legend}>
       {trends.map((trend, index) => {
         const isHidden = hiddenCompetencies.has(trend.competencyName)
 
         return (
-          <div key={trend.competencyName} className={styles.combinedGraphLegendItem} style={{ '--competency-color': colors[index % colors.length] } as React.CSSProperties} >
+          <div key={trend.competencyName} style={{ '--c': colors[index % colors.length] } as React.CSSProperties}>
             <Checkbox
               id={`competency-${index}`}
               labelText={trend.competencyName}
@@ -157,14 +128,11 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
   if (trends.length === 0 || chartData.length === 0) return null
 
   return (
-    <Tile className={styles.combinedTrendTile}>
-      <Stack gap={4}>
-        <div>
-          <h5 className={styles.combinedTrendTitle}>Progress Across Attempts</h5>
-          <p className={styles.combinedTrendDescription}>Track how each competency has changed across your completed engagements.</p>
-        </div>
-        <div className={styles.combinedTrendChart}>
-          <ResponsiveContainer width="100%" height={320}>
+    <div className={styles.chartCard}>
+      <h3>Progress Across Attempts</h3>
+      <p>Track how each competency has changed across your completed engagements.</p>
+      <div className={styles.chart}>
+          <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
               <XAxis dataKey="attempt" tick={{ fill: '#525252', fontSize: 12 }} axisLine={{ stroke: '#8d8d8d' }} tickLine={{ stroke: '#8d8d8d' }} />
@@ -199,14 +167,13 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
               })}
             </LineChart>
           </ResponsiveContainer>
-        </div>
-        <CompetencyGraphLegend
-          trends={trends}
-          hiddenCompetencies={hiddenCompetencies}
-          toggleCompetency={toggleCompetency}
-        />
-      </Stack>
-    </Tile>
+      </div>
+      <CompetencyGraphLegend
+        trends={trends}
+        hiddenCompetencies={hiddenCompetencies}
+        toggleCompetency={toggleCompetency}
+      />
+    </div>
   )
 }
 
@@ -215,23 +182,21 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
     .includes(engagement.outcome)
   const rejected = ['REJECTED', 'PROPOSAL_REJECTED', 'LOST'].includes(engagement.outcome)
   return (
-    <Tile className={styles.historyTile}>
-      <Stack gap={2}>
-        <div>
-          <h5 className={styles.historyTitle}>{engagement.scenarioTitle}</h5>
-          <div className={styles.historyTags}>
-            <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.outcome.replace(/_/g, ' ')}</Tag>
-            <Tag type="cyan" size="sm">{engagement.industry}</Tag>
-          </div>
-        </div>
-        <div className={styles.historyMeta}>
-          <span className={styles.historyDate}>
-            {engagement.completedAt ? new Date(engagement.completedAt).toLocaleDateString() : 'In review'}
-          </span>
-          <span className={styles.historyScore}>{engagement.overallScore}/100</span>
-        </div>
-      </Stack>
-    </Tile>
+    <Link className={styles.historyCard} to={`/dashboard/engagements/${engagement.engagementId}/assessment`} aria-label={`Open the review of ${engagement.scenarioTitle}`}>
+      <div className={styles.historyHead}>
+        <IndustryArt industry={engagement.industry} size={44} />
+        <h3>{engagement.scenarioTitle}</h3>
+      </div>
+      <div className={styles.tags}>
+        <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.outcome.replace(/_/g, ' ')}</Tag>
+        <Tag type="cyan" size="sm">{engagement.industry}</Tag>
+      </div>
+      <div className={styles.historyMeta}>
+        <span>{engagement.completedAt ? new Date(engagement.completedAt).toLocaleDateString('en-GB') : 'In review'}</span>
+        <strong>{engagement.overallScore}/100</strong>
+      </div>
+      <span className={styles.historyOpen}>Open review <ArrowRight size={16} /></span>
+    </Link>
   )
 }
 
@@ -241,103 +206,58 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
   const { data: comparison, isFetching } = useReplayComparison(engagementA, engagementB)
 
   if (history.length < 2) return null
+  const options = [
+    { value: '', label: 'Select an engagement…' },
+    ...history.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100` })),
+  ]
 
   return (
-    <section className={styles.replaySection}>
-      <h3 className={styles.sectionTitle}>Replay Comparison</h3>
-      <Tile className={styles.replayTile}>
-        <Stack gap={4}>
-          <Grid narrow>
-            <Column lg={8} md={4} sm={4}>
-              <Select
-                id="replay-a"
-                labelText="Engagement A"
-                value={engagementA}
-                onChange={(e) => setEngagementA(e.target.value)}
-              >
-                <SelectItem value="" text="Select an engagement…" />
-                {(history ?? []).map((h) => (
-                  <SelectItem key={h.engagementId} value={h.engagementId} text={`${h.scenarioTitle} — ${h.overallScore}/100`} />
-                ))}
-              </Select>
-            </Column>
-            <Column lg={8} md={4} sm={4}>
-              <Select
-                id="replay-b"
-                labelText="Engagement B"
-                value={engagementB}
-                onChange={(e) => setEngagementB(e.target.value)}
-              >
-                <SelectItem value="" text="Select an engagement…" />
-                {(history ?? []).map((h) => (
-                  <SelectItem key={h.engagementId} value={h.engagementId} text={`${h.scenarioTitle} — ${h.overallScore}/100`} />
-                ))}
-              </Select>
-            </Column>
-          </Grid>
+    <section className={styles.section}>
+      <h2>Replay comparison</h2>
+      <div className={styles.replay}>
+        <div className={styles.replayPickers}>
+          <Choice id="replay-a" label="Engagement A" value={engagementA} onChange={setEngagementA} options={options} />
+          <Choice id="replay-b" label="Engagement B" value={engagementB} onChange={setEngagementB} options={options} />
+        </div>
 
-          {isFetching && <LoadingState description="Loading comparison…" />}
+        {isFetching && <LoadingState description="Loading comparison…" />}
 
-          {comparison && (
-            <Grid narrow>
-              {[comparison.engagementA, comparison.engagementB].map((snapshot, idx) => (
-                <Column key={idx} lg={8} md={4} sm={4}>
-                  <Tile className={styles.replaySnapshot}>
-                    <Stack gap={3}>
-                      <div>
-                        <h5 className={styles.snapshotTitle}>{snapshot.scenarioTitle}</h5>
-                        <p className={styles.snapshotPersona}>vs. {snapshot.personaName}</p>
-                      </div>
-                      <span className={styles.snapshotScore}>{snapshot.overallScore}/100</span>
-                      <div className={styles.competencyScoreList}>
-                        {snapshot.competencyScores.map((c) => (
-                          <div key={c.competencyName} className={styles.competencyScoreRow}>
-                            <span className={styles.competencyScoreName}>{c.competencyName}</span>
-                            <span className={styles.competencyScoreValue}>{c.score}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </Stack>
-                  </Tile>
-                </Column>
-                ),
-              )}
-            </Grid>
-          )}
-        </Stack>
-      </Tile>
+        {comparison && (
+          <div className={styles.replayGrid}>
+            {[comparison.engagementA, comparison.engagementB].map((snapshot, idx) => (
+              <div key={idx} className={styles.snapshot}>
+                <h3>{snapshot.scenarioTitle}</h3>
+                <p>vs. {snapshot.personaName}</p>
+                <strong className={styles.snapshotScore}>{snapshot.overallScore}/100</strong>
+                {snapshot.competencyScores.map((c) => (
+                  <div key={c.competencyName} className={styles.snapshotRow}><span>{c.competencyName}</span><span>{c.score}</span></div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   )
 }
 
 function AchievementBadge({ achievement }: { achievement: AchievementSummary }) {
   return (
-    <Tile className={`${styles.achievementTile} ${ achievement.unlocked ? '' : styles.achievementLocked }`}>
-      <Stack gap={3}>
-        <div className={styles.achievementHeader}>
-          {achievement.unlocked ? (
-            <TrophyFilled size={20} className={styles.achievementIcon} />
-          ) : (
-            <Locked size={20} className={styles.achievementLockedIcon} />
-          )}
-          <h5 className={styles.achievementName}>{achievement.name}</h5>
+    <article className={`${styles.badge} ${achievement.unlocked ? '' : styles.badgeLocked}`}>
+      <div className={styles.badgeHead}>
+        {achievement.unlocked ? <TrophyFilled size={20} /> : <Locked size={20} />}
+        <strong>{achievement.name}</strong>
+      </div>
+      <p>{achievementDescription(achievement.description)}</p>
+      {achievement.unlocked ? (
+        <Tag type="green" size="sm">Unlocked {achievement.unlockedAt ? new Date(achievement.unlockedAt).toLocaleDateString('en-GB') : ''}</Tag>
+      ) : (
+        <div className={styles.badgeProgress}>
+          <div className={styles.bar}><i style={{ width: `${achievement.progressPercent}%` }} /></div>
+          <span>{Math.round(achievement.progressPercent)}% complete</span>
         </div>
-        <p className={styles.achievementDescription}>{achievementDescription(achievement.description)}</p>
-        {achievement.unlocked ? (
-          <Tag type="green" size="sm">
-            Unlocked{' '}
-            {achievement.unlockedAt
-              ? new Date(achievement.unlockedAt).toLocaleDateString()
-              : ''}
-          </Tag>
-        ) : (
-          <div className={styles.achievementProgress}>
-            <ProgressBar label="" hideLabel value={achievement.progressPercent} max={100} size="small" />
-            <span className={styles.achievementProgressText}>{Math.round(achievement.progressPercent)}% complete</span>
-          </div>
-        )}
-      </Stack>
-    </Tile>
+      )}
+    </article>
   )
 }
 
@@ -348,14 +268,10 @@ function AchievementsSection() {
 
   return (
     <section className={styles.section}>
-      <h3 className={styles.sectionTitle}>Achievements</h3>
-      <Grid narrow>
-        {achievements.map((a) => (
-          <Column key={a.id} lg={4} md={4} sm={4} className={styles.columnSpacing} >
-            <AchievementBadge achievement={a} />
-          </Column>
-        ))}
-      </Grid>
+      <h2>Achievements</h2>
+      <div className={styles.achievements}>
+        {achievements.map((a) => <AchievementBadge key={a.id} achievement={a} />)}
+      </div>
     </section>
   )
 }
@@ -372,91 +288,79 @@ export default function PortfolioPage() {
   if (isLoading) return <LoadingState />
   if (isError || !portfolio) return <ErrorState />
 
+  const initials = (displayName ?? '').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+
   return (
-    <>
-    <PageHeader
-      phase="COMPLETED"
-      description={displayName
-          ? `Welcome ${displayName}, see your competency growth and completed engagement history across every scenario.`
-          : 'Your competency growth and completed engagement history across every scenario.'
-      }
-    />
-    <Grid fullWidth className={styles.page}>
-      <Column lg={16} md={8} sm={4}>
-        <Stack gap={7}>
-          <Grid narrow>
-            <Column lg={4} md={4} sm={4} className={styles.columnSpacing}>
-              <StatTile
-                label="Completed engagements"
-                value={`${portfolio.completedEngagements} / ${portfolio.totalEngagements}`}
-                helper={`${portfolio.totalEngagements - portfolio.completedEngagements} still in progress`}
-              />
-            </Column>
-            <Column lg={4} md={4} sm={4} className={styles.columnSpacing} >
-              <StatTile label="Contracts Won" value={portfolio.contractsWon} accent="success" />
-            </Column>
-            <Column lg={4} md={4} sm={4} className={styles.columnSpacing} >
-              <StatTile label="Contracts Lost" value={portfolio.contractsLost} accent="danger" />
-            </Column>
-            <Column lg={4} md={4} sm={4} className={styles.columnSpacing} >
-              <StatTile label="Average Score" value={portfolio.averageOverallScore || '—'} />
-            </Column>
-          </Grid>
+    <div className={styles.page}>
+      <header className={styles.profile}>
+        <span className={styles.avatar} aria-hidden="true">{initials || 'IBM'}</span>
+        <div>
+          <h1>{displayName ?? 'Your portfolio'}</h1>
+          <p>Associate Consultant · IBM Consulting</p>
+          <p className={styles.welcome}>
+            {displayName
+              ? `Welcome ${displayName}, see your competency growth and completed engagement history across every scenario.`
+              : 'Your competency growth and completed engagement history across every scenario.'}
+          </p>
+        </div>
+      </header>
 
-          {portfolio.competencyTrends.length > 0 && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Competency Progression</h3>
-              {portfolio.competencyTrends.some((trend) => trend.points.length > 1) && (
-                <Button kind="ghost" size="sm" className={styles.historyButton} onClick={() => setShowCompetencyHistory((current) => !current)} >
-                  {showCompetencyHistory ? 'Hide history' : 'View history'}
-                </Button>
-              )}
-              <Grid narrow>
-                {portfolio.competencyTrends.map((trend) => (
-                  <Column key={trend.competencyName} lg={8} md={4} sm={4} className={styles.columnSpacing} >
-                    <CompetencyTrendCard trend={trend} showHistory={showCompetencyHistory} />
-                  </Column>
-                ))}
-              </Grid>
-              {portfolio.completedEngagements >= 2 ? (
-                <CompetencyTrendGraph trends={portfolio.competencyTrends} />
-              ) : (
-                <Tile className={styles.combinedTrendTile} >
-                  <h5 className={styles.combinedTrendTitle}>Progress Across Attempts</h5>
-                  <p className={styles.combinedTrendDescription}>Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.</p>
-                </Tile>
-              )}
-            </section>
-          )}
+      <section className={styles.stats} aria-label="Totals">
+        <div>
+          <span>Completed engagements</span>
+          <strong>{portfolio.completedEngagements} / {portfolio.totalEngagements}</strong>
+          <small>{portfolio.totalEngagements - portfolio.completedEngagements} still in progress</small>
+        </div>
+        <div><span>Contracts won</span><strong className={styles.good}>{portfolio.contractsWon}</strong></div>
+        <div><span>Contracts lost</span><strong className={styles.bad}>{portfolio.contractsLost}</strong></div>
+        <div><span>Average score</span><strong>{portfolio.averageOverallScore || '—'}</strong></div>
+      </section>
 
-          {sortedHistory.length > 0 ? (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>
-                Completed Engagements ({portfolio.completedEngagements} of {portfolio.totalEngagements})
-              </h3>
-              <Grid narrow>
-                {sortedHistory.map((h) => (
-                  <Column key={h.engagementId} lg={5} md={4} sm={4} className={styles.columnSpacing} >
-                    <EngagementHistoryRow engagement={h} />
-                  </Column>
-                ))}
-              </Grid>
-            </section>
+      {portfolio.competencyTrends.length > 0 && (
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <h2>Competency Progression</h2>
+            {portfolio.competencyTrends.some((trend) => trend.points.length > 1) && (
+              <Button kind="ghost" size="sm" onClick={() => setShowCompetencyHistory((current) => !current)}>
+                {showCompetencyHistory ? 'Hide history' : 'View history'}
+              </Button>
+            )}
+          </div>
+          <div className={styles.trends}>
+            {portfolio.competencyTrends.map((trend) => (
+              <CompetencyTrendCard key={trend.competencyName} trend={trend} showHistory={showCompetencyHistory} />
+            ))}
+          </div>
+          {portfolio.completedEngagements >= 2 ? (
+            <CompetencyTrendGraph trends={portfolio.competencyTrends} />
           ) : (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Completed Engagements</h3>
-              <p className={styles.emptyState}>
-                Complete your first engagement to start building your portfolio.
-              </p>
-            </section>
+            <div className={styles.chartCard}>
+              <h3>Progress Across Attempts</h3>
+              <p>Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.</p>
+            </div>
           )}
+        </section>
+      )}
 
-          <ReplayComparisonSection history={sortedHistory} />
+      <section className={styles.section}>
+        {sortedHistory.length > 0 ? (
+          <>
+            <h2>Completed engagements ({portfolio.completedEngagements} of {portfolio.totalEngagements})</h2>
+            <div className={styles.history}>
+              {sortedHistory.map((h) => <EngagementHistoryRow key={h.engagementId} engagement={h} />)}
+            </div>
+          </>
+        ) : (
+          <>
+            <h2>Completed engagements</h2>
+            <p className={styles.emptyState}>Complete your first engagement to start building your portfolio.</p>
+          </>
+        )}
+      </section>
 
-          <AchievementsSection />
-        </Stack>
-      </Column>
-    </Grid>
-    </>
+      <ReplayComparisonSection history={sortedHistory} />
+
+      <AchievementsSection />
+    </div>
   )
 }

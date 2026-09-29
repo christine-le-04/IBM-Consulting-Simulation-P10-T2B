@@ -1,273 +1,477 @@
-import { useEffect, useState } from 'react'
-import { Button, Heading, InlineLoading, InlineNotification, NumberInput, Select, SelectItem, Stack, Tag, TextArea, TextInput } from '@carbon/react'
-import { Add, Checkmark, CheckmarkFilled, ChevronLeft, ChevronRight, Renew, Send, TrashCan, WarningAlt } from '@carbon/icons-react'
-import { useParams } from 'react-router-dom'
+/**
+ * Proposal — a document editor: the outline on the left, the proposal as a
+ * page in the middle, and the margin on the right holding the evidence library
+ * and the coach's comments. Every field of the studio is kept, and all of the
+ * behaviour stays in useProposalStudio (autosave, recovery, review, challenge,
+ * submit).
+ *
+ * Three changes follow SRS v2: review scores become words and the outline's
+ * counters become a word-only "Before you submit" checklist (FR-14), and
+ * Submit is never locked — pressed early, it shows what is missing first.
+ *
+ * Once submitted, /proposal opens on the client's decision; `?view=proposal`
+ * shows the proposal that was sent, read-only (it can be submitted once).
+ */
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { Button, InlineLoading, InlineNotification, Tag } from '@carbon/react'
+import { Add, ArrowLeft, Checkmark, CheckmarkFilled, ChevronLeft, ChevronRight, Renew, Send, TrashCan, WarningAlt } from '@carbon/icons-react'
+import { useEngagement } from '@/api/hooks/useEngagements'
+import { useScenario } from '@/api/hooks/useScenarios'
+import { getApiProblem } from '@/api/problemDetails'
 import type { ProposalReview } from '@/api/types'
-import type { ProposalDraftRequest } from '@/api/hooks/useProposal'
 import LoadingState from '@/components/shared/LoadingState'
+import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
+import Choice from '@/components/shell/Choice'
+import GatedButton from '@/components/shell/GatedButton'
+import ReadinessList from '@/components/shell/ReadinessList'
+import { useMentor } from '@/components/shell/useMentor'
 import { ProposalOutcomeView } from '@/features/proposal/components/ProposalOutcomeView'
 import { useProposalStudio } from '@/features/proposal/hooks/useProposalStudio'
 import { proposalSections } from '@/features/proposal/services/proposalDraftService'
-import { PHASE_LABEL } from '@/lifecycle/phases'
-import { getApiProblem } from '@/api/problemDetails'
 import styles from './ProposalStudioPage.module.scss'
-import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 
 const SOURCES_PER_PAGE = 4
-const EDITOR_ITEMS_PER_PAGE = 3
+const SEVERITY = [{ value: 'LOW', label: 'Low' }, { value: 'MEDIUM', label: 'Medium' }, { value: 'HIGH', label: 'High' }]
+const BUDGET_CONFIDENCE = [{ value: 'UNCONFIRMED', label: 'Unconfirmed' }, ...SEVERITY]
+
 const PROPOSAL_OBJECTIVES = [
   {
     id: 'completion-steps',
-    objective: 'Understand proposal steps',
-    description: 'This highlights the five necessary steps to complete a proposal. Complete each with detailed responses to successfully submit to client and move to the review of your progress.',
+    objective: 'Five sections, one proposal',
+    description: 'Work through the outline. The checklist under it shows what the proposal still needs before you submit it.',
     targets: ['.objective-steps'],
   },
   {
     id: 'evidence',
     objective: 'Attach evidence',
-    description: 'Similar to previous pages, you are able to attach evidence to support your claims.',
+    description: 'Attach the research and meeting evidence each section relies on, so every claim stays traceable.',
     targets: ['.objective-evidence'],
   },
   {
     id: 'review',
-    objective: 'Review proposal',
-    description: 'After completing all the sections, you are able to have AI review your proposal. It will note which areas require improvement and is recommended before submitting the proposal to the client.',
+    objective: 'Review before you submit',
+    description: 'The AI review says which areas need work. It is recommended before you submit the proposal to the client.',
     targets: ['.objective-review'],
   },
 ]
 
+/** Review scores stay underneath; the learner reads a word (FR-14). */
+function band(score: number) {
+  return score >= 75 ? 'Strong' : score >= 60 ? 'Adequate' : 'Needs work'
+}
+
+const filled = (value: string | number) => String(value).trim().length > 0
+
+function Table<T extends object>({ columns, rows, empty, onChange, readOnly = false }: {
+  columns: [keyof T & string, string][]
+  rows: T[]
+  empty: T
+  onChange: (rows: T[]) => void
+  readOnly?: boolean
+}) {
+  const edit = (index: number, key: keyof T & string, value: string) =>
+    onChange(rows.map((item, position) => (position === index ? { ...item, [key]: value } : item)))
+  return (
+    <div className={styles.table}>
+      <table>
+        <thead><tr>{columns.map(([, label]) => <th key={label}>{label}</th>)}{!readOnly && <th aria-label="Remove" />}</tr></thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={index}>
+              {columns.map(([key, label]) => (
+                <td key={key}>
+                  {key === 'severity' ? (
+                    <Choice id={`severity-${index}`} label={label} hideLabel size="sm" disabled={readOnly} value={String(row[key])} options={SEVERITY} onChange={(value) => edit(index, key, value)} />
+                  ) : (
+                    <input aria-label={`${label} ${index + 1}`} readOnly={readOnly} value={String(row[key] ?? '')} placeholder={label} onChange={(event) => edit(index, key, event.target.value)} />
+                  )}
+                </td>
+              ))}
+              {!readOnly && (
+                <td className={styles.remove}>
+                  <button type="button" aria-label={`Remove row ${index + 1}`} onClick={() => onChange(rows.length === 1 ? [empty] : rows.filter((_, position) => position !== index))}><TrashCan size={14} /></button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!readOnly && <button type="button" className={styles.addRow} onClick={() => onChange([...rows, empty])}><Add size={14} /> Add row</button>}
+    </div>
+  )
+}
+
+function Bullets({ items, label, placeholder, onChange, readOnly = false }: { items: string[]; label: string; placeholder: string; onChange: (items: string[]) => void; readOnly?: boolean }) {
+  return (
+    <ul className={styles.bullets}>
+      {items.map((item, index) => (
+        <li key={index}>
+          <input value={item} readOnly={readOnly} placeholder={placeholder} aria-label={`${label} ${index + 1}`} onChange={(event) => onChange(items.map((value, position) => (position === index ? event.target.value : value)))} />
+          {!readOnly && <button type="button" aria-label={`Remove item ${index + 1}`} onClick={() => onChange(items.length === 1 ? [''] : items.filter((_, position) => position !== index))}><TrashCan size={14} /></button>}
+        </li>
+      ))}
+      {!readOnly && <li><button type="button" className={styles.addRow} onClick={() => onChange([...items, ''])}><Add size={14} /> Add item</button></li>}
+    </ul>
+  )
+}
+
+function ReviewComment({ review }: { review: ProposalReview }) {
+  const priority = review.validationIssues.find((issue) => issue.severity === 'BLOCKING') ?? review.validationIssues[0]
+  return (
+    <div className={styles.comment}>
+      <p className={styles.commentWho}>AI proposal review <Tag type={review.readyToSubmit ? 'green' : 'red'} size="sm">{review.readyToSubmit ? 'Ready to submit' : 'Action required'}</Tag></p>
+      <dl className={styles.bands}>
+        <div><dt>Evidence grounding</dt><dd>{band(review.evidenceGroundingScore)}</dd></div>
+        <div><dt>Client alignment</dt><dd>{band(review.clientAlignmentScore)}</dd></div>
+        <div><dt>Commercial logic</dt><dd>{band(review.commercialLogicScore)}</dd></div>
+      </dl>
+      <p>{review.executiveFeedback}</p>
+      {priority && <p className={priority.severity === 'BLOCKING' ? styles.blocking : styles.warning}><WarningAlt size={16} /> {priority.message}</p>}
+      {review.improvementActions[0] && <p className={styles.improve}><strong>Improve next</strong> {review.improvementActions[0]}</p>}
+    </div>
+  )
+}
+
 export default function ProposalStudioPage() {
   const { engagementId = '' } = useParams<{ engagementId: string }>()
   const studio = useProposalStudio(engagementId)
+  const { data: engagement } = useEngagement(engagementId)
+  const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [panel, setPanel] = useState<'evidence' | 'coach'>('evidence')
   const [sourcePage, setSourcePage] = useState(0)
-  const sources = studio.workspace.data?.sources ?? []
+
+  const { draft, activeSection, updateDraft } = studio
+  const sources = useMemo(() => studio.workspace.data?.sources ?? [], [studio.workspace.data?.sources])
+  const sourceById = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources])
   const sourcePageCount = Math.max(1, Math.ceil(sources.length / SOURCES_PER_PAGE))
   const visibleSources = sources.slice(sourcePage * SOURCES_PER_PAGE, (sourcePage + 1) * SOURCES_PER_PAGE)
-  const sourceStart = sources.length === 0 ? 0 : sourcePage * SOURCES_PER_PAGE + 1
-  const sourceEnd = Math.min(sources.length, (sourcePage + 1) * SOURCES_PER_PAGE)
+  const activeLabel = proposalSections.find((section) => section.id === activeSection)?.label
+  const sectionLinks = draft.evidenceLinks.filter((link) => link.section === activeSection).map((link) => link.sourceId)
+  const grounded = new Set(draft.evidenceLinks.map((link) => link.section)).size
+  const contact = scenario?.personas.find((persona) => persona.id === engagement?.personaId)
+
   const isReviewing = studio.reviewProposal.isPending
   const isSubmitting = studio.submitProposal.isPending
   const hasProposalFailure = studio.submitProposal.isError || studio.saveState === 'error'
-  const proposalFailure = studio.submitProposal.error ?? studio.saveDraft.error
   const proposalProblem = hasProposalFailure
-    ? getApiProblem(proposalFailure, 'Your draft remains in this workspace. Resolve the highlighted findings and try again.')
+    ? getApiProblem(studio.submitProposal.error ?? studio.saveDraft.error, 'Your draft remains in this workspace. Resolve the highlighted findings and try again.')
     : null
 
   useEffect(() => {
     setSourcePage((current) => Math.min(current, sourcePageCount - 1))
   }, [sourcePageCount])
 
+  const written = filled(draft.problemStatement) && filled(draft.solutionStrategy)
+    && draft.businessOutcomes.every((row) => filled(row.outcome) && filled(row.metric)) && draft.budget > 0
+    && draft.timelineWeeks > 0 && draft.milestones.every((row) => filled(row.phase))
+    && draft.risks.every((row) => filled(row.risk)) && draft.assumptions.some(filled)
+  const checklist = [
+    { label: 'Every section is written', done: written },
+    { label: 'Every section cites evidence', done: grounded === proposalSections.length },
+    { label: 'Every risk has a mitigation', done: draft.risks.every((row) => filled(row.mitigation)) },
+    { label: 'You have run a proposal review', done: Boolean(studio.review) },
+  ]
+
+  const readOnly = studio.submitted
+  const readingSent = readOnly && searchParams.get('view') === 'proposal'
+
+  useMentor(
+    readingSent ? 'This is what you sent. Compare it with what they said.'
+      : studio.submitted ? 'Read what they said before the scores. Then open your review.' : !sectionLinks.length
+      ? `Attach one source to “${activeLabel}” so the proposal stays traceable.`
+      : 'Write this section from the evidence you attached, then run a review.',
+  )
+
   if (studio.workspace.isLoading) return <LoadingState />
   if (studio.workspace.isError) {
-    return <InlineNotification kind="error" title="Proposal workspace unavailable" subtitle="Please return to the Command Centre and reopen this engagement." hideCloseButton />
+    return <InlineNotification kind="error" title="Proposal workspace unavailable" subtitle="Please return to the Office and reopen this engagement." hideCloseButton />
   }
-  if (studio.submitted && studio.proposal) return <ProposalOutcomeView proposal={studio.proposal} engagementId={engagementId} />
+  if (studio.submitted && studio.proposal && !readingSent) {
+    return (
+      <ProposalOutcomeView
+        proposal={studio.proposal}
+        engagementId={engagementId}
+        onReadProposal={() => setSearchParams({ view: 'proposal' })}
+        client={{ company: engagement?.leadCompanyName, contactName: contact?.name, contactTitle: contact?.jobTitle, subject: engagement?.scenarioTitle }}
+      />
+    )
+  }
+
+  const review = () => {
+    setPanel('coach')
+    void studio.reviewCurrentDraft()
+  }
+  const challenge = () => {
+    setPanel('coach')
+    void studio.challengeCurrentDraft()
+  }
+
+  const saveLabel = readOnly ? 'Submitted to the client · read only' : isReviewing ? 'Reviewing proposal…' : isSubmitting ? 'Submitting to client…'
+    : studio.saveState === 'saving' ? 'Saving draft…' : studio.saveState === 'saved' ? 'Draft saved'
+      : studio.saveState === 'error' ? 'Save failed' : 'Draft changes save automatically'
+  const busy = isReviewing || isSubmitting || studio.saveDraft.isPending
 
   return (
     <ObjectiveTourProvider tourId="proposal-studio" objectives={PROPOSAL_OBJECTIVES}>
-    <main className={styles.page}>
-      <div className={styles.canvas}>
-      <header className={styles.header}>
-        <div>
-          <Heading>{PHASE_LABEL.PROPOSAL}</Heading>
-          <p className={styles.subtitle}>Build a concise recommendation from client evidence.</p>
-          <p className={styles.subtitle}>The coach reviews your reasoning; it never writes the proposal for you.</p>
-        </div>
-        <div className={styles.headerActions}>
-          {isReviewing ? <InlineLoading description="Reviewing proposal" /> : isSubmitting ? <InlineLoading description="Submitting to client" /> : <SaveStatus state={studio.saveState} />}
-          {studio.saveState === 'error' && <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => void studio.retrySave()} disabled={studio.saveDraft.isPending}>Retry save</Button>}
-          <Button kind="tertiary" renderIcon={Renew} onClick={() => void studio.reviewCurrentDraft()} disabled={isReviewing || isSubmitting || studio.saveDraft.isPending}>{isReviewing ? 'Reviewing proposal' : 'Review proposal'}</Button>
-          <Button renderIcon={Send} onClick={() => void studio.submit()} disabled={isSubmitting || isReviewing || studio.saveDraft.isPending}>{isSubmitting ? 'Submitting to client' : 'Submit to client'}</Button>
-        </div>
-      </header>
+      <div className={styles.editorApp}>
+        <header className={styles.docBar}>
+          <div className={styles.docName}>
+            <span className={styles.docIcon} aria-hidden="true" />
+            <div>
+              <strong>Proposal — {engagement?.leadCompanyName ?? engagement?.scenarioTitle ?? 'Client'}</strong>
+              <span className={styles.saveState}>{saveLabel}</span>
+            </div>
+          </div>
+          {readOnly ? (
+            <div className={styles.docActions}>
+              <Button kind="secondary" size="md" renderIcon={ArrowLeft} onClick={() => setSearchParams({})}>Back to their decision</Button>
+            </div>
+          ) : (
+            <div className={styles.docActions}>
+              {studio.saveState === 'error' && <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => void studio.retrySave()} disabled={studio.saveDraft.isPending}>Retry save</Button>}
+              <Button kind="tertiary" size="md" renderIcon={Renew} className="objective-review" onClick={review} disabled={busy}>
+                {isReviewing ? 'Reviewing proposal' : 'Review proposal'}
+              </Button>
+              <GatedButton
+                size="md"
+                renderIcon={Send}
+                notReadyKind="secondary"
+                disabled={busy}
+                ready={checklist.every((item) => item.done)}
+                checklist={checklist}
+                title="Before you submit to the client"
+                stayLabel="Keep editing"
+                onGo={() => void studio.submit()}
+              >
+                {isSubmitting ? 'Submitting to client' : 'Submit to client'}
+              </GatedButton>
+            </div>
+          )}
+        </header>
 
-      {proposalProblem && <>
-        <InlineNotification kind="error" title="Proposal could not be saved or submitted" subtitle={proposalProblem.detail} hideCloseButton />
-        {proposalProblem.violations && (
-          <ul aria-label="Proposal validation errors">
-            {Object.entries(proposalProblem.violations).map(([field, message]) => (
-              <li key={field}><strong>{field}</strong>: {message}</li>
-            ))}
-          </ul>
+        {isSubmitting && (
+          <div className={styles.submitting} role="status" aria-live="polite">
+            <InlineLoading description="Applying the client decision" />
+            <span>Persisting the deterministic outcome. The client narrative will continue in the background.</span>
+          </div>
         )}
-      </>}
 
-      <section className={`${styles.progressStrip} objective-steps`} aria-label="Proposal progress">
-        {proposalSections.map((section, index) => {
-          const isActive = studio.activeSection === section.id
-          const linked = studio.draft.evidenceLinks.some((link) => link.section === section.id)
-          return <button type="button" key={section.id} className={isActive ? styles.progressStepActive : styles.progressStep} onClick={() => studio.setActiveSection(section.id)}>
-            <span>{linked ? <CheckmarkFilled /> : index + 1}</span>
-            <strong>{section.label}</strong>
-          </button>
-        })}
-      </section>
-
-      <div className={styles.workspace}>
-        <aside className={`${styles.sourcesPanel} objective-evidence`} aria-label="Grounded client sources">
-          <div className={styles.panelTitle}><div><p className={styles.eyebrow}>Grounded context</p><h2>Evidence library</h2></div><Tag type="blue">{sources.length} sources</Tag></div>
-          <div className={styles.sourceToolbar}>
-            <p className={styles.panelHint}>Showing {sourceStart}-{sourceEnd} of {sources.length} for <strong>{proposalSections.find((section) => section.id === studio.activeSection)?.label}</strong>.</p>
-            {sourcePageCount > 1 && <div className={styles.sourcePagination} aria-label="Evidence source pages"><Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Previous sources" disabled={sourcePage === 0} onClick={() => setSourcePage((current) => current - 1)} /><span aria-live="polite">{sourcePage + 1}/{sourcePageCount}</span><Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Next sources" disabled={sourcePage === sourcePageCount - 1} onClick={() => setSourcePage((current) => current + 1)} /></div>}
+        {proposalProblem && (
+          <div className={styles.problem}>
+            <InlineNotification kind="error" lowContrast title="Proposal could not be saved or submitted" subtitle={proposalProblem.detail} hideCloseButton />
+            {proposalProblem.violations && (
+              <ul aria-label="Proposal validation errors">
+                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{field}</strong>: {message}</li>)}
+              </ul>
+            )}
           </div>
-          <div className={styles.sourceList}>
-            {visibleSources.map((source) => {
-              const attached = studio.attachedSourceIds.has(source.id)
-              return <article className={styles.source} key={source.id}>
-                <div className={styles.sourceMeta}><Tag type={source.type === 'MEETING_DISCOVERY' ? 'purple' : 'cool-gray'}>{source.type === 'MEETING_DISCOVERY' ? 'Meeting' : 'Evidence'}</Tag><span>{source.reliability}</span></div>
-                <h3>{source.label}</h3><p>{source.content}</p>
-                <Button kind={attached ? 'secondary' : 'tertiary'} size="sm" renderIcon={attached ? Checkmark : Add} onClick={() => attached ? studio.detach(source.id) : studio.attach(source)}>{attached ? 'Attached' : 'Attach source'}</Button>
-              </article>
+        )}
+
+        <div className={styles.workspace}>
+          <nav className={`${styles.outline} objective-steps`} aria-label="Proposal sections">
+            <p className={styles.outlineTitle}>Outline</p>
+            {proposalSections.map((section, index) => {
+              const linked = draft.evidenceLinks.some((link) => link.section === section.id)
+              return (
+                <button key={section.id} type="button" className={activeSection === section.id ? styles.outlineActive : styles.outlineItem} onClick={() => studio.setActiveSection(section.id)}>
+                  <span>{linked ? <CheckmarkFilled size={14} /> : index + 1}</span>
+                  {section.label}
+                </button>
+              )
             })}
-            {sources.length === 0 && <p className={styles.empty}>No evidence or discovery facts are available yet.</p>}
-          </div>
-        </aside>
+            <section className={styles.health} aria-label={readOnly ? 'What you submitted' : 'Before you submit'}>
+              <p className={styles.outlineTitle}>{readOnly ? 'What you submitted' : 'Before you submit'}</p>
+              {/* Whether a review was run is not stored with the proposal, so
+                  once it is submitted that line cannot be answered honestly. */}
+              <ReadinessList items={readOnly ? checklist.slice(0, 3) : checklist} />
+            </section>
+          </nav>
 
-        <section className={styles.builder}>
-          <div className={styles.editor}>
-            {studio.activeSection === 'PROBLEM' && <Foundation draft={studio.draft} update={studio.updateDraft} />}
-            {studio.activeSection === 'OUTCOMES' && <Commercial draft={studio.draft} update={studio.updateDraft} />}
-            {studio.activeSection === 'TIMELINE' && <Delivery draft={studio.draft} update={studio.updateDraft} />}
-            {studio.activeSection === 'RISKS' && <RiskAssumptions draft={studio.draft} update={studio.updateDraft} showRisks />}
-            {studio.activeSection === 'ASSUMPTIONS' && <RiskAssumptions draft={studio.draft} update={studio.updateDraft} showRisks={false} />}
-          </div>
-        </section>
+          {/* Only the page scrolls; the outline and the margin stay put. */}
+          <div className={styles.pageScroll}>
+            <article className={styles.page}>
+              <header className={styles.pageHead}>
+                <span className={styles.ibm}>IBM Consulting</span>
+                <span>{contact ? `Proposal to ${contact.name}, ${contact.jobTitle}` : 'Proposal'} · {readOnly ? 'Submitted' : 'Draft'}</span>
+              </header>
 
-        <aside className={`${styles.reviewPanel} objective-review`} aria-label="Proposal validation and coaching">
-          <div className={styles.panelTitle}><div><p className={styles.eyebrow}>FactGuard</p><h2>Proposal health</h2></div></div>
-          <section className={styles.attachments}><span>Evidence linked</span><strong>{studio.draft.evidenceLinks.length}</strong><span>Sections grounded</span><strong>{new Set(studio.draft.evidenceLinks.map((link) => link.section)).size}/5</strong></section>
-          <Button kind="tertiary" size="sm" renderIcon={Renew} onClick={() => void studio.reviewCurrentDraft()} disabled={isReviewing || isSubmitting || studio.saveDraft.isPending}>{isReviewing ? 'Reviewing proposal' : 'Run AI proposal review'}</Button>
-          {isReviewing && <section className={styles.reviewLoading} role="status" aria-live="polite"><div><strong>Checking your proposal</strong><span>Validating evidence, client alignment and delivery risk.</span></div><div className={styles.reviewLoadingTrack}><i /></div></section>}
-          {isSubmitting && <section className={styles.reviewLoading} role="status" aria-live="polite"><div><strong>Applying the client decision</strong><span>Persisting the deterministic outcome. The client narrative will continue in the background.</span></div><div className={styles.reviewLoadingTrack}><i /></div></section>}
-          <Button kind="ghost" size="sm" onClick={() => void studio.challengeCurrentDraft()} disabled={studio.challengeProposal.isPending || isReviewing || isSubmitting}>Challenge my proposal</Button>
-          {studio.challengeProposal.isPending && <InlineLoading description="Preparing client concerns" />}
-          {studio.challengeProposal.data && <section className={styles.coaching}><h3>Client concern</h3><p>{studio.challengeProposal.data.concerns[0]}</p></section>}
-          {studio.review && <ReviewPanel review={studio.review} />}
-          {!studio.review && <section className={styles.coaching}><h3>Next best action</h3><p>{studio.draft.evidenceLinks.length ? 'Write the current section using the evidence you attached, then run a review.' : 'Attach one source to the current section so the proposal stays traceable.'}</p></section>}
-        </aside>
+              {activeSection === 'PROBLEM' && (
+                <>
+                  <h1>1. Proposal foundation</h1>
+                  <p className={styles.guide}>State the client problem, then make the recommendation logic clear.</p>
+                  <h2>Problem framing</h2>
+                  <p className={styles.fieldHelp}>Describe the observed operational, commercial or risk impact.</p>
+                  <textarea className={styles.prose} aria-label="Problem statement" readOnly={readOnly} value={draft.problemStatement} onChange={(event) => updateDraft((current) => ({ ...current, problemStatement: event.target.value }))} />
+                  <h2>Recommended solution</h2>
+                  <p className={styles.fieldHelp}>Explain how the recommendation addresses the client problem.</p>
+                  <textarea className={styles.prose} aria-label="Recommended solution" readOnly={readOnly} value={draft.solutionStrategy} onChange={(event) => updateDraft((current) => ({ ...current, solutionStrategy: event.target.value }))} />
+                  <h2>Solution components</h2>
+                  <Bullets readOnly={readOnly} items={draft.components} label="Solution component" placeholder="e.g. Integration pilot and workflow redesign" onChange={(components) => updateDraft((current) => ({ ...current, components }))} />
+                </>
+              )}
+
+              {activeSection === 'OUTCOMES' && (
+                <>
+                  <h1>2. Value and commercial logic</h1>
+                  <p className={styles.guide}>Make the outcome measurable and distinguish consultant estimates from confirmed client facts.</p>
+                  <h2>Expected business outcomes and KPIs</h2>
+                  <Table
+                    readOnly={readOnly}
+                    columns={[['outcome', 'Business outcome'], ['metric', 'Metric'], ['target', 'Target']]}
+                    rows={draft.businessOutcomes}
+                    empty={{ outcome: '', metric: '', target: '' }}
+                    onChange={(businessOutcomes) => updateDraft((current) => ({ ...current, businessOutcomes }))}
+                  />
+                  <h2>Commercials</h2>
+                  <div className={styles.commercial}>
+                    <label>Estimated budget (USD)<input type="number" min={0} readOnly={readOnly} value={draft.budget} onChange={(event) => updateDraft((current) => ({ ...current, budget: Number(event.target.value) || 0 }))} /></label>
+                    <div className={styles.choiceCell}>
+                      <Choice id="budget-confidence" label="Confidence" disabled={readOnly} value={draft.budgetConfidence} options={BUDGET_CONFIDENCE} onChange={(budgetConfidence) => updateDraft((current) => ({ ...current, budgetConfidence }))} />
+                    </div>
+                    <label>Source / basis<input readOnly={readOnly} value={draft.budgetSource} onChange={(event) => updateDraft((current) => ({ ...current, budgetSource: event.target.value }))} /></label>
+                  </div>
+                </>
+              )}
+
+              {activeSection === 'TIMELINE' && (
+                <>
+                  <h1>3. Timeline and milestones</h1>
+                  <p className={styles.guide}>Translate the delivery window into observable milestones the client can evaluate.</p>
+                  <div className={styles.commercial}>
+                    <label>Total timeline (weeks)<input type="number" min={1} readOnly={readOnly} value={draft.timelineWeeks} onChange={(event) => updateDraft((current) => ({ ...current, timelineWeeks: Number(event.target.value) || 1 }))} /></label>
+                  </div>
+                  <h2>Milestones</h2>
+                  <Table
+                    readOnly={readOnly}
+                    columns={[['phase', 'Phase / milestone'], ['duration', 'Timing']]}
+                    rows={draft.milestones}
+                    empty={{ phase: '', duration: '' }}
+                    onChange={(milestones) => updateDraft((current) => ({ ...current, milestones }))}
+                  />
+                </>
+              )}
+
+              {activeSection === 'RISKS' && (
+                <>
+                  <h1>4. Risks and mitigations</h1>
+                  <p className={styles.guide}>Show how delivery, operational and adoption risks will be controlled.</p>
+                  <Table
+                    readOnly={readOnly}
+                    columns={[['risk', 'Risk'], ['severity', 'Severity'], ['mitigation', 'Mitigation']]}
+                    rows={draft.risks}
+                    empty={{ risk: '', severity: 'MEDIUM', mitigation: '' }}
+                    onChange={(risks) => updateDraft((current) => ({ ...current, risks }))}
+                  />
+                </>
+              )}
+
+              {activeSection === 'ASSUMPTIONS' && (
+                <>
+                  <h1>5. Evidence and assumptions</h1>
+                  <p className={styles.guide}>Make the conditions behind the recommendation explicit. Attached evidence stays traceable by section.</p>
+                  <h2>Assumptions and dependencies</h2>
+                  <Bullets readOnly={readOnly} items={draft.assumptions} label="Assumption or dependency" placeholder="e.g. Client SMEs are available for targeted validation" onChange={(assumptions) => updateDraft((current) => ({ ...current, assumptions }))} />
+                  <h2>Attached sources</h2>
+                  {draft.evidenceLinks.length ? (
+                    <ul className={styles.attachedList}>
+                      {draft.evidenceLinks.map((link) => (
+                        <li key={`${link.section}-${link.sourceId}`}>
+                          <span>{proposalSections.find((section) => section.id === link.section)?.label}</span>{' '}
+                          {sourceById.get(link.sourceId)?.label ?? (link.sourceId.startsWith('meeting:') ? 'Meeting discovery' : 'Research evidence')}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className={styles.fieldHelp}>No sources attached yet. Select a source from the evidence library for each section.</p>}
+                </>
+              )}
+
+              {sectionLinks.length > 0 && (
+                <footer className={styles.footnotes}>
+                  <p>Sources for this section</p>
+                  <ol>{sectionLinks.map((id) => <li key={id}>{sourceById.get(id)?.label ?? id} — <em>{sourceById.get(id)?.reliability}</em></li>)}</ol>
+                </footer>
+              )}
+            </article>
+          </div>
+
+          <aside className={styles.margin} aria-label="Evidence and coach">
+            <div className={styles.marginTabs} role="tablist">
+              <button type="button" role="tab" className="objective-evidence" aria-selected={panel === 'evidence'} onClick={() => setPanel('evidence')}>Evidence library <span>{sources.length}</span></button>
+              <button type="button" role="tab" aria-selected={panel === 'coach'} onClick={() => setPanel('coach')}>Coach</button>
+            </div>
+
+            {panel === 'evidence' && (
+              <div className={styles.marginBody}>
+                <p className={styles.marginHint}>
+                  {sources.length === 0
+                    ? 'No evidence or discovery facts are available yet.'
+                    : <>Showing {sourcePage * SOURCES_PER_PAGE + 1}–{Math.min(sources.length, (sourcePage + 1) * SOURCES_PER_PAGE)} of {sources.length} for <strong>{activeLabel}</strong></>}
+                  {sourcePageCount > 1 && (
+                    <span className={styles.pager}>
+                      <button type="button" disabled={sourcePage === 0} onClick={() => setSourcePage(sourcePage - 1)} aria-label="Previous sources"><ChevronLeft size={14} /></button>
+                      {sourcePage + 1}/{sourcePageCount}
+                      <button type="button" disabled={sourcePage >= sourcePageCount - 1} onClick={() => setSourcePage(sourcePage + 1)} aria-label="Next sources"><ChevronRight size={14} /></button>
+                    </span>
+                  )}
+                </p>
+                {visibleSources.map((source) => {
+                  const attached = studio.attachedSourceIds.has(source.id)
+                  return (
+                    <article key={source.id} className={`${styles.source} ${attached ? styles.sourceAttached : ''}`}>
+                      <div className={styles.sourceMeta}>
+                        <Tag type={source.type === 'MEETING_DISCOVERY' ? 'purple' : 'cool-gray'} size="sm">{source.type === 'MEETING_DISCOVERY' ? 'Meeting' : 'Evidence'}</Tag>
+                        <span>{source.reliability}</span>
+                      </div>
+                      <h3>{source.label}</h3>
+                      <p>{source.content}</p>
+                      {readOnly ? (
+                        attached && <Tag type="blue" size="sm">Attached to {activeLabel}</Tag>
+                      ) : (
+                        <Button kind={attached ? 'secondary' : 'tertiary'} size="sm" renderIcon={attached ? Checkmark : Add} onClick={() => (attached ? studio.detach(source.id) : studio.attach(source))}>
+                          {attached ? 'Attached' : 'Attach source'}
+                        </Button>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+
+            {panel === 'coach' && readOnly && (
+              <div className={styles.marginBody}>
+                <p className={styles.marginHint}>This proposal has been submitted, so the coach is closed. Their decision explains how it landed.</p>
+              </div>
+            )}
+
+            {panel === 'coach' && !readOnly && (
+              <div className={styles.marginBody}>
+                <p className={styles.marginHint}>The coach reviews your reasoning; it never writes the proposal for you.</p>
+                <div className={styles.coachActions}>
+                  <Button kind="tertiary" size="sm" renderIcon={Renew} onClick={review} disabled={busy}>Run AI proposal review</Button>
+                  <Button kind="ghost" size="sm" onClick={challenge} disabled={studio.challengeProposal.isPending || busy}>Challenge my proposal</Button>
+                </div>
+                {isReviewing && <div className={styles.comment}><InlineLoading description="Checking evidence, client alignment and delivery risk" /></div>}
+                {studio.challengeProposal.isPending && <div className={styles.comment}><InlineLoading description="Preparing client concerns" /></div>}
+                {studio.challengeProposal.data?.concerns[0] && (
+                  <div className={`${styles.comment} ${styles.commentClient}`}>
+                    <p className={styles.commentWho}>Client concern{contact ? ` · as ${contact.name} might put it` : ''}</p>
+                    <p>{studio.challengeProposal.data.concerns[0]}</p>
+                  </div>
+                )}
+                {studio.review && <ReviewComment review={studio.review} />}
+                {!studio.review && !isReviewing && !studio.challengeProposal.data && (
+                  <div className={styles.comment}>
+                    <p className={styles.commentWho}>Next best action</p>
+                    <p>{draft.evidenceLinks.length ? 'Write the current section using the evidence you attached, then run a review.' : 'Attach one source to the current section so the proposal stays traceable.'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </aside>
+        </div>
       </div>
-      </div>
-    </main>
     </ObjectiveTourProvider>
   )
-}
-
-type DraftUpdate = (fn: (value: ProposalDraftRequest) => ProposalDraftRequest) => void
-
-function Foundation({ draft, update }: { draft: ProposalDraftRequest; update: DraftUpdate }) {
-  return <Stack gap={5}><EditorIntroduction title="Proposal foundation" description="State the client problem, then make the recommendation logic clear." /><FoundationNarrativeEditor draft={draft} update={update} /><ListEditor label="Solution components" itemsPerPage={2} values={draft.components} placeholder="e.g. Integration pilot and workflow redesign" onChange={(components) => update((current) => ({ ...current, components }))} /></Stack>
-}
-
-type FoundationNarrative = 'problem' | 'solution'
-
-function FoundationNarrativeEditor({ draft, update }: { draft: ProposalDraftRequest; update: DraftUpdate }) {
-  const [activeNarrative, setActiveNarrative] = useState<FoundationNarrative>('problem')
-  const isProblem = activeNarrative === 'problem'
-  const label = isProblem ? 'Problem statement' : 'Recommended solution'
-  const helperText = isProblem
-    ? 'Describe the observed operational, commercial or risk impact.'
-    : 'Explain how the recommendation addresses the client problem.'
-  const value = isProblem ? draft.problemStatement : draft.solutionStrategy
-
-  return <section className={styles.foundationNarrative} aria-label="Proposal foundation narrative">
-    <div className={styles.foundationTabs} role="tablist" aria-label="Proposal foundation sections">
-      <button className={isProblem ? styles.foundationTabActive : styles.foundationTab} role="tab" type="button" aria-selected={isProblem} onClick={() => setActiveNarrative('problem')}>
-        <span>1</span><div><strong>Problem framing</strong><small>What is happening and why it matters</small></div>
-      </button>
-      <button className={!isProblem ? styles.foundationTabActive : styles.foundationTab} role="tab" type="button" aria-selected={!isProblem} onClick={() => setActiveNarrative('solution')}>
-        <span>2</span><div><strong>Recommended solution</strong><small>How the approach creates value</small></div>
-      </button>
-    </div>
-    <div className={styles.foundationInput}>
-      <TextArea
-        id={isProblem ? 'problem-statement' : 'solution-strategy'}
-        labelText={label}
-        helperText={helperText}
-        rows={4}
-        value={value}
-        onChange={(event) => update((current) => isProblem ? { ...current, problemStatement: event.target.value } : { ...current, solutionStrategy: event.target.value })}
-      />
-    </div>
-  </section>
-}
-
-function Commercial({ draft, update }: { draft: ProposalDraftRequest; update: DraftUpdate }) {
-  return <Stack gap={5}><EditorIntroduction title="Value and commercial logic" description="Make the outcome measurable and distinguish consultant estimates from confirmed client facts." /><StructuredEditor label="Expected business outcomes and KPIs" addLabel="Add outcome" rows={draft.businessOutcomes} empty={{ outcome: '', metric: '', target: '' }} fields={[['outcome', 'Business outcome'], ['metric', 'Metric'], ['target', 'Target']]} onChange={(businessOutcomes) => update((current) => ({ ...current, businessOutcomes }))} /><div className={styles.commercialGrid}><NumberInput id="proposal-budget" label="Estimated budget (USD)" min={0} value={draft.budget} onChange={(_, data) => update((current) => ({ ...current, budget: Number(data.value) || 0 }))} /><Select id="budget-confidence" labelText="Confidence" value={draft.budgetConfidence} onChange={(event) => update((current) => ({ ...current, budgetConfidence: event.target.value }))}><SelectItem value="UNCONFIRMED" text="Unconfirmed" /><SelectItem value="LOW" text="Low" /><SelectItem value="MEDIUM" text="Medium" /><SelectItem value="HIGH" text="High" /></Select><TextInput id="budget-source" labelText="Source / basis" value={draft.budgetSource} onChange={(event) => update((current) => ({ ...current, budgetSource: event.target.value }))} /></div></Stack>
-}
-
-function Delivery({ draft, update }: { draft: ProposalDraftRequest; update: DraftUpdate }) {
-  return <Stack gap={5}><EditorIntroduction title="Timeline and milestones" description="Translate the delivery window into observable milestones the client can evaluate." /><NumberInput id="timeline-weeks" label="Total timeline (weeks)" min={1} value={draft.timelineWeeks} onChange={(_, data) => update((current) => ({ ...current, timelineWeeks: Number(data.value) || 1 }))} /><StructuredEditor label="Milestones" addLabel="Add milestone" rows={draft.milestones} empty={{ phase: '', duration: '' }} fields={[['phase', 'Phase / milestone'], ['duration', 'Timing']]} onChange={(milestones) => update((current) => ({ ...current, milestones }))} /></Stack>
-}
-
-function RiskAssumptions({ draft, update, showRisks }: { draft: ProposalDraftRequest; update: DraftUpdate; showRisks: boolean }) {
-  if (!showRisks) return <Stack gap={5}><EditorIntroduction title="Evidence and assumptions" description="Make the conditions behind the recommendation explicit. Attached evidence remains traceable by section." /><ListEditor label="Assumptions and dependencies" values={draft.assumptions} placeholder="e.g. Client SMEs are available for targeted validation" onChange={(assumptions) => update((current) => ({ ...current, assumptions }))} /><EvidenceSummary draft={draft} /></Stack>
-  return <Stack gap={5}><EditorIntroduction title="Risks and mitigations" description="Show how delivery, operational and adoption risks will be controlled." /><StructuredEditor label="Risks" addLabel="Add risk" rows={draft.risks} empty={{ risk: '', severity: 'MEDIUM', mitigation: '' }} fields={[['risk', 'Risk'], ['severity', 'Severity'], ['mitigation', 'Mitigation']]} onChange={(risks) => update((current) => ({ ...current, risks }))} /></Stack>
-}
-
-function EditorIntroduction({ title, description }: { title: string; description: string }) {
-  return <div className={styles.editorIntroduction}><p className={styles.eyebrow}>Proposal section</p><h2>{title}</h2><p>{description}</p></div>
-}
-
-function ListEditor({ label, values, placeholder, onChange, itemsPerPage = EDITOR_ITEMS_PER_PAGE }: { label: string; values: string[]; placeholder: string; onChange: (values: string[]) => void; itemsPerPage?: number }) {
-  const [page, setPage] = useState(0)
-  const pageCount = Math.max(1, Math.ceil(values.length / itemsPerPage))
-  const visibleValues = values.slice(page * itemsPerPage, page * itemsPerPage + itemsPerPage)
-
-  useEffect(() => setPage((current) => Math.min(current, pageCount - 1)), [pageCount])
-
-  const add = () => {
-    const next = [...values, '']
-    onChange(next)
-    setPage(Math.floor((next.length - 1) / itemsPerPage))
-  }
-
-  return <section className={styles.editorGroup}><div className={styles.editorGroupHeading}><h3>{label}</h3>{pageCount > 1 && <Pager page={page} pageCount={pageCount} onPrevious={() => setPage((current) => current - 1)} onNext={() => setPage((current) => current + 1)} />}</div><Stack gap={3}>{visibleValues.map((value, visibleIndex) => { const index = page * itemsPerPage + visibleIndex; return <div className={styles.row} key={`${label}-${index}`}><TextInput id={`${label}-${index}`} labelText="" hideLabel placeholder={placeholder} value={value} onChange={(event) => onChange(values.map((entry, position) => position === index ? event.target.value : entry))} /><Button kind="ghost" hasIconOnly iconDescription="Remove item" renderIcon={TrashCan} onClick={() => onChange(values.length === 1 ? [''] : values.filter((_, position) => position !== index))} /></div> })}<Button kind="tertiary" size="sm" renderIcon={Add} onClick={add}>Add item</Button></Stack></section>
-}
-
-function StructuredEditor<T extends Record<string, string>>({ label, addLabel, rows, empty, fields, onChange }: { label: string; addLabel: string; rows: T[]; empty: T; fields: [keyof T, string][]; onChange: (rows: T[]) => void }) {
-  const [page, setPage] = useState(0)
-  const pageCount = Math.max(1, Math.ceil(rows.length / EDITOR_ITEMS_PER_PAGE))
-  const visibleRows = rows.slice(page * EDITOR_ITEMS_PER_PAGE, page * EDITOR_ITEMS_PER_PAGE + EDITOR_ITEMS_PER_PAGE)
-
-  useEffect(() => setPage((current) => Math.min(current, pageCount - 1)), [pageCount])
-
-  const add = () => {
-    const next = [...rows, empty]
-    onChange(next)
-    setPage(Math.floor((next.length - 1) / EDITOR_ITEMS_PER_PAGE))
-  }
-
-  return <section className={styles.editorGroup}><div className={styles.editorGroupHeading}><h3>{label}</h3>{pageCount > 1 && <Pager page={page} pageCount={pageCount} onPrevious={() => setPage((current) => current - 1)} onNext={() => setPage((current) => current + 1)} />}</div><Stack gap={3}>{visibleRows.map((row, visibleIndex) => { const index = page * EDITOR_ITEMS_PER_PAGE + visibleIndex; return <div className={styles.structuredRow} key={`${label}-${index}`}>{fields.map(([key, fieldLabel]) => key === 'severity' ? <Select key={String(key)} id={`${label}-${index}-${String(key)}`} labelText={fieldLabel} value={row[key]} onChange={(event) => onChange(rows.map((entry, position) => position === index ? { ...entry, [key]: event.target.value } : entry))}><SelectItem value="LOW" text="Low" /><SelectItem value="MEDIUM" text="Medium" /><SelectItem value="HIGH" text="High" /></Select> : <TextInput key={String(key)} id={`${label}-${index}-${String(key)}`} labelText={fieldLabel} value={row[key]} onChange={(event) => onChange(rows.map((entry, position) => position === index ? { ...entry, [key]: event.target.value } : entry))} />)}<Button kind="ghost" hasIconOnly iconDescription="Remove item" renderIcon={TrashCan} onClick={() => onChange(rows.length === 1 ? [empty] : rows.filter((_, position) => position !== index))} /></div> })}<Button kind="tertiary" size="sm" renderIcon={Add} onClick={add}>{addLabel}</Button></Stack></section>
-}
-
-function Pager({ page, pageCount, onPrevious, onNext }: { page: number; pageCount: number; onPrevious: () => void; onNext: () => void }) {
-  return <div className={styles.inlinePager}><span>{page + 1}/{pageCount}</span><Button kind="ghost" size="sm" hasIconOnly iconDescription="Previous items" renderIcon={ChevronLeft} disabled={page === 0} onClick={onPrevious} /><Button kind="ghost" size="sm" hasIconOnly iconDescription="Next items" renderIcon={ChevronRight} disabled={page === pageCount - 1} onClick={onNext} /></div>
-}
-
-function EvidenceSummary({ draft }: { draft: ProposalDraftRequest }) {
-  const [page, setPage] = useState(0)
-  const pageSize = 3
-  const pageCount = Math.max(1, Math.ceil(draft.evidenceLinks.length / pageSize))
-  const safePage = Math.min(page, pageCount - 1)
-  const visibleLinks = draft.evidenceLinks.slice(safePage * pageSize, safePage * pageSize + pageSize)
-
-  return <section className={styles.evidenceSummary}>
-    <div className={styles.evidenceSummaryHeading}><h3>Attached sources</h3>{draft.evidenceLinks.length > pageSize && <Pager page={safePage} pageCount={pageCount} onPrevious={() => setPage((current) => Math.max(0, current - 1))} onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))} />}</div>
-    {draft.evidenceLinks.length
-      ? <ul>{visibleLinks.map((link) => <li key={`${link.section}-${link.sourceId}`}>{link.section}: {link.sourceId.startsWith('meeting:') ? 'Meeting discovery' : 'Research evidence'}</li>)}</ul>
-      : <p>No sources attached yet. Return to a proposal section and select a source from the context panel.</p>}
-  </section>
-}
-
-function ReviewPanel({ review }: { review: ProposalReview }) {
-  const scores = [['Evidence grounding', review.evidenceGroundingScore], ['Client alignment', review.clientAlignmentScore], ['Commercial logic', review.commercialLogicScore]]
-  const priorityIssue = review.validationIssues.find((issue) => issue.severity === 'BLOCKING') ?? review.validationIssues[0]
-  return <section className={styles.reviewResult}><Tag type={review.readyToSubmit ? 'green' : 'red'}>{review.readyToSubmit ? 'Ready to submit' : 'Action required'}</Tag><h3>AI proposal review</h3>{scores.map(([label, score]) => <div className={styles.score} key={String(label)}><span>{label}</span><strong>{score}/100</strong><div><i style={{ width: `${score}%` }} /></div></div>)}<p className={styles.feedback}>{review.executiveFeedback}</p>{priorityIssue && <p className={priorityIssue.severity === 'BLOCKING' ? styles.blocking : styles.warning} key={priorityIssue.code}><WarningAlt size={16} />{priorityIssue.message}</p>}{review.improvementActions[0] && <div className={styles.reviewNextAction}><strong>Improve next</strong><span>{review.improvementActions[0]}</span></div>}</section>
-}
-
-function SaveStatus({ state }: { state: 'idle' | 'saving' | 'saved' | 'error' }) {
-  if (state === 'saving') return <InlineLoading description="Saving draft" />
-  if (state === 'saved') return <span className={styles.saved}>Draft saved</span>
-  if (state === 'error') return <span className={styles.saveError}>Save failed</span>
-  return <span className={styles.muted}>Draft changes save automatically</span>
 }

@@ -6,7 +6,7 @@ import CommandCentrePage from './CommandCentrePage'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
 import { useScenarioCatalog, useScenarioCatalogIndustries } from '@/api/hooks/useScenarios'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
-import type { Engagement, ScenarioCatalogPage } from '@/api/types'
+import type { Engagement, ScenarioCatalogPage, ScenarioSummary } from '@/api/types'
 
 // mock hooks and shared components for tests
 vi.mock('@/api/hooks/useEngagements', () => ({
@@ -25,6 +25,9 @@ vi.mock('@/components/shared/ObjectiveTourProvider', () => ({
 }))
 vi.mock('@/components/shared/LoadingState', () => ({
   default: () => <div>Loading...</div>,
+}))
+vi.mock('@/store/authStore', () => ({
+  useAuthStore: () => ({ displayName: 'Viet' }),
 }))
 
 // typed mock references
@@ -101,6 +104,7 @@ function setup(engagements: Engagement[]) {
 
   mockedPortfolio.mockReturnValue({
     data: {
+      totalEngagements: 3,
       completedEngagements: 3,
       contractsWon: 2,
       contractsLost: 1,
@@ -119,164 +123,192 @@ function renderPage() {
   )
 }
 
-describe('CommandCentrePage active engagement filter and sort dropdowns', () => {
-  it('filters to only \'Ready for review\' engagements when that dropdown option is chosen', async () => {
-    const user = userEvent.setup()
-    setup([
-      makeEngagement({
-        id: 'eng-featured',
-        state: 'CLIENT_INTELLIGENCE',
-        createdAt: '2026-08-05T10:00:00Z',
-        nextAction: 'Featured next action',
-      }),
-      makeEngagement({
-        id: 'eng-review',
-        state: 'REVIEW',
-        createdAt: '2026-08-01T10:00:00Z',
-        scenarioTitle: 'Ready For Review Scenario',
-        nextAction: 'Awaiting your review',
-      }),
-      makeEngagement({
-        id: 'eng-other',
-        state: 'CLIENT_INTELLIGENCE',
-        createdAt: '2026-07-01T10:00:00Z',
-        scenarioTitle: 'Other Scenario',
-        nextAction: 'Do more research',
-      }),
-    ])
+function scenario(overrides: Partial<ScenarioSummary> = {}): ScenarioSummary {
+  return {
+    id: 'scn-1',
+    title: 'Hospital admissions',
+    industry: 'Healthcare',
+    difficulty: 3,
+    description: 'Duplicate data entry across wards.',
+    personas: [],
+    briefing: {
+      consultantRole: 'Consultant',
+      simulatedDays: 30,
+      objective: 'Find the real problem',
+      successCriteria: [],
+      businessSituation: 'Situation',
+      observableSymptom: 'Symptom',
+      consultingMandate: 'Mandate',
+      unknownsToValidate: [],
+    },
+    difficultyProfile: { informationAmbiguity: 3, stakeholderComplexity: 3, commercialPressure: 3 },
+    ...overrides,
+  } as unknown as ScenarioSummary
+}
 
+function withCatalogue(items: ScenarioSummary[]) {
+  mockedScenarioCatalog.mockReturnValue({
+    data: { ...emptyCatalogue, items, totalElements: items.length },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+  } as unknown as ReturnType<typeof useScenarioCatalog>)
+}
+
+describe('Office: engagements on the floor', () => {
+  it('puts the most recent engagement on the floor with a way to continue it', () => {
+    setup([
+      makeEngagement({ id: 'eng-old', createdAt: '2026-07-01T10:00:00Z', leadCompanyName: 'Older Client' }),
+      makeEngagement({ id: 'eng-new', createdAt: '2026-08-05T10:00:00Z', leadCompanyName: 'Newest Client', nextAction: 'Build evidence' }),
+    ])
     renderPage()
 
-    // the most recently active engagement is featured and excluded from the compact list
-    const filterDropdown = screen.getByText('All active')
-    await user.click(filterDropdown)
-    await user.click(await screen.findByRole('option', { name: 'Ready for review' }),)
-    expect(screen.getByText('Ready For Review Scenario'),).toBeInTheDocument()
-    expect(screen.queryByText('Other Scenario'),).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Newest Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
+    // The other engagement moves to the side list.
+    expect(screen.getByText('Older Client')).toBeInTheDocument()
   })
 
-  it('sorts list by scenario title when Scenario sort is chosen', async () => {
-    const user = userEvent.setup()
+  it('lists a failed meeting with its status so it can be retried', () => {
     setup([
-      makeEngagement({
-        id: 'eng-featured',
-        state: 'CLIENT_INTELLIGENCE',
-        createdAt: '2026-08-05T10:00:00Z',
-      }),
-      makeEngagement({
-        id: 'eng-zzz',
-        state: 'CLIENT_INTELLIGENCE',
-        createdAt: '2026-08-01T10:00:00Z',
-        scenarioTitle: 'Test B Scenario',
-      }),
-      makeEngagement({
-        id: 'eng-aaa',
-        state: 'CLIENT_INTELLIGENCE',
-        createdAt: '2026-07-01T10:00:00Z',
-        scenarioTitle: 'Test A Scenario',
-      }),
+      makeEngagement({ id: 'eng-live', createdAt: '2026-08-05T10:00:00Z', leadCompanyName: 'Live Client' }),
+      makeEngagement({ id: 'eng-failed', state: 'MEETING_FAILED', phase: 'LIVE_MEETING', meetingId: 'm-1', leadCompanyName: 'Failed Client' }),
     ])
-
     renderPage()
 
-    // sort by recently active
-    const sortDropdown = screen.getByText('Recently active')
-    await user.click(sortDropdown)
-    await user.click(await screen.findByText('Scenario'))
-
-    // should display based on most recently active
-    const titles = screen
-      .getAllByText(/Scenario$/)
-      .map((node) => node.textContent)
-    const testIndexA = titles.indexOf('Test A Scenario')
-    const testIndexB = titles.indexOf('Test B Scenario')
-    expect(testIndexA).toBeGreaterThanOrEqual(0)
-    expect(testIndexB).toBeGreaterThan(testIndexA)
+    expect(screen.getByText('Failed Client')).toBeInTheDocument()
+    expect(screen.getByText('Meeting failed')).toBeInTheDocument()
   })
 
-  it('resets back to All active when re-selected after filtering', async () => {
-    const user = userEvent.setup()
-    setup([
-      makeEngagement({
-        id: 'eng-featured',
-        state: 'CLIENT_INTELLIGENCE',
-        createdAt: '2026-08-05T10:00:00Z',
-      }),
-      makeEngagement({
-        id: 'eng-review',
-        state: 'REVIEW',
-        createdAt: '2026-08-01T10:00:00Z',
-        scenarioTitle: 'Review Scenario',
-      }),
-      makeEngagement({
-        id: 'eng-other',
-        state: 'CLIENT_INTELLIGENCE',
-        createdAt: '2026-07-01T10:00:00Z',
-        scenarioTitle: 'Other Scenario',
-      }),
-    ])
-
+  it('has the mentor say what is open, in words', () => {
+    setup([makeEngagement({ leadCompanyName: 'Acme Insurance', nextAction: 'Gather more evidence' })])
     renderPage()
 
-    const filterDropdown = screen.getByText('All active')
-    await user.click(filterDropdown)
-    await user.click(await screen.findByRole('option', { name: 'Ready for review' }),)
-    expect(screen.queryByText('Other Scenario'),).not.toBeInTheDocument()
-
-    // reselect All active to remove the current filter
-    await user.click(screen.getByRole('combobox', { name: 'Filter' }),)
-    await user.click(await screen.findByRole('option', { name: 'All active' }),)
-    expect(screen.getByText('Other Scenario'),).toBeInTheDocument()
-    expect(screen.getByText('Review Scenario'),).toBeInTheDocument()
+    expect(screen.getByText(/You have Acme Insurance open\. Next: gather more evidence\./)).toBeInTheDocument()
   })
 })
 
-describe('CommandCentrePage scenario catalogue', () => {
-  it('shows loading state while the catalogue page is being fetched', () => {
+describe('Office: first visit', () => {
+  it('offers one starter client and opens its briefing', async () => {
+    const user = userEvent.setup()
     setup([])
+    mockedPortfolio.mockReturnValue({
+      data: { totalEngagements: 0, completedEngagements: 0, contractsWon: 0, contractsLost: 0, completedEngagementsHistory: [] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof usePortfolioSummary>)
+    withCatalogue([scenario()])
+    renderPage()
+
+    expect(screen.getByText('Welcome, Viet.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start your first engagement' }))
+    expect(await screen.findByText('Scenario Briefing')).toBeInTheDocument()
+  })
+})
+
+describe('Office: scenario catalogue', () => {
+  async function openCatalogue() {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'Start new' }))
+    return user
+  }
+
+  it('shows a loading state while a catalogue page is being fetched', async () => {
+    setup([makeEngagement({})])
+    await openCatalogue()
     mockedScenarioCatalog.mockReturnValue({
       data: emptyCatalogue,
       isLoading: false,
       isFetching: true,
       isError: false,
     } as unknown as ReturnType<typeof useScenarioCatalog>)
-    renderPage()
+    // Any re-render now reads the fetching state.
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('Search client, industry or opportunity'), 'a')
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
-  it('filters the catalogue industry dropdown down to chosen industry', async () => {
-    const user = userEvent.setup()
-    setup([])
+  it('passes the chosen industry to the catalogue query', async () => {
+    setup([makeEngagement({})])
     mockedCatalogIndustries.mockReturnValue({
       data: ['Insurance', 'Retail'],
     } as unknown as ReturnType<typeof useScenarioCatalogIndustries>)
+    const user = await openCatalogue()
 
-    renderPage()
-    const industryDropdown = screen.getAllByText('All industries')[0]
-    await user.click(industryDropdown)
+    await user.click(screen.getByText('All industries'))
     await user.click(await screen.findByText('Retail'))
 
-    // selecting an industry should pass the underlying industry value to the API hook
-    expect(mockedScenarioCatalog).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        industry: 'Retail',
-      }),
-    )
+    expect(mockedScenarioCatalog).toHaveBeenLastCalledWith(expect.objectContaining({ industry: 'Retail' }))
   })
 
-  it('maps the difficulty dropdown label to its numeric value', async () => {
-    const user = userEvent.setup()
-    setup([])
-    renderPage()
+  it('maps the difficulty label to its numeric value', async () => {
+    setup([makeEngagement({})])
+    const user = await openCatalogue()
 
-    // select advanced for difficulty dropdown
-    const difficultyDropdown = screen.getByText('All difficulty')
-    await user.click(difficultyDropdown)
+    await user.click(screen.getByText('All difficulty'))
     await user.click(await screen.findByText('Advanced'))
 
-    // expects difficulty level 4
-    expect(mockedScenarioCatalog).toHaveBeenLastCalledWith(
-      expect.objectContaining({difficulty: 4,}),
-    )
+    expect(mockedScenarioCatalog).toHaveBeenLastCalledWith(expect.objectContaining({ difficulty: 4 }))
+  })
+})
+
+describe('Office: finding an engagement', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const three = () => [
+    makeEngagement({ id: 'eng-featured', createdAt: '2026-08-05T10:00:00Z', leadCompanyName: 'Featured Client' }),
+    makeEngagement({ id: 'eng-review', state: 'REVIEW', createdAt: '2026-08-01T10:00:00Z', leadCompanyName: 'Review Client', scenarioTitle: 'B scenario', progressPercent: 90 }),
+    makeEngagement({ id: 'eng-other', createdAt: '2026-07-01T10:00:00Z', leadCompanyName: 'Other Client', scenarioTitle: 'A scenario', progressPercent: 20 }),
+  ]
+
+  it('filters the other engagements by status, and back to all', async () => {
+    const user = userEvent.setup()
+    setup(three())
+    renderPage()
+
+    await user.click(screen.getByRole('combobox', { name: 'Filter' }))
+    await user.click(await screen.findByRole('option', { name: 'Ready for review' }))
+    expect(screen.getByText('Review Client')).toBeInTheDocument()
+    expect(screen.queryByText('Other Client')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: 'Filter' }))
+    await user.click(await screen.findByRole('option', { name: 'All engagements' }))
+    expect(screen.getByText('Other Client')).toBeInTheDocument()
+  })
+
+  it('searches and sorts the other engagements', async () => {
+    const user = userEvent.setup()
+    setup(three())
+    renderPage()
+
+    await user.click(screen.getByRole('combobox', { name: 'Sort' }))
+    await user.click(await screen.findByRole('option', { name: 'Scenario' }))
+    const names = screen.getAllByText(/^(Review|Other) Client$/).map((node) => node.textContent)
+    expect(names).toEqual(['Other Client', 'Review Client'])
+
+    await user.type(screen.getByPlaceholderText('Search engagements'), 'review')
+    expect(screen.queryByText('Other Client')).not.toBeInTheDocument()
+  })
+
+  it('labels repeated attempts at the same scenario', () => {
+    setup([
+      makeEngagement({ id: 'eng-2', createdAt: '2026-08-05T10:00:00Z' }),
+      makeEngagement({ id: 'eng-1', createdAt: '2026-08-01T10:00:00Z' }),
+    ])
+    renderPage()
+
+    expect(screen.getByText('Attempt #2')).toBeInTheDocument()
+    expect(screen.getByText(/Attempt #1/)).toBeInTheDocument()
+  })
+
+  it('recommends a scenario the learner has not started yet', () => {
+    setup([makeEngagement({ scenarioId: 'scn-running' })])
+    withCatalogue([scenario({ id: 'scn-running', title: 'Already running' }), scenario({ title: 'Retail returns' })])
+    renderPage()
+
+    expect(screen.getByText('Recommended for you')).toBeInTheDocument()
+    expect(screen.getByText('Retail returns')).toBeInTheDocument()
+    expect(screen.queryByText('Already running')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start scenario' })).toBeInTheDocument()
   })
 })

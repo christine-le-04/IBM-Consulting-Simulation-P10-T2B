@@ -1,0 +1,27 @@
+// Design tokens shared by the engagement shell and the workspaces ported from
+// the UX prototype (apps/web/src/prototype, where they are named --proto-*).
+// Carbon's own palette values, named for what they do in this product.
+:root {
+  --sim-bg: #f4f4f4;
+  --sim-surface: #ffffff;
+  --sim-ink: #161616;
+  --sim-ink-2: #525252;
+  --sim-ink-3: #8d8d8d;
+  --sim-line: #e0e0e0;
+  --sim-line-2: #c6c6c6;
+  --sim-blue: #0f62fe;
+  --sim-blue-ink: #0043ce;
+  --sim-blue-soft: #edf5ff;
+  --sim-green: #198038;
+  --sim-green-soft: #defbe6;
+  --sim-amber: #8e6a00;
+  --sim-amber-soft: #fcf4d6;
+  --sim-red: #da1e28;
+  --sim-red-soft: #fff1f1;
+  --sim-purple: #8a3ffc;
+  --sim-purple-soft: #f6f2ff;
+  /** Carbon's fixed header. */
+  --sim-header: 3rem;
+  --sim-serif: 'IBM Plex Serif', Georgia, serif;
+  --sim-mono: 'IBM Plex Mono', Menlo, monospace;
+}

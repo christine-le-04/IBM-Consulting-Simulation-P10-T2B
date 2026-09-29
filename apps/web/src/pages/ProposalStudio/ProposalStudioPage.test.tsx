@@ -5,12 +5,22 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProposalStudioPage from './ProposalStudioPage'
 import { useProposalStudio } from '@/features/proposal/hooks/useProposalStudio'
 import { createEmptyProposalDraft } from '@/features/proposal/services/proposalDraftService'
-import type { ProposalSource } from '@/api/types'
+import type { ProposalReview, ProposalSource } from '@/api/types'
 import type { ProposalDraftRequest } from '@/api/hooks/useProposal'
 
 // mock hooks and shared components for tests
 vi.mock('@/features/proposal/hooks/useProposalStudio', () => ({
   useProposalStudio: vi.fn(),
+}))
+vi.mock('@/api/hooks/useProposal', () => ({
+  useProposalDecisionExplanation: () => ({ data: undefined, isPending: false, mutate: vi.fn() }),
+  useProposalCounterfactual: () => ({ data: undefined, isPending: false, mutate: vi.fn() }),
+}))
+vi.mock('@/api/hooks/useEngagements', () => ({
+  useEngagement: () => ({ data: { leadCompanyName: 'Acme Insurance', scenarioId: 'scn-1', personaId: 'p-1' } }),
+}))
+vi.mock('@/api/hooks/useScenarios', () => ({
+  useScenario: () => ({ data: { personas: [{ id: 'p-1', name: 'Sarah Chen', jobTitle: 'Chief Operating Officer' }] } }),
 }))
 vi.mock('@/components/shared/ObjectiveTourProvider', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -119,133 +129,180 @@ function renderPage() {
   )
 }
 
-describe('ProposalStudioPage evidence library pagination', () => {
+describe('ProposalStudioPage evidence library', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('shows 4 sources per page and reports correct range for an odd total', () => {
-    const sources = [
-      makeSource('a'),
-      makeSource('b'),
-      makeSource('c'),
-      makeSource('d'),
-      makeSource('e'),
-    ]
-    setup(sources)
+  it('shows 4 sources per page and reports the range for an odd total', () => {
+    setup(['1', '2', '3', '4', '5'].map(makeSource))
     renderPage()
 
-    expect(screen.getByText(/Showing 1-4 of 5/)).toBeInTheDocument()
-    expect(screen.getByText('Source a')).toBeInTheDocument()
-    expect(screen.getByText('Source d')).toBeInTheDocument()
-    expect(screen.queryByText('Source e')).not.toBeInTheDocument()
+    expect(screen.getByText(/Showing 1–4 of 5 for/)).toBeInTheDocument()
+    expect(screen.getByText('Source 4')).toBeInTheDocument()
+    expect(screen.queryByText('Source 5')).not.toBeInTheDocument()
   })
 
-  it('moves to next page of 4 and shows the remaining source', async () => {
+  it('moves to the next page and shows the remaining source', async () => {
     const user = userEvent.setup()
-    const sources = [
-      makeSource('a'),
-      makeSource('b'),
-      makeSource('c'),
-      makeSource('d'),
-      makeSource('e'),
-    ]
-    setup(sources)
+    setup(['1', '2', '3', '4', '5'].map(makeSource))
     renderPage()
 
-    await user.click(screen.getByRole('button', { name: 'Next sources' }),)
-    expect(screen.getByText(/Showing 5-5 of 5/)).toBeInTheDocument()
-    expect(screen.getByText('Source e')).toBeInTheDocument()
-    expect(screen.queryByText('Source a')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next sources' }))
+
+    expect(screen.getByText('Source 5')).toBeInTheDocument()
+    expect(screen.getByText(/Showing 5–5 of 5 for/)).toBeInTheDocument()
   })
 
-  it('shows exactly 1 pages with no pagination control when total is exactly 2', () => {
-    const sources = [
-      makeSource('a'),
-      makeSource('b'),
-    ]
-    setup(sources)
+  it('has no pager when every source fits on one page', () => {
+    setup(['1', '2'].map(makeSource))
     renderPage()
 
-    expect(screen.getByText(/Showing 1-2 of 2/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Next sources' }),).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next sources' })).not.toBeInTheDocument()
   })
 })
 
-describe('ProposalStudioPage header actions row', () => {
+describe('ProposalStudioPage document', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  // qa changes slightly altered save status text, so this ensures the other buttons were not affected
-  it('keeps Review proposal and Submit to client visible together regardless of save status text', () => {
+  it('addresses the proposal to the client contact and keeps both actions in the document bar', () => {
     setup([])
     renderPage()
 
-    expect(screen.getByRole('button', { name: 'Review proposal' }),).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Submit to client' }),).toBeInTheDocument()
+    expect(screen.getByText('Proposal — Acme Insurance')).toBeInTheDocument()
+    expect(screen.getByText(/Proposal to Sarah Chen, Chief Operating Officer/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Review proposal' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Submit to client' })).toBeInTheDocument()
+  })
+
+  it('edits the draft through the studio', async () => {
+    const user = userEvent.setup()
+    setup([])
+    renderPage()
+
+    await user.type(screen.getByLabelText('Problem statement'), 'x')
+
+    expect(mockedUseProposalStudio.mock.results[0].value.updateDraft).toHaveBeenCalled()
+  })
+
+  it('shows every row of a table without paging', () => {
+    setupSection('OUTCOMES', {
+      businessOutcomes: ['A', 'B', 'C', 'D'].map((name) => ({ outcome: `Outcome ${name}`, metric: '', target: '' })),
+    })
+    renderPage()
+
+    expect(screen.getByDisplayValue('Outcome A')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Outcome D')).toBeInTheDocument()
   })
 })
 
-// paginator changes
-describe('ProposalStudioPage structured editor pagination', () => {
+describe('ProposalStudioPage submit and review', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('shows 3 business outcome rows per page and a "1/2" page indicator for 4 rows', () => {
-    const businessOutcomes = [
-      { outcome: 'Outcome A', metric: 'Metric A', target: 'Target A' },
-      { outcome: 'Outcome B', metric: 'Metric B', target: 'Target B' },
-      { outcome: 'Outcome C', metric: 'Metric C', target: 'Target C' },
-      { outcome: 'Outcome D', metric: 'Metric D', target: 'Target D' },
-    ]
-    setupSection('OUTCOMES', { businessOutcomes })
+  it('keeps the "Before you submit" checklist in the outline', () => {
+    setup([])
     renderPage()
 
-    expect(screen.getByText('1/2')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Outcome A')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Outcome C')).toBeInTheDocument()
-    expect(screen.queryByDisplayValue('Outcome D')).not.toBeInTheDocument()
+    expect(screen.getByText('Before you submit')).toBeInTheDocument()
+    expect(screen.getAllByText('You have run a proposal review').length).toBeGreaterThan(0)
   })
 
-  it('moves to the second page of business outcomes and shows the remaining row', async () => {
+  it('shows what is missing before submitting early, and still lets the learner submit', async () => {
     const user = userEvent.setup()
-    const businessOutcomes = [
-      { outcome: 'Outcome A', metric: 'Metric A', target: 'Target A' },
-      { outcome: 'Outcome B', metric: 'Metric B', target: 'Target B' },
-      { outcome: 'Outcome C', metric: 'Metric C', target: 'Target C' },
-      { outcome: 'Outcome D', metric: 'Metric D', target: 'Target D' },
-    ]
-    setupSection('OUTCOMES', { businessOutcomes })
+    setup([])
     renderPage()
+    const studio = mockedUseProposalStudio.mock.results[0].value
 
-    await user.click(screen.getByRole('button', { name: 'Next items' }))
+    await user.click(screen.getByRole('button', { name: 'Submit to client' }))
+    expect(screen.getByText('Before you submit to the client')).toBeInTheDocument()
+    expect(studio.submit).not.toHaveBeenCalled()
 
-    expect(screen.getByText('2/2')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Outcome D')).toBeInTheDocument()
-    expect(screen.queryByDisplayValue('Outcome A')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue anyway' }))
+    expect(studio.submit).toHaveBeenCalled()
   })
 
-  it('does not show pagination controls for exactly 3 rows', () => {
-    const businessOutcomes = [
-      { outcome: 'Outcome A', metric: 'Metric A', target: 'Target A' },
-      { outcome: 'Outcome B', metric: 'Metric B', target: 'Target B' },
-      { outcome: 'Outcome C', metric: 'Metric C', target: 'Target C' },
-    ]
-    setupSection('OUTCOMES', { businessOutcomes })
+  it('describes the review in words, never as scores (SRS FR-14)', async () => {
+    const user = userEvent.setup()
+    const review: ProposalReview = {
+      readyToSubmit: false,
+      validationIssues: [{ severity: 'BLOCKING', code: 'X', message: 'Name a mitigation for each risk.', section: 'RISKS' }],
+      clientAlignment: [],
+      problemDefinitionScore: 70,
+      evidenceGroundingScore: 80,
+      clientAlignmentScore: 65,
+      commercialLogicScore: 40,
+      riskCoverageScore: 50,
+      feasibilityScore: 60,
+      executiveFeedback: 'Grounded, but the commercials are thin.',
+      improvementActions: ['Tie the budget to a confirmed source.'],
+    }
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, review })
     renderPage()
 
-    expect(screen.queryByRole('button', { name: 'Next items' })).not.toBeInTheDocument()
-    expect(screen.queryByText('1/1')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Coach' }))
+    expect(screen.getByText('Strong')).toBeInTheDocument()
+    expect(screen.getByText('Adequate')).toBeInTheDocument()
+    expect(screen.getByText('Needs work')).toBeInTheDocument()
+    expect(screen.queryByText(/\/100/)).not.toBeInTheDocument()
+  })
+})
+
+describe('ProposalStudioPage after submission', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function setupSubmitted() {
+    setup([makeSource('1')])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({
+      ...studio,
+      submitted: true,
+      proposal: {
+        clientDecisionOutcome: 'PILOT_APPROVED',
+        clientResponse: 'We will run the pilot.',
+        decisionRationale: '',
+        decisionInsights: [],
+        decisionDimensions: [],
+        evidenceImpacts: [],
+        submittedAt: '2026-09-28T10:00:00Z',
+      },
+      draft: { ...studio.draft, problemStatement: 'Duplicate entry costs nursing time.', evidenceLinks: [{ section: 'PROBLEM', sourceId: '1' }] },
+      attachedSourceIds: new Set(['1']),
+    } as unknown as ReturnType<typeof useProposalStudio>)
+  }
+
+  function renderAt(url: string) {
+    return render(
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/dashboard/engagements/:engagementId/proposal" element={<ProposalStudioPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('opens on the client’s decision, with a way back to the proposal that was sent', async () => {
+    const user = userEvent.setup()
+    setupSubmitted()
+    renderAt('/dashboard/engagements/eng-1/proposal')
+
+    expect(screen.getByText('We will run the pilot.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Read the proposal you sent' }))
+
+    expect(screen.getByDisplayValue('Duplicate entry costs nursing time.')).toBeInTheDocument()
   })
 
-  it('paginates milestone rows on the delivery section using the same 3-per-page limit', () => {
-    const milestones = [
-      { phase: 'Discovery', duration: 'Week 1' },
-      { phase: 'Build', duration: 'Week 2-4' },
-      { phase: 'Pilot', duration: 'Week 5' },
-      { phase: 'Rollout', duration: 'Week 6' },
-    ]
-    setupSection('TIMELINE', { milestones })
-    renderPage()
+  it('shows the sent proposal read-only, without review, submit or attach', () => {
+    setupSubmitted()
+    renderAt('/dashboard/engagements/eng-1/proposal?view=proposal')
 
-    expect(screen.getByText('1/2')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Discovery')).toBeInTheDocument()
-    expect(screen.queryByDisplayValue('Rollout')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Problem statement')).toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: 'Back to their decision' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Submit to client' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Review proposal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Attach source/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Attached to Foundation')).toBeInTheDocument()
+    // The checklist stays in the outline, as what was sent.
+    expect(screen.getByText('What you submitted')).toBeInTheDocument()
+    expect(screen.getByText('Every section cites evidence')).toBeInTheDocument()
   })
 })

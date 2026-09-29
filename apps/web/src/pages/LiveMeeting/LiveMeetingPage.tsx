@@ -1,137 +1,53 @@
+/**
+ * The meeting, as a Teams-style chat with the client.
+ *
+ * All of the live behaviour is unchanged — the streamed replies over
+ * useMeetingSocket, guided options or free text, the automatic close once the
+ * client is ready, the debrief, retries and the termination dialog.
+ *
+ * The trust / interest / patience meters are gone (SRS FR-14: no numbers
+ * during play): the engagement bar describes the client in a sentence, and
+ * "What just happened" says what the last answer did, in words.
+ */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  Button,
-  Column,
-  Grid,
-  Heading,
-  InlineLoading,
-  InlineNotification,
-  Modal,
-  Stack,
-  Tag,
-  TextArea,
-  Tile,
-} from '@carbon/react'
-import { ArrowRight, Idea, Send } from '@carbon/icons-react'
-import { useMeeting, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting } from '@/api/hooks/useMeeting'
-import { useRetryEngagement } from '@/api/hooks/useEngagements'
+import { Button, InlineLoading, InlineNotification, Modal, Tag } from '@carbon/react'
+import { ArrowRight, Idea, Information, Send } from '@carbon/icons-react'
+import { useEngagement, useRetryEngagement } from '@/api/hooks/useEngagements'
+import { useMeeting, useMeetingPreparation, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting } from '@/api/hooks/useMeeting'
 import { useMeetingSocket } from '@/api/hooks/useMeetingSocket'
-import LoadingState from '@/components/shared/LoadingState'
-import ErrorState from '@/components/shared/ErrorState'
+import { useScenario } from '@/api/hooks/useScenarios'
 import type { ConversationTurn, MeetingBehaviourFeedback, MeetingTermination, PersonaState } from '@/api/types'
-import styles from './LiveMeetingPage.module.scss'
+import ErrorState from '@/components/shared/ErrorState'
+import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
+import { useMentor } from '@/components/shell/useMentor'
+import styles from './LiveMeetingPage.module.scss'
 
 const DEFAULT_MEETING_THRESHOLD = 70
 
 const LIVE_MEETING_OBJECTIVES = [
   {
-    id: 'relationship',
-    objective: 'Understand relationship state',
-    description: 'This shows your current relationship state with the client and your goal metrics before you can move to the debrief and proposal stage.',
-    targets: ['.objective-relationship'],
-  },
-  {
     id: 'meeting-options',
-    objective: 'Determine your responses',
-    description: 'This is the area where your meeting will take place. You will either have the choice to choose a generated response or type in your response here, depending on the difficulty of this engagement.',
+    objective: 'The conversation',
+    description: 'This is the meeting. Depending on the difficulty you pick a suggested reply or write your own, and the client answers in real time.',
     targets: ['.objective-meeting-view'],
   },
   {
     id: 'hints',
-    objective: 'Meeting hints',
-    description: 'Pay attention to this whole section, as it may provide useful hints to guide an appropriate response to the client.',
+    objective: 'Stuck? Get a hint',
+    description: 'If you are unsure what to say next, the hint points at what the client just asked or raised.',
     targets: ['.objective-hints'],
+  },
+  {
+    id: 'relationship',
+    objective: 'What just happened',
+    description: 'After each answer this panel says what it did to the relationship, in words. Your plan and the facts the client has shared are one tab away.',
+    targets: ['.objective-relationship'],
   },
 ]
 
-function RelationshipMeter({ label, value, threshold }: { label: string; value: number; threshold: number }) {
-  const tone = value >= threshold ? styles.meterPass : value >= 50 ? styles.meterWatch : styles.meterRisk
-  return (
-    <div className={styles.relationshipMetric}>
-      <div>
-        <span>{label}</span>
-        <strong>{value}<small>/100</small></strong>
-      </div>
-      <div className={styles.meterTrack}><div className={tone} style={{ width: `${value}%` }} /></div>
-      <p>{value >= threshold ? 'Meeting threshold met' : `${threshold - value} points to threshold`}</p>
-    </div>
-  )
-}
-
-function scoreDelta(value: number) {
-  return value > 0 ? `+${value}` : `${value}`
-}
-
-function BehaviourFeedback({ feedback }: { feedback: MeetingBehaviourFeedback }) {
-  const positive = feedback.trustDelta >= 0 && feedback.interestDelta >= 0 && feedback.patienceDelta >= 0
-  return (
-    <section className={`${styles.behaviourPanel} ${positive ? styles.behaviourPositive : styles.behaviourRecovery}`}>
-      <p className={styles.eyebrow}>Simulation Director</p>
-      <div className={styles.behaviourHeading}>
-        <h3>{feedback.quality.replaceAll('_', ' ').toLowerCase()}</h3>
-        <div className={styles.behaviourDeltas} aria-label="Relationship impact">
-          <span>Trust {scoreDelta(feedback.trustDelta)}</span>
-          <span>Interest {scoreDelta(feedback.interestDelta)}</span>
-          <span>Patience {scoreDelta(feedback.patienceDelta)}</span>
-        </div>
-      </div>
-      <p>{feedback.explanation}</p>
-      <div className={styles.behaviourTags}>
-        {feedback.verifiedBehaviours.map((behaviour) => {
-          const label = behaviour.replaceAll('_', ' '); 
-          return <Tag key={behaviour} type="blue">{label.charAt(0).toUpperCase() + label.slice(1)}</Tag>;
-        })}
-      </div>
-      <div className={styles.behaviourNextAction}>
-        <strong>Next best action</strong>
-        <span>{feedback.nextBestAction}</span>
-      </div>
-    </section>
-  )
-}
-
-function MeetingIntelligence({
-  feedback,
-  disclosedFacts,
-  readyToClose,
-}: {
-  feedback: MeetingBehaviourFeedback | null
-  disclosedFacts: string[]
-  readyToClose: boolean
-}) {
-  return (
-    <Tile className={styles.liveIntelligencePanel}>
-      {readyToClose && (
-        <section className={styles.readyToClosePanel}>
-          <p className={styles.eyebrow}>Client readiness</p>
-          <h3>Ready to conclude</h3>
-          <p>The client has enough confidence to move forward. Confirm the agreed next step; the next client response will close the meeting automatically.</p>
-        </section>
-      )}
-      {disclosedFacts.length > 0 && (
-        <section className={styles.validatedFacts}>
-          <p className={styles.eyebrow}>Validated during meeting</p>
-          <h3>Facts disclosed</h3>
-          <ul>{disclosedFacts.map((fact) => <li key={fact}>{fact.replace(/_/g, ' ')}</li>)}</ul>
-        </section>
-      )}
-      {feedback && <BehaviourFeedback feedback={feedback} />}
-    </Tile>
-  )
-}
-
-function TurnBubble({ turn, isStreaming = false }: { turn: ConversationTurn; isStreaming?: boolean }) {
-  const isLearner = turn.actor === 'LEARNER'
-  return (
-    <div className={isLearner ? styles.learnerTurn : styles.personaTurn}>
-      <div className={`${styles.bubble} ${isLearner ? styles.learnerBubble : styles.personaBubble} ${isStreaming ? styles.streamingBubble : ''}`}>
-        <p>{turn.content}</p>
-      </div>
-    </div>
-  )
-}
+type PanelView = 'happening' | 'notes' | 'facts'
 
 function deriveHint(transcript: ConversationTurn[], signals: string[], state: PersonaState, threshold: number) {
   const latestPersonaTurn = [...transcript].reverse().find((turn) => turn.actor === 'PERSONA')
@@ -156,44 +72,77 @@ function toTermination(meetingReason: string | null, message: string | null, tip
   return { reason: meetingReason, message, retryGuidance: tips, meetingRetryAvailable, meetingRetriesRemaining }
 }
 
+/** What the last answer did to the relationship, as a sentence rather than deltas. */
+function effectOf(feedback: MeetingBehaviourFeedback): string {
+  return [
+    feedback.trustDelta > 0 ? 'They trust you a little more.' : feedback.trustDelta < 0 ? 'They trust you less.' : '',
+    feedback.interestDelta > 0 ? 'Their interest went up.' : feedback.interestDelta < 0 ? 'Their interest dropped.' : '',
+    feedback.patienceDelta < -5 ? 'It cost a lot of their patience.' : feedback.patienceDelta < 0 ? 'It cost a little of their patience.' : '',
+  ].filter(Boolean).join(' ')
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+}
+
+function clock(createdAt: string) {
+  const date = new Date(createdAt)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
 export default function LiveMeetingPage() {
-  const { engagementId, meetingId } = useParams<{ engagementId: string; meetingId: string }>()
+  const { engagementId = '', meetingId = '' } = useParams<{ engagementId: string; meetingId: string }>()
   const navigate = useNavigate()
-  const { data: meeting, isLoading: meetingLoading, isError: meetingError } = useMeeting(meetingId!)
-  const { data: transcript, isLoading: transcriptLoading } = useMeetingTranscript(meetingId!)
-  const { data: persistedPersonaState, isLoading: personaStateLoading } = usePersonaState(meetingId!)
+  const { data: meeting, isLoading: meetingLoading, isError: meetingError } = useMeeting(meetingId)
+  const { data: transcript, isLoading: transcriptLoading } = useMeetingTranscript(meetingId)
+  const { data: persistedPersonaState, isLoading: personaStateLoading } = usePersonaState(meetingId)
   const { data: responseOptions, isLoading: responseOptionsLoading, isError: responseOptionsError, refetch: refetchResponseOptions } = useMeetingResponseOptions(
-    meetingId!,
+    meetingId,
     meeting?.status === 'IN_PROGRESS' && meeting.interactionMode !== 'FREEFORM',
   )
-  const retryMeeting = useRetryMeeting(meetingId!, engagementId!)
-  const { streamingText, isStreaming, error, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId!)
-  const retryEngagement = useRetryEngagement(engagementId!)
+  const { data: preparation } = useMeetingPreparation(engagementId)
+  const { data: engagement } = useEngagement(engagementId)
+  const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
+  const retryMeeting = useRetryMeeting(meetingId, engagementId)
+  const { streamingText, isStreaming, error, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
+  const retryEngagement = useRetryEngagement(engagementId)
   const [message, setMessage] = useState('')
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const [terminationDismissed, setTerminationDismissed] = useState(false)
   const [hintOpen, setHintOpen] = useState(false)
-  const transcriptRef = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState<PanelView>('happening')
+  const chatRef = useRef<HTMLDivElement>(null)
+  const debriefRef = useRef<HTMLElement>(null)
 
   const turns = useMemo(() => transcript ?? [], [transcript])
   const currentState = personaState ?? persistedPersonaState
   const latestPersistedFeedback = meeting?.behaviourLedger?.[meeting.behaviourLedger.length - 1] ?? null
-  const currentBehaviourFeedback = behaviourFeedback ?? latestPersistedFeedback
+  const feedback = behaviourFeedback ?? latestPersistedFeedback
   const meetingThreshold = meeting?.meetingThreshold ?? DEFAULT_MEETING_THRESHOLD
   const hint = useMemo(
     () => currentState ? deriveHint(turns, latestSignals, currentState, meetingThreshold) : [],
-    [turns, latestSignals, currentState, meetingThreshold]
+    [turns, latestSignals, currentState, meetingThreshold],
   )
+  const persona = scenario?.personas.find((item) => item.id === meeting?.personaId)
+  const clientName = persona?.name ?? 'The client'
+  const isCompleted = meeting?.status === 'COMPLETED'
+  const passed = meeting?.completionOutcome === 'PASSED'
+  const meetingGateMet = Boolean(currentState
+    && currentState.trust >= meetingThreshold && currentState.interest >= meetingThreshold && currentState.patience >= meetingThreshold)
+  const clientReadyToClose = latestSignals.includes('client_ready_to_close') || latestSignals.includes('client_committed_next_step')
+  const readyToClose = !isCompleted && (meetingGateMet || clientReadyToClose)
 
+  // Keep the latest message in view; once the meeting ends, bring the debrief
+  // up instead. Scrolls the chat only, never the page around it.
   useEffect(() => {
-    const transcriptViewport = transcriptRef.current
-    if (!transcriptViewport) return
-
-    transcriptViewport.scrollTo({
-      top: transcriptViewport.scrollHeight,
-      behavior: 'smooth',
-    })
-  }, [turns.length, streamingText])
+    const chat = chatRef.current
+    if (!chat) return
+    const debrief = debriefRef.current
+    const top = debrief
+      ? chat.scrollTop + debrief.getBoundingClientRect().top - chat.getBoundingClientRect().top - 16
+      : chat.scrollHeight
+    chat.scrollTo({ top, behavior: 'smooth' })
+  }, [turns.length, streamingText, isCompleted])
 
   useEffect(() => {
     setMessage('')
@@ -202,29 +151,35 @@ export default function LiveMeetingPage() {
     setHintOpen(false)
   }, [meetingId])
 
+  useMentor(
+    isCompleted
+      ? passed
+        ? 'Good meeting. Write down what they told you before you draft a single line of the proposal.'
+        : 'That one got away from you. Read the debrief before you try again — it is short.'
+      : readyToClose
+        ? 'They are ready to wrap up. Confirm one next step, with a date and an owner.'
+        : feedback?.nextBestAction ?? 'Open with a question about their priorities, not a pitch.',
+    isCompleted && passed ? { label: 'Continue to the proposal', to: `/dashboard/engagements/${engagementId}/proposal`, ready: true } : null,
+  )
+
   if (meetingLoading || transcriptLoading || personaStateLoading) return <LoadingState />
   if (meetingError || !meeting) return <ErrorState />
   if (!currentState) return <ErrorState />
 
-  const isCompleted = meeting.status === 'COMPLETED'
   const isFreeformMeeting = meeting.interactionMode === 'FREEFORM'
-  const isGuidedMeeting = !isFreeformMeeting
   const debriefTips = meeting.debriefTips ?? []
   const automaticTermination = termination ?? toTermination(
     meeting.terminationReason,
     meeting.terminationMessage,
     debriefTips,
     meeting.meetingRetryAvailable,
-    meeting.meetingRetriesRemaining
+    meeting.meetingRetriesRemaining,
   )
   const canRetryMeeting = automaticTermination?.meetingRetryAvailable ?? meeting.meetingRetryAvailable
   const meetingRetriesRemaining = automaticTermination?.meetingRetriesRemaining ?? meeting.meetingRetriesRemaining
-  const meetingGateMet = currentState.trust >= meetingThreshold
-    && currentState.interest >= meetingThreshold && currentState.patience >= meetingThreshold
-  const clientReadyToClose = latestSignals.includes('client_ready_to_close')
-    || latestSignals.includes('client_committed_next_step')
   const pendingIsPersisted = pendingMessage !== null
     && turns.some((turn) => turn.actor === 'LEARNER' && turn.content === pendingMessage)
+  const now = new Date().toISOString()
 
   const sendResponse = async (outgoing: string) => {
     if (!outgoing || isStreaming) return
@@ -236,8 +191,6 @@ export default function LiveMeetingPage() {
       setPendingMessage(null)
     }
   }
-
-  const handleSend = async () => sendResponse(message.trim())
 
   const handleRetryLead = () => {
     retryEngagement.mutate(undefined, {
@@ -251,207 +204,211 @@ export default function LiveMeetingPage() {
     })
   }
 
+  const renderTurn = (turn: ConversationTurn, streaming = false) => turn.actor === 'LEARNER' ? (
+    <div key={turn.id} className={styles.mine}>
+      <time>{clock(turn.createdAt)}</time>
+      <p>{turn.content}</p>
+    </div>
+  ) : (
+    <div key={turn.id} className={styles.theirs}>
+      <span className={styles.avatar} aria-hidden="true">{initials(clientName)}</span>
+      <div>
+        <span className={styles.meta}><strong>{clientName}</strong> <time>{clock(turn.createdAt)}</time></span>
+        <p className={streaming ? styles.streaming : undefined}>{turn.content}</p>
+      </div>
+    </div>
+  )
+
+  const guidedChoicesShown = !isFreeformMeeting && (responseOptionsLoading || responseOptionsError || responseOptions?.interactionMode === 'GUIDED')
+
   return (
     <ObjectiveTourProvider tourId="live-meeting" objectives={LIVE_MEETING_OBJECTIVES}>
-    <div className={`${styles.page} ${isCompleted ? styles.completedPage : ''}`}>
-      <Grid fullWidth narrow className={styles.headerGrid}>
-        <Column lg={11} md={8} sm={4}>
-          <div className={styles.pageHeader}>
-            <div>
-              <Heading>Live Client Meeting</Heading>
+      <div className={styles.teams}>
+        <div className={`${styles.chatPane} objective-meeting-view`}>
+          <header className={styles.chatHead}>
+            <span className={`${styles.avatar} ${styles.avatarLarge}`} aria-hidden="true">
+              {initials(clientName)}<i className={isCompleted ? styles.statusAway : styles.statusOn} />
+            </span>
+            <div className={styles.chatWho}>
+              <strong>{clientName}</strong>
+              <span>{[persona?.jobTitle, persona?.organisation ?? engagement?.leadCompanyName].filter(Boolean).join(' · ')}</span>
             </div>
+            {/* Hard mode is free text; every other difficulty picks from suggested replies. */}
+            <Tag type={isFreeformMeeting ? 'purple' : 'blue'} size="sm" title={isFreeformMeeting ? 'Hard mode · respond in your own words' : 'Pick from suggested replies'}>
+              {isFreeformMeeting ? 'Free text' : 'Guided'}
+            </Tag>
             {!isCompleted && hint.length > 0 && (
-              <div className={styles.meetingHint}>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  renderIcon={Idea}
-                  iconDescription="Show response hint"
-                  className={styles.hintTrigger}
-                  aria-expanded={hintOpen}
-                  aria-controls="meeting-response-hint"
-                  onClick={() => setHintOpen((open) => !open)}
-                >
-                  Stuck? Get a hint
-                </Button>
+              <div className={`${styles.hintWrap} objective-hints`}>
+                <button type="button" className={styles.hintButton} aria-expanded={hintOpen} aria-controls="meeting-response-hint" onClick={() => setHintOpen((open) => !open)}>
+                  <Idea size={16} /> Stuck? Get a hint
+                </button>
                 {hintOpen && (
-                  <section className={styles.hintPopover} id="meeting-response-hint" aria-label="Response hint">
-                    <p className={styles.eyebrow}>Next-turn hint</p>
-                    <p>{hint[0]}</p>
-                  </section>
+                  <div className={styles.hint} id="meeting-response-hint" role="note">
+                    <p>Next-turn hint</p>
+                    {hint[0]}
+                  </div>
                 )}
               </div>
             )}
-          </div>
-        </Column>
-      </Grid>
+          </header>
 
-      <Grid fullWidth narrow className={styles.workspaceGrid}>
-        <Column lg={11} md={8} sm={4} className={styles.conversationColumn}>
-          <section className={`${styles.conversationPanel} objective-meeting-view`} aria-label="Live client conversation">
-            <div className={`${styles.transcriptViewport} ${turns.length === 0 && !pendingMessage && !streamingText ? styles.emptyTranscriptViewport : ''}`} ref={transcriptRef} >
-              {turns.length === 0 && !pendingMessage && (<p className={styles.emptyTranscript}>Begin with a focused discovery question.</p>)}
-              {turns.map((turn) => <TurnBubble key={turn.id} turn={turn} />)}
-              {pendingMessage && !pendingIsPersisted && (
-                <TurnBubble turn={{ id: 'pending-learner', meetingId: meetingId!, actor: 'LEARNER', content: pendingMessage, sequence: -1, signals: null, createdAt: new Date().toISOString() }} />
-              )}
-              {isStreaming && streamingText && (
-                <TurnBubble turn={{ id: 'streaming-persona', meetingId: meetingId!, actor: 'PERSONA', content: streamingText, sequence: -1, signals: null, createdAt: new Date().toISOString() }} isStreaming />
-              )}
-            </div>
+          <div className={styles.messages} ref={chatRef} aria-label={`Conversation with ${clientName}`} aria-live="polite">
+            <p className={styles.system}><Information size={14} /> Meeting started · transcript saved automatically</p>
+            {turns.length === 0 && !pendingMessage && <p className={styles.system}>Begin with a focused discovery question.</p>}
+            {turns.map((turn) => renderTurn(turn))}
+            {pendingMessage && !pendingIsPersisted && renderTurn({ id: 'pending-learner', meetingId, actor: 'LEARNER', content: pendingMessage, sequence: -1, signals: null, createdAt: now })}
+            {isStreaming && streamingText && renderTurn({ id: 'streaming-persona', meetingId, actor: 'PERSONA', content: streamingText, sequence: -1, signals: null, createdAt: now }, true)}
 
-            {error && <InlineNotification className={styles.errorNotification} kind="error" lowContrast title="Message failed" subtitle={error} hideCloseButton />}
-
-            {!isCompleted && isGuidedMeeting && (responseOptionsLoading || responseOptionsError || responseOptions?.interactionMode === 'GUIDED') && (
-              <section className={styles.guidedComposer} aria-label="Guided response choices">
-                <div className={styles.guidedHeading}>
-                  <div>
-                    <p className={styles.eyebrow}>Guided response</p>
-                    <h3>{meetingGateMet ? 'Confirm the agreed next step' : 'Choose your next response'}</h3>
-                  </div>
-                  <Tag type="blue">Three options</Tag>
-                </div>
-                <p className={styles.guidedDescription}>
-                  {meetingGateMet
-                    ? 'The client is ready to conclude. Confirm one concrete next step; the meeting will then close automatically.'
-                    : 'Choose carefully: not every professional-sounding response advances the conversation. Its impact is evaluated from the actual conversation.'}
-                </p>
-                {responseOptionsLoading && <InlineLoading description="Preparing response options..." />}
-                {(isStreaming || guidedOptionsPending) && <InlineLoading description={isStreaming ? 'Client is responding...' : 'Preparing next response options...'} />}
-                {!isStreaming && !guidedOptionsPending && !responseOptionsLoading && responseOptions?.available && (
-                  <div className={styles.responseChoices}>
-                    {responseOptions.options.map((option, index) => (
-                      <button
-                        className={styles.responseChoice}
-                        disabled={isStreaming}
-                        key={`${responseOptions.sourceSequence}-${index}`}
-                        onClick={() => void sendResponse(option)}
-                        type="button"
-                      >
-                        <span className={styles.choiceNumber}>Option {index + 1}</span>
-                        <span className={styles.choiceContent}>{option}</span>
-                        <ArrowRight className={styles.choiceIcon} size={20} aria-hidden="true" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {!isStreaming && !guidedOptionsPending && !responseOptionsLoading && (!responseOptions?.available || responseOptionsError || (guidedOptionsError && !responseOptions?.available)) && (
-                  <div className={styles.responseOptionsUnavailable}>
-                    <InlineNotification
-                      kind="warning"
-                      lowContrast
-                      hideCloseButton
-                      title="Response options are unavailable"
-                      subtitle={guidedOptionsError ?? responseOptions?.unavailableReason ?? 'Please try again to generate grounded response options.'}
-                    />
-                    <Button kind="tertiary" size="sm" onClick={() => void refetchResponseOptions()}>Try again</Button>
-                  </div>
-                )}
-              </section>
+            {isCompleted && (
+              <p className={styles.system}><Information size={14} /> {automaticTermination ? `${clientName} left the meeting` : 'Meeting ended'}</p>
             )}
 
-            {!isCompleted && isFreeformMeeting && (
-              <section className={styles.freeformComposer} aria-label="Freeform meeting response">
-                <div className={styles.freeformHeading}>
+            {isCompleted && (
+              <section ref={debriefRef} className={passed ? styles.debriefPassed : styles.debriefFailed}>
+                <div className={styles.debriefHead}>
                   <div>
-                    <p className={styles.eyebrow}>Hard mode · live dialogue</p>
-                    <h3>{meetingGateMet ? 'Bring the conversation to a natural close' : 'Respond in your own words'}</h3>
+                    <p className={styles.eyebrow}>Debrief</p>
+                    <h2>{passed ? 'Meeting passed' : 'Meeting not passed'}</h2>
                   </div>
-                  <Tag type="purple">Freeform</Tag>
+                  <Tag type={passed ? 'green' : 'red'}>{passed ? 'Passed' : 'Not passed'}</Tag>
                 </div>
-                <p>{meetingGateMet
-                  ? 'The client is ready to wrap up. Confirm the shared next step, owner and timing in one concise response.'
-                  : 'Listen carefully, address the client’s actual concern, and move the conversation forward without scripted choices.'}</p>
-                <div className={styles.composer}>
-                  <TextArea
-                    id="message"
-                    labelText="Response"
-                    hideLabel
-                    rows={3}
-                    placeholder={meetingGateMet ? 'Confirm the agreed next step, owner and timing...' : 'Respond to the client in your own words...'}
-                    value={message}
-                    disabled={isStreaming}
-                    onChange={(event) => setMessage(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault()
-                        void handleSend()
-                      }
-                    }}
-                  />
-                  <Button renderIcon={Send} disabled={isStreaming || !message.trim()} onClick={() => void handleSend()}>
-                    {isStreaming ? 'Client is responding...' : meetingGateMet ? 'Confirm next step' : 'Send response'}
-                  </Button>
-                </div>
-              </section>
-            )}
-          </section>
-
-          {isCompleted && (
-            <Tile className={meeting.completionOutcome === 'PASSED' ? styles.passedDebrief : styles.failedDebrief}>
-              <Stack gap={4}>
-                <div className={styles.debriefHeading}>
-                  <div>
-                    <p className={styles.eyebrow}>Meeting debrief</p>
-                    <h2>{meeting.completionOutcome === 'PASSED' ? 'Meeting passed' : 'Meeting not passed'}</h2>
-                  </div>
-                  <Tag type={meeting.completionOutcome === 'PASSED' ? 'green' : 'red'}>{meeting.completionOutcome}</Tag>
-                </div>
-                <p className={styles.debriefFeedback}>{meeting.debriefFeedback}</p>
-                {debriefTips.length > 0 && (
-                  <ul className={styles.debriefTips}>
-                    {debriefTips.map((tip) => <li key={tip}>{tip}</li>)}
-                  </ul>
-                )}
-                {meeting.completionOutcome === 'PASSED' ? (
-                  <Button renderIcon={ArrowRight} onClick={() => navigate(`/dashboard/engagements/${engagementId}/proposal`)}>
-                    Continue to Discovery Synthesis
+                {meeting.debriefFeedback && <p>{meeting.debriefFeedback}</p>}
+                {debriefTips.length > 0 && <ul>{debriefTips.map((tip) => <li key={tip}>{tip}</li>)}</ul>}
+                {passed ? (
+                  <Button renderIcon={ArrowRight} onClick={() => navigate(`/dashboard/engagements/${engagementId}/proposal`)}>Continue to the proposal</Button>
+                ) : canRetryMeeting ? (
+                  <Button kind="secondary" disabled={retryMeeting.isPending} onClick={handleRetryMeeting}>
+                    {retryMeeting.isPending ? 'Starting live meeting…' : `Retry live meeting (${meetingRetriesRemaining} remaining)`}
                   </Button>
                 ) : (
-                  canRetryMeeting ? (
-                    <Button kind="secondary" disabled={retryMeeting.isPending} onClick={handleRetryMeeting}>
-                      {retryMeeting.isPending ? 'Starting live meeting...' : `Retry live meeting (${meetingRetriesRemaining} remaining)`}
-                    </Button>
-                  ) : (
-                    <Button kind="secondary" disabled={retryEngagement.isPending} onClick={handleRetryLead}>
-                      {retryEngagement.isPending ? 'Starting lead retry...' : 'Retry this lead from the start'}
-                    </Button>
-                  )
+                  <Button kind="secondary" disabled={retryEngagement.isPending} onClick={handleRetryLead}>
+                    {retryEngagement.isPending ? 'Starting lead retry…' : 'Retry this lead from the start'}
+                  </Button>
                 )}
-              </Stack>
-            </Tile>
-          )}
-        </Column>
-
-        <Column lg={5} md={8} sm={4}>
-          <aside className={`${styles.decisionRail} objective-hints`}>
-            <section className={`${styles.relationshipPanel} objective-relationship`}>
-              <div className={styles.railHeading}>
-                <div>
-                  <p className={styles.eyebrow}>Relationship state</p>
-                  <h2>Meeting gate</h2>
-                </div>
-                <Tag type={meetingGateMet ? 'green' : 'gray'}>
-                  All metrics {meetingThreshold}+
-                </Tag>
-              </div>
-              <Stack gap={5}>
-                <RelationshipMeter label="Trust" value={currentState.trust} threshold={meetingThreshold} />
-                <RelationshipMeter label="Interest" value={currentState.interest} threshold={meetingThreshold} />
-                <RelationshipMeter label="Patience" value={currentState.patience} threshold={meetingThreshold} />
-              </Stack>
-            </section>
-
-            {(currentBehaviourFeedback || currentState.disclosedFacts.length > 0 || (!isCompleted && (meetingGateMet || clientReadyToClose))) && (
-              <MeetingIntelligence
-                feedback={currentBehaviourFeedback}
-                disclosedFacts={currentState.disclosedFacts}
-                readyToClose={!isCompleted && (meetingGateMet || clientReadyToClose)}
-              />
+              </section>
             )}
-          </aside>
-        </Column>
-      </Grid>
+          </div>
+
+          {error && (
+            <div className={styles.errors}>
+              <InlineNotification kind="error" lowContrast hideCloseButton title="Message failed" subtitle={error} />
+            </div>
+          )}
+
+          {!isCompleted && (
+            <footer className={styles.composeArea}>
+              {isStreaming && <p className={styles.typing}>{clientName} is typing<span>.</span><span>.</span><span>.</span></p>}
+              {readyToClose && (
+                <p className={styles.closeBanner}><strong>{clientName} is ready to wrap up.</strong> Confirm one concrete next step — the meeting closes after their reply.</p>
+              )}
+
+              {guidedChoicesShown && (
+                <div className={styles.suggestions} aria-label="Suggested replies">
+                  <p>Suggested replies · not every professional-sounding answer moves things forward</p>
+                  {responseOptionsLoading && <InlineLoading description="Preparing response options…" />}
+                  {guidedOptionsPending && !isStreaming && <InlineLoading description="Preparing next response options…" />}
+                  {!isStreaming && !guidedOptionsPending && !responseOptionsLoading && responseOptions?.available && responseOptions.options.map((option, index) => (
+                    <button key={`${responseOptions.sourceSequence}-${index}`} type="button" disabled={isStreaming} onClick={() => void sendResponse(option)}>{option}</button>
+                  ))}
+                  {!isStreaming && !guidedOptionsPending && !responseOptionsLoading && (!responseOptions?.available || responseOptionsError) && (
+                    <div className={styles.unavailable}>
+                      <InlineNotification
+                        kind="warning"
+                        lowContrast
+                        hideCloseButton
+                        title="Response options are unavailable"
+                        subtitle={guidedOptionsError ?? responseOptions?.unavailableReason ?? 'Please try again to generate grounded response options.'}
+                      />
+                      <Button kind="tertiary" size="sm" onClick={() => void refetchResponseOptions()}>Try again</Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isFreeformMeeting && (
+                <>
+                  <div className={styles.composeBox}>
+                    <textarea
+                      value={message}
+                      disabled={isStreaming}
+                      rows={2}
+                      onChange={(event) => setMessage(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                          event.preventDefault()
+                          void sendResponse(message.trim())
+                        }
+                      }}
+                      placeholder={readyToClose ? 'Confirm the next step, owner and timing…' : 'Type a message'}
+                      aria-label={`Message ${clientName}`}
+                    />
+                    <button type="button" className={styles.send} disabled={isStreaming || !message.trim()} onClick={() => void sendResponse(message.trim())} aria-label="Send">
+                      <Send size={20} />
+                    </button>
+                  </div>
+                  <p className={styles.composeHelp}>Enter to send · Shift + Enter for a new line</p>
+                </>
+              )}
+            </footer>
+          )}
+        </div>
+
+        <aside className={`${styles.panel} objective-relationship`} aria-label="Meeting panel">
+          <div className={styles.segments} role="tablist">
+            <button type="button" role="tab" aria-selected={view === 'happening'} onClick={() => setView('happening')}>What just happened</button>
+            <button type="button" role="tab" aria-selected={view === 'notes'} onClick={() => setView('notes')}>Your notes</button>
+            <button type="button" role="tab" aria-selected={view === 'facts'} onClick={() => setView('facts')}>Facts <span>{currentState.disclosedFacts.length}</span></button>
+          </div>
+
+          {view === 'happening' && (
+            <div className={styles.panelBody}>
+              {feedback ? (
+                <>
+                  <p className={styles.eyebrow}>Simulation director</p>
+                  <h3 className={styles.quality}>{feedback.quality.replaceAll('_', ' ').toLowerCase()}</h3>
+                  <p>{feedback.explanation}</p>
+                  {effectOf(feedback) && <p className={styles.effect}>{effectOf(feedback)}</p>}
+                  <div className={styles.behaviours}>
+                    {feedback.verifiedBehaviours.map((item) => {
+                      const label = item.replaceAll('_', ' ')
+                      return <Tag key={item} type="blue" size="sm">{label.charAt(0).toUpperCase() + label.slice(1)}</Tag>
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className={styles.muted}>After each answer, this says what it did to the relationship.</p>
+              )}
+            </div>
+          )}
+
+          {view === 'notes' && (
+            <div className={styles.panelBody}>
+              {preparation ? (
+                <>
+                  <p className={styles.eyebrow}>Objective</p>
+                  <p>{preparation.objective ?? 'No objective written.'}</p>
+                  <p className={styles.eyebrow}>Agenda</p>
+                  <ol className={styles.checklist}>{preparation.agenda.map((item) => <li key={item}><input type="checkbox" aria-label={item} /> {item}</li>)}</ol>
+                  <p className={styles.eyebrow}>Questions to ask</p>
+                  <ol className={styles.checklist}>{preparation.discoveryQuestions.map((item) => <li key={item}><input type="checkbox" aria-label={item} /> {item}</li>)}</ol>
+                  <p className={styles.muted}>Ticks are for you during the meeting; they are not saved.</p>
+                </>
+              ) : (
+                <p className={styles.muted}>Your meeting plan will show here.</p>
+              )}
+            </div>
+          )}
+
+          {view === 'facts' && (
+            <div className={styles.panelBody}>
+              <p className={styles.eyebrow}>Validated during the meeting</p>
+              {currentState.disclosedFacts.length > 0
+                ? <ul className={styles.facts}>{currentState.disclosedFacts.map((fact) => <li key={fact}>{fact.replace(/_/g, ' ')}</li>)}</ul>
+                : <p className={styles.muted}>Nothing yet. Hidden facts only come out when you ask the right question.</p>}
+            </div>
+          )}
+        </aside>
+      </div>
 
       <Modal
         open={Boolean(automaticTermination && !terminationDismissed)}
@@ -461,36 +418,25 @@ export default function LiveMeetingPage() {
           ? 'Meeting failed: unprofessional conduct'
           : 'Meeting failed: relationship threshold breached'}
         primaryButtonText={automaticTermination?.meetingRetryAvailable
-          ? (retryMeeting.isPending ? 'Starting live meeting...' : `Retry live meeting (${automaticTermination.meetingRetriesRemaining} remaining)`)
-          : (retryEngagement.isPending ? 'Starting lead retry...' : 'Retry this lead from the start')}
-        secondaryButtonText="Return to Command Centre"
+          ? (retryMeeting.isPending ? 'Starting live meeting…' : `Retry live meeting (${automaticTermination.meetingRetriesRemaining} remaining)`)
+          : (retryEngagement.isPending ? 'Starting lead retry…' : 'Retry this lead from the start')}
+        secondaryButtonText="Return to the Office"
         primaryButtonDisabled={retryMeeting.isPending || retryEngagement.isPending}
         onRequestSubmit={() => automaticTermination?.meetingRetryAvailable ? handleRetryMeeting() : handleRetryLead()}
         onSecondarySubmit={() => navigate('/dashboard')}
         onRequestClose={() => setTerminationDismissed(true)}
       >
-        <Stack gap={5}>
-          <p>{automaticTermination?.message}</p>
-          <p>{automaticTermination?.meetingRetryAvailable
-            ? 'This attempt is preserved for review. Your evidence and preparation remain available; the live conversation restarts with a clean relationship state.'
-            : 'This attempt is preserved for review. Retrying creates a new engagement from the same lead with a clean learner state.'}</p>
-          {automaticTermination?.retryGuidance.length ? (
-            <ul className={styles.terminationGuidance}>
-              {automaticTermination.retryGuidance.map((tip) => <li key={tip}>{tip}</li>)}
-            </ul>
-          ) : null}
-          {(retryMeeting.isError || retryEngagement.isError) && (
-            <InlineNotification
-              kind="error"
-              lowContrast
-              hideCloseButton
-              title="Retry could not be started"
-              subtitle="Please try again. Your failed attempt has not been changed."
-            />
-          )}
-        </Stack>
+        <p>{automaticTermination?.message}</p>
+        <p className={styles.retryNote}>{automaticTermination?.meetingRetryAvailable
+          ? 'This attempt is preserved for review. Your evidence and preparation remain available; the live conversation restarts with a clean relationship state.'
+          : 'This attempt is preserved for review. Retrying creates a new engagement from the same lead with a clean learner state.'}</p>
+        {automaticTermination?.retryGuidance.length ? (
+          <ul className={styles.guidance}>{automaticTermination.retryGuidance.map((tip) => <li key={tip}>{tip}</li>)}</ul>
+        ) : null}
+        {(retryMeeting.isError || retryEngagement.isError) && (
+          <InlineNotification kind="error" lowContrast hideCloseButton title="Retry could not be started" subtitle="Please try again. Your failed attempt has not been changed." />
+        )}
       </Modal>
-    </div>
     </ObjectiveTourProvider>
   )
 }

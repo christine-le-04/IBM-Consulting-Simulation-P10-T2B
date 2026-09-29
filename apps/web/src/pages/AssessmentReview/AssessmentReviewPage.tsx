@@ -1,6 +1,13 @@
+/**
+ * Your review — the engagement assessment, read as the review document it is.
+ * Numbers are kept off the play screens (SRS FR-14) so they land here, with
+ * weight: the overall score and each competency. Every state is unchanged:
+ * generating on first visit, coaching still pending, "not ready yet", errors.
+ */
 import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Grid, Column, Heading, Stack, Button, Tile, Tag, ProgressBar, InlineLoading } from '@carbon/react'
+import { Button, InlineLoading, Tag } from '@carbon/react'
+import { ArrowRight } from '@carbon/icons-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAssessment, useGenerateAssessment } from '@/api/hooks/useAssessment'
 import { engagementKeys, useEngagement } from '@/api/hooks/useEngagements'
@@ -8,6 +15,8 @@ import { portfolioKeys } from '@/api/hooks/usePortfolio'
 import { resolveEngagementRoute } from '@/api/engagementRouting'
 import { PHASE_LABEL } from '@/lifecycle/phases'
 import LoadingState from '@/components/shared/LoadingState'
+import { useMentor } from '@/components/shell/useMentor'
+import { useAuthStore } from '@/store/authStore'
 import ErrorState from '@/components/shared/ErrorState'
 import styles from './AssessmentReviewPage.module.scss'
 
@@ -41,21 +50,6 @@ function describeOutcome(outcome: string): OutcomePresentation {
   }
 }
 
-function CompetencyBar({ name, score, evidenceNote }: { name: string; score: number; evidenceNote: string | null }) {
-  return (
-    <Tile>
-      <Stack gap={2}>
-        <div className={styles.competencyHeader}>
-          <h5 className={styles.competencyName}>{name}</h5>
-          <span className={styles.competencyScore}>{score}/100</span>
-        </div>
-        <ProgressBar label="" hideLabel value={score} max={100} size="small" />
-        {evidenceNote && <p className={styles.evidenceNote}>{evidenceNote}</p>}
-      </Stack>
-    </Tile>
-  )
-}
-
 /**
  * The backend refuses to assess an engagement that hasn't reached the end, and
  * says so in its own vocabulary: "Assessment is not available in state:
@@ -72,6 +66,7 @@ export default function AssessmentReviewPage() {
   const { engagementId } = useParams<{ engagementId: string }>()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { displayName } = useAuthStore()
   const { data: engagement } = useEngagement(engagementId!)
   const { data: assessment, isLoading, isError, error } = useAssessment(engagementId!)
   const generateAssessment = useGenerateAssessment(engagementId!)
@@ -94,6 +89,8 @@ export default function AssessmentReviewPage() {
     void queryClient.invalidateQueries({ queryKey: engagementKeys.detail(engagementId!) })
     void queryClient.invalidateQueries({ queryKey: portfolioKeys.summary })
   }, [assessment, engagementId, generateAssessment.data, queryClient])
+
+  useMentor('This is where the numbers live. Read the two things to work on; they are what I would coach you on.')
 
   if (isLoading || generateAssessment.isPending) return <LoadingState description="Generating assessment…" />
   if (isError && !notFound) {
@@ -133,104 +130,76 @@ export default function AssessmentReviewPage() {
   const outcome = describeOutcome(result.outcome)
 
   return (
-    <Grid fullWidth narrow className={styles.pageGrid}>
-      <Column lg={16} md={8} sm={4}>
-        <Stack gap={6}>
+    <div className={styles.page}>
+      <article className={styles.report}>
+        <header className={styles.reportHead}>
           <div>
-            <Heading>Engagement Assessment</Heading>
-            <p className={styles.pageDescription}>
-              Coaching feedback generated from your research, outreach, meeting and proposal.
-            </p>
+            <p className={styles.org}>IBM Consulting</p>
+            <h1>Engagement review</h1>
+            <p className={styles.meta}>{[displayName, 'Associate Consultant', engagement?.scenarioTitle].filter(Boolean).join(' · ')}</p>
           </div>
+          <div className={styles.overall}>
+            <span>Overall</span>
+            <strong>{result.overallScore}/100</strong>
+          </div>
+        </header>
 
-          <Tile>
-            <Stack gap={3}>
-              <div className={styles.outcomeHeader}>
-                <Tag type="blue" size="lg">
-                  ENGAGEMENT COMPLETE
-                </Tag>
-                <Tag type={outcome.tagType} size="lg">
-                  {outcome.label}
-                </Tag>
-                <span className={styles.overallScore}>{result.overallScore}/100</span>
+        <div className={styles.outcomeRow}>
+          <Tag type="blue">Engagement complete</Tag>
+          <Tag type={outcome.tagType}>{outcome.label}</Tag>
+          <strong>{outcome.contractStatus}</strong>
+        </div>
+
+        <section className={styles.summary}>
+          <h2 className={styles.label}>Reviewer’s summary</h2>
+          {result.coachingPending ? <InlineLoading description="Preparing personalised AI coaching…" status="active" /> : <p>{result.feedbackSummary}</p>}
+        </section>
+
+        <section>
+          <h2 className={styles.label}>Competencies</h2>
+          <div className={styles.competencies}>
+            {result.competencyScores.map((competency) => (
+              <div key={competency.name} className={styles.competency}>
+                <div className={styles.competencyHead}>
+                  <strong>{competency.name}</strong>
+                  <span>{competency.score}/100</span>
+                </div>
+                <div className={styles.bar} role="img" aria-label={`${competency.name}: ${competency.score} out of 100`}><i style={{ width: `${competency.score}%` }} /></div>
+                {competency.evidenceNote && <p>{competency.evidenceNote}</p>}
               </div>
-              <p className={styles.contractStatus}><strong>{outcome.contractStatus}</strong></p>
-              {result.coachingPending ? (
-                <InlineLoading description="Preparing personalised AI coaching..." status="active" />
-              ) : (
-                <p className={styles.feedbackSummary}>{result.feedbackSummary}</p>
-              )}
-            </Stack>
-          </Tile>
-
-          <Grid narrow>
-            {result.competencyScores.map((c) => (
-              <Column key={c.name} lg={8} md={4} sm={4} className={styles.competencyColumn}>
-                <CompetencyBar name={c.name} score={c.score} evidenceNote={c.evidenceNote} />
-              </Column>
             ))}
-          </Grid>
+          </div>
+        </section>
 
-          <Grid narrow className={styles.evaluations}>
-            <Column lg={8} md={4} sm={4} className={styles.evaluationColumn}>
-              <Tile>
-                <Stack gap={2}>
-                  <h5 className={styles.sectionTitle}>Strengths</h5>
-                  {result.coachingPending ? (
-                    <InlineLoading
-                      description="Preparing strengths..."
-                      status="active"
-                    />
-                  ) : (
-                    <>
-                      <ol className={styles.orderedList}>
-                        {result.strengths.map((s, i) => (
-                          <li key={i} className={styles.listItem}>
-                            {s}
-                          </li>
-                        ))}
-                      </ol>
-                      {result.strengths.length === 0 && (
-                        <p className={styles.emptyText}>None recorded.</p>
-                      )}
-                    </>
-                  )}
-                </Stack>
-              </Tile>
-            </Column>
-            <Column lg={8} md={4} sm={4} className={styles.evaluationColumn}>
-              <Tile>
-                <Stack gap={2}>
-                  <h5 className={styles.sectionTitle}>Areas for Improvement</h5>
-                  {result.coachingPending ? (
-                    <InlineLoading
-                      description="Preparing areas for improvement..."
-                      status="active"
-                    />
-                  ) : (
-                    <>
-                      <ol className={styles.orderedList}>
-                        {result.improvementAreas.map((s, i) => (
-                          <li key={i} className={styles.listItem}>
-                            {s}
-                          </li>
-                        ))}
-                      </ol>
-                      {result.improvementAreas.length === 0 && (
-                        <p className={styles.emptyText}>None recorded.</p>
-                      )}
-                    </>
-                  )}
-                </Stack>
-              </Tile>
-            </Column>
-          </Grid>
+        <div className={styles.columns}>
+          <section>
+            <h2 className={styles.label}>Strengths</h2>
+            {result.coachingPending ? <InlineLoading description="Preparing strengths…" status="active" /> : (
+              <>
+                <ol>{result.strengths.map((item, index) => <li key={index}>{item}</li>)}</ol>
+                {result.strengths.length === 0 && <p className={styles.empty}>None recorded.</p>}
+              </>
+            )}
+          </section>
+          <section>
+            <h2 className={styles.label}>Areas for Improvement</h2>
+            {result.coachingPending ? <InlineLoading description="Preparing areas for improvement…" status="active" /> : (
+              <>
+                <ol>{result.improvementAreas.map((item, index) => <li key={index}>{item}</li>)}</ol>
+                {result.improvementAreas.length === 0 && <p className={styles.empty}>None recorded.</p>}
+              </>
+            )}
+          </section>
+        </div>
 
-          <Button href="/dashboard" kind="secondary">
-            Back to Command Centre
-          </Button>
-        </Stack>
-      </Column>
-    </Grid>
+        <footer className={styles.reportFoot}>
+          <span>Generated {new Date(result.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          <div className={styles.actions}>
+            <Button kind="secondary" onClick={() => navigate('/dashboard')}>Back to the Office</Button>
+            <Button renderIcon={ArrowRight} onClick={() => navigate('/dashboard/portfolio')}>View portfolio</Button>
+          </div>
+        </footer>
+      </article>
+    </div>
   )
 }

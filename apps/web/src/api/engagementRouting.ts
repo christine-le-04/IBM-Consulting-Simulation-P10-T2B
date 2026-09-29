@@ -1,4 +1,4 @@
-import type { Engagement } from '@/api/types'
+import type { Engagement, EngagementPhase } from '@/api/types'
 
 /**
  * Maps an engagement's current phase to the workspace route the learner
@@ -42,5 +42,39 @@ export function resolveEngagementRoute(engagement: Engagement): string {
       return `${base}/assessment`
     default:
       return `${base}/leads`
+  }
+}
+
+/**
+ * The page for one phase of an engagement — what the office map and the room
+ * buttons open. Earlier phases stay reachable, so a learner can walk back.
+ * The debrief has no page of its own (it is read on the assessment). The
+ * client's decision and the submitted proposal share /proposal, told apart by
+ * `?view=proposal`.
+ */
+export function phaseRoute(engagement: Engagement, phase: EngagementPhase): string {
+  const base = `/dashboard/engagements/${engagement.id}`
+  switch (phase) {
+    case 'LEAD':
+      return `${base}/leads`
+    case 'CLIENT_INTELLIGENCE':
+      return `${base}/intelligence`
+    case 'OUTREACH':
+      return `${base}/outreach`
+    case 'MEETING_PREPARATION':
+      return `${base}/preparation`
+    case 'LIVE_MEETING':
+      return engagement.meetingId ? `${base}/meetings/${engagement.meetingId}` : `${base}/preparation`
+    case 'PROPOSAL':
+      // Once submitted, /proposal opens on the client's decision; the
+      // proposal itself stays readable here.
+      return `${base}/proposal?view=proposal`
+    case 'OUTCOME':
+      return `${base}/proposal`
+    case 'MEETING_REVIEW':
+    case 'REVIEW':
+      return `${base}/assessment`
+    case 'COMPLETED':
+      return '/dashboard/portfolio'
   }
 }

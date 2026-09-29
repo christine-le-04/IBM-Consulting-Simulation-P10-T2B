@@ -1,0 +1,180 @@
+// Contacts laid out like business cards on a desk.
+.desk {
+  flex: 1;
+  padding: 2rem 1rem 3rem;
+  background: #eceae4;
+}
+
+.intro {
+  max-width: 1000px;
+  margin: 0 auto 1.5rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 300;
+  }
+
+  p {
+    margin: 0.4rem 0 0;
+    font-size: 1rem;
+    color: #525252;
+  }
+}
+
+.notice {
+  max-width: 1000px;
+  margin: 0 auto 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.cards {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #dcd8cf;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 14px 28px -18px rgba(40, 30, 10, 0.45);
+  display: flex;
+  flex-direction: column;
+}
+
+.cardChosen {
+  outline: 3px solid #0f62fe;
+  outline-offset: 2px;
+}
+
+.cardDimmed {
+  opacity: 0.6;
+}
+
+.cardHead {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 3px solid #161616;
+
+  h2 {
+    margin: 0;
+    font-family: var(--proto-serif);
+    font-size: 1.375rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0.1rem 0 0;
+    font-size: 0.9375rem;
+  }
+}
+
+.org {
+  font-size: 0.75rem !important;
+  color: #6f6f6f;
+  font-family: var(--proto-mono);
+}
+
+.monogram {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #161616;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 1.125rem;
+  flex: none;
+}
+
+.section {
+  padding: 0.9rem 1.25rem 0;
+
+  p {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+}
+
+.label {
+  margin-bottom: 0.3rem !important;
+  font-size: 0.625rem !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #6f6f6f;
+}
+
+.notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+
+  li {
+    font-family: 'Source Serif 4', var(--proto-serif);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    padding-left: 0.6rem;
+    border-left: 2px solid #0f62fe;
+  }
+
+  span {
+    display: block;
+    font-family: var(--proto-mono);
+    font-size: 0.6875rem;
+    color: #0043ce;
+  }
+}
+
+.empty {
+  color: #6f6f6f !important;
+  font-style: italic;
+  font-size: 0.875rem !important;
+}
+
+.cardFoot {
+  margin-top: auto;
+  padding: 1.25rem;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+}
+
+.chosenNote {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0043ce;
+}
+
+.lockedNote {
+  font-size: 0.875rem;
+  color: #6f6f6f;
+}
+
+.back {
+  max-width: 1000px;
+  margin: 1.5rem auto 0;
+  font-size: 0.875rem;
+  color: #525252;
+
+  button {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: #0f62fe;
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+  }
+}

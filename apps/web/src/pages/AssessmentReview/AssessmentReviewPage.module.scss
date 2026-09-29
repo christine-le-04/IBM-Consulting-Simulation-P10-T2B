@@ -1,79 +1,201 @@
-.pageGrid {
+// Your review, ported from the UX prototype (src/prototype/screens/assessment.module.scss).
+
+.page {
+  // The review sits on its own desk, edge to edge (the negative margin undoes
+  // Carbon's content padding).
+  flex: 1;
+  margin: -2rem;
+  min-height: calc(100vh - var(--sim-header) - 2.75rem);
+  padding: 1.5rem 1rem 3rem;
+  background: #eceff3;
+}
+
+.state {
+  max-width: 640px;
+  margin: 3rem auto;
+  background: #fff;
   padding: 2rem;
+  border: 1px solid var(--sim-line);
+
+  h2 {
+    margin: 0 0 0.5rem;
+    font-weight: 400;
+  }
+
+  p { margin: 0 0 1rem; color: var(--sim-ink-2); }
 }
 
-.pageDescription {
-  color: #525252;
-  margin-top: 0.5rem;
+.report {
+  max-width: 920px;
+  margin: 0 auto;
+  background: #fff;
+  padding: 2.5rem 3rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 18px 36px -24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+
+  @media (max-width: 672px) {
+    padding: 1.5rem;
+  }
+
+  ol {
+    margin: 0;
+    padding-left: 1.2rem;
+    list-style: decimal;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    display: grid;
+    gap: 0.35rem;
+  }
 }
 
-.competencyHeader {
+.reportHead {
   display: flex;
   justify-content: space-between;
-}
-
-.competencyName {
-  color: #161616;
-}
-
-.competencyScore {
-  color: #525252;
-}
-
-.evaluations {
-  margin-top: -1rem;
-}
-
-.evaluationColumn {
-  display: flex;
-}
-
-.evaluationColumn > * {
-  width: 100%;
-}
-
-.evidenceNote {
-  color: #525252;
-  font-size: 0.75rem;
-}
-
-.outcomeHeader {
-  display: flex;
+  align-items: flex-end;
   gap: 1rem;
-  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #161616;
+
+  h1 {
+    margin: 0.2rem 0;
+    font-size: 2rem;
+    font-weight: 300;
+  }
 }
 
-.overallScore {
-  color: #161616;
-  font-size: 1.5rem;
-}
-
-.contractStatus {
-  color: #525252;
-}
-
-.feedbackSummary {
-  color: #525252;
-}
-
-.competencyColumn {
-  margin-bottom: 1rem;
-}
-
-.sectionTitle {
-  color: #161616;
-}
-
-.orderedList {
+.org {
   margin: 0;
-  padding-left: 1.5rem;
-  list-style-type: decimal;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sim-blue-ink);
+  font-weight: 600;
 }
 
-.listItem {
-  margin-bottom: 0.75rem;
+.meta {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--sim-ink-2);
 }
 
-.emptyText {
-  color: #525252;
+.overall {
+  text-align: right;
+
+  span {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--sim-ink-2);
+  }
+
+  strong {
+    font-size: 3rem;
+    font-weight: 300;
+    line-height: 1;
+  }
+
+  small {
+    font-size: 1rem;
+    color: var(--sim-ink-2);
+  }
+}
+
+.outcomeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  strong {
+    margin-left: 0.5rem;
+    font-size: 0.9375rem;
+  }
+}
+
+.label {
+  margin: 0 0 0.6rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sim-ink-2);
+  font-weight: 600;
+}
+
+.summary p:last-child {
+  margin: 0;
+  font-family: 'IBM Plex Serif', serif;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+.competencies {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 2rem;
+
+  @media (max-width: 672px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.competency {
+  p {
+    margin: 0.35rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--sim-ink-2);
+    line-height: 1.45;
+  }
+}
+
+.competencyHead {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9375rem;
+  margin-bottom: 0.3rem;
+
+  span { font-family: var(--sim-mono); }
+}
+
+.bar {
+  height: 6px;
+  background: #e0e0e0;
+
+  i {
+    display: block;
+    height: 100%;
+    background: var(--sim-blue);
+  }
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+
+  @media (max-width: 672px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.empty {
+  color: var(--sim-ink-2);
+  font-size: 0.875rem;
+}
+
+.reportFoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 1rem;
+  border-top: 1px solid var(--sim-line);
+  font-size: 0.75rem;
+  color: var(--sim-ink-2);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
 }
