@@ -1,0 +1,920 @@
+@use '../../styles/scroll';
+
+// The engagement shell: the bar inside the header, the mentor's line, the step
+// brief, the office map and the case file. Ported from the UX prototype
+// (src/prototype/shell), where the same classes live.
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sim-ink-2);
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--sim-ink-2);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+// ─── 1 · The engagement bar, inside the Carbon header ────────────────────────────────
+.headerEngagement {
+  :global(.cds--header__nav) {
+    flex: none;
+  }
+
+  :global(.cds--header__name) {
+    flex: none;
+    white-space: nowrap;
+  }
+}
+
+.bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.75rem;
+  border-left: 1px solid var(--sim-line);
+}
+
+.globalBar {
+  // Pinned to the far right in every view, with or without the engagement bar.
+  flex: none !important;
+  margin-left: auto;
+  align-items: center;
+}
+
+.portfolioLink {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 1rem;
+  color: var(--sim-ink-2);
+  text-decoration: none;
+  font-size: 0.875rem;
+  border-bottom: 3px solid transparent;
+  border-top: 3px solid transparent;
+
+  &:hover {
+    background: #e8e8e8;
+    color: var(--sim-ink);
+  }
+}
+
+.portfolioLinkActive {
+  color: var(--sim-ink);
+  border-bottom-color: var(--sim-blue);
+}
+
+.barButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 32px;
+  border: 1px solid var(--sim-line-2);
+  background: var(--sim-surface);
+  color: var(--sim-ink);
+  padding: 0 0.65rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+
+  &:hover {
+    background: #f4f4f4;
+    border-color: var(--sim-ink-3);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--sim-blue);
+    outline-offset: 1px;
+  }
+}
+
+// On narrower screens the buttons keep their icons and drop their words.
+@media (max-width: 1280px) {
+  .barLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+}
+
+.count {
+  font-family: var(--sim-mono);
+  font-size: 0.75rem;
+  background: var(--sim-blue);
+  color: #fff;
+  padding: 0 0.35rem;
+  border-radius: 8px;
+}
+
+.where {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: none;
+}
+
+.whereTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+
+
+.pips {
+  display: flex;
+  gap: 3px;
+
+  i {
+    width: 14px;
+    height: 4px;
+    background: var(--sim-line-2);
+    display: block;
+  }
+}
+
+.pipDone {
+  background: var(--sim-green) !important;
+}
+
+.pipHere {
+  background: var(--sim-blue) !important;
+}
+
+.cue {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--sim-line);
+  font-size: 0.8125rem;
+}
+
+.cueLine {
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  color: var(--sim-ink-2);
+  text-wrap: pretty;
+
+  strong {
+    color: var(--sim-ink);
+    font-weight: 600;
+    margin-right: 0.2rem;
+  }
+}
+
+.cueDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--sim-ink-3);
+}
+
+.cue_warm .cueDot { background: var(--sim-green); }
+.cue_neutral .cueDot { background: var(--sim-blue); }
+.cue_watch .cueDot { background: #f1c21b; }
+.cue_risk .cueDot { background: var(--sim-red); }
+.cue_unmet .cueDot { background: transparent; border: 1.5px solid var(--sim-ink-3); }
+
+// The manager's line: one thin row under the header.
+.mentorLine {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  min-height: 2.5rem;
+  padding: 0.35rem 1rem;
+  background: var(--sim-surface);
+  border-bottom: 1px solid var(--sim-line);
+  font-size: 0.8125rem;
+}
+
+
+.mentorName {
+  font-weight: 600;
+  flex: none;
+}
+
+.mentorText {
+  color: var(--sim-ink-2);
+  font-style: italic;
+}
+
+// ─── 2 · The threshold ──────────────────────────────────────────────────────
+.threshold {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 1rem;
+  background: var(--sim-blue-soft);
+  border-bottom: 1px solid #d0e2ff;
+}
+
+.thresholdBody {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.thresholdSpeaker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.75rem;
+  color: var(--sim-blue-ink);
+  font-weight: 600;
+}
+
+.thresholdNow {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0.7rem;
+  background: var(--sim-surface);
+  border-left: 3px solid var(--sim-blue);
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--sim-ink);
+
+  span {
+    flex: none;
+    font-style: normal;
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--sim-blue-ink);
+  }
+}
+
+.thresholdGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1.5rem;
+
+  span {
+    display: block;
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sim-blue-ink);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--sim-ink);
+  }
+}
+
+// ─── Rooms (hub + map) ──────────────────────────────────────────────────────
+.rooms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+
+  @media (max-width: 560px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.roomsLarge {
+  gap: 0.75rem;
+
+  .roomHead {
+    padding: 0.75rem 1rem 0.6rem;
+  }
+
+  .pageRow {
+    min-height: 48px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9375rem;
+  }
+
+  .roomName {
+    font-size: 1.0625rem;
+  }
+}
+
+.room {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sim-line-2);
+  background: var(--sim-surface);
+  color: var(--sim-ink);
+  transition: border-color 0.12s;
+}
+
+.roomHead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.75rem 0.75rem 0.6rem;
+  flex: 1;
+}
+
+.roomPages {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--sim-line);
+}
+
+.pageRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--sim-line);
+  background: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sim-blue-ink);
+  text-align: left;
+  cursor: pointer;
+
+  &:last-child { border-bottom: 0; }
+
+  svg { fill: var(--sim-blue); flex: none; }
+
+  &:hover {
+    background: var(--sim-blue);
+    color: #fff;
+
+    svg { fill: #fff; }
+    .pageState { color: #d0e2ff; }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--sim-blue);
+    outline-offset: -2px;
+  }
+}
+
+.pageRowHere {
+  background: var(--sim-blue-soft);
+  box-shadow: inset 3px 0 0 var(--sim-blue);
+}
+
+.pageName {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pageState {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--sim-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sim-ink-2);
+  font-weight: 400;
+}
+
+.roomTop {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.roomNumber {
+  font-family: var(--sim-mono);
+  font-size: 0.6875rem;
+  color: var(--sim-ink-3);
+  margin-right: auto;
+}
+
+.roomName {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.roomBlurb {
+  font-size: 0.8125rem;
+  color: var(--sim-ink-2);
+  line-height: 1.35;
+}
+
+.roomStatus {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--sim-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sim-ink-2);
+}
+
+.roomDone {
+  background: #f6fbf7;
+  border-color: #a7f0ba;
+
+  .roomStatus { color: var(--sim-green); }
+}
+
+.roomIconDone {
+  fill: var(--sim-green);
+}
+
+.roomHere {
+  border: 2px solid var(--sim-blue);
+  background: var(--sim-blue-soft);
+
+  .roomStatus { color: var(--sim-blue-ink); }
+}
+
+.roomYou {
+  width: 10px;
+  height: 10px;
+  background: var(--sim-blue);
+}
+
+.roomOpen {
+  border-color: var(--sim-blue);
+}
+
+.roomLocked {
+  border-style: dashed;
+  background: #f4f4f4;
+  color: var(--sim-ink-3);
+  cursor: not-allowed;
+}
+
+.roomIconLocked {
+  fill: var(--sim-ink-3);
+}
+
+.mapModal :global(.cds--modal-container) {
+  max-height: 94vh;
+}
+
+.mapBody {
+  // Carbon fades and clips long modal content; the map must never hide a room.
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  padding-bottom: 1.25rem !important;
+  margin-bottom: 0 !important;
+  overflow-y: auto;
+}
+
+.mapFoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+
+  .mapLegend { margin: 0; }
+}
+
+.roomsCompact {
+  .roomHead {
+    gap: 0.1rem;
+    padding: 0.6rem 0.75rem 0.5rem;
+  }
+
+  .roomName {
+    font-size: 0.9375rem;
+  }
+
+  .pageRow {
+    min-height: 40px;
+    padding: 0.35rem 0.75rem;
+  }
+}
+
+.mapIntro {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--sim-ink-2);
+}
+
+.mapLegend {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.75rem;
+  color: var(--sim-ink-2);
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+}
+
+// ─── 3 · Case file drawer ───────────────────────────────────────────────────
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 22, 22, 0.35);
+  z-index: 60;
+}
+
+.drawer {
+  position: fixed;
+  top: var(--sim-header);
+  right: 0;
+  bottom: 0;
+  width: min(440px, 100vw);
+  background: var(--sim-surface);
+  border-left: 1px solid var(--sim-line-2);
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+}
+
+.drawerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1rem 1rem 0.75rem;
+
+  h2 {
+    margin: 0.2rem 0 0;
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+}
+
+.iconButton {
+  border: 0;
+  background: none;
+  padding: 0.35rem;
+  cursor: pointer;
+  color: var(--sim-ink);
+
+  &:hover { background: #e8e8e8; }
+}
+
+.problem {
+  margin: 0 1rem 0.75rem;
+  padding: 0.75rem;
+  background: #f4f4f4;
+  border-left: 3px solid var(--sim-blue);
+}
+
+.problemHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.problemText {
+  margin: 0;
+  font-family: var(--sim-serif);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.problemSupport {
+  margin: 0.4rem 0 0;
+  font-family: var(--sim-mono);
+  font-size: 0.6875rem;
+  color: var(--sim-ink-2);
+}
+
+.drawerTabs {
+  display: flex;
+  border-bottom: 1px solid var(--sim-line);
+  padding: 0 1rem;
+
+  button {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    padding: 0.6rem 0.75rem;
+    font: inherit;
+    font-size: 0.875rem;
+    color: var(--sim-ink-2);
+    cursor: pointer;
+  }
+
+  button[aria-selected='true'] {
+    border-bottom-color: var(--sim-blue);
+    color: var(--sim-ink);
+    font-weight: 600;
+  }
+}
+
+.drawerBody {
+  flex: 1;
+  min-height: 0;
+  @include scroll.visible-scroll;
+  padding: 1rem;
+}
+
+// Evidence register
+.register {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.6rem;
+}
+
+.registerItem {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--sim-line);
+  padding: 0.7rem 0.75rem;
+  background: var(--sim-surface);
+}
+
+.registerMeta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.code {
+  font-family: var(--sim-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--sim-blue-ink);
+  flex: none;
+}
+
+.registerSource {
+  font-size: 0.75rem;
+  color: var(--sim-ink-2);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.registerQuote {
+  display: block;
+  font-family: var(--sim-serif);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  quotes: '“' '”';
+}
+
+.registerTakeaway {
+  margin: 0.45rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--sim-ink-2);
+
+  strong {
+    color: var(--sim-ink);
+    font-weight: 600;
+    margin-right: 0.25rem;
+  }
+}
+
+.registerFoot {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.45rem;
+  font-size: 0.6875rem;
+  text-transform: capitalize;
+  color: var(--sim-ink-3);
+}
+
+// Company file
+.company h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.companySub {
+  margin: 0.15rem 0 1rem;
+  font-family: var(--sim-mono);
+  font-size: 0.6875rem;
+  color: var(--sim-ink-2);
+}
+
+.blockLabel {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sim-ink-2);
+  font-weight: 600;
+}
+
+.reveals {
+  margin: 0;
+  border: 1px solid var(--sim-line);
+}
+
+.reveal {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--sim-line);
+  font-size: 0.8125rem;
+
+  &:last-child { border-bottom: 0; }
+
+  dt {
+    color: var(--sim-ink-2);
+    flex: none;
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+    font-weight: 500;
+  }
+
+  small {
+    display: block;
+    font-family: var(--sim-mono);
+    font-size: 0.625rem;
+    color: var(--sim-blue-ink);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+}
+
+.revealLocked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--sim-ink-3);
+  font-weight: 400 !important;
+  font-style: italic;
+}
+
+
+.contact {
+  border: 1px solid var(--sim-line);
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.8125rem;
+
+  strong,
+  small {
+    display: block;
+  }
+
+  small { color: var(--sim-ink-2); }
+}
+
+
+
+
+
+
+// Outreach readiness: a word-only checklist (FR-14 — no numbers during play)
+.readiness {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--sim-ink);
+
+    svg {
+      flex: none;
+      margin-top: 1px;
+      fill: var(--sim-ink-2);
+    }
+  }
+}
+
+.readinessDone {
+  color: var(--sim-ink-2) !important;
+
+  svg { fill: var(--sim-green, #24a148) !important; }
+}
+
+.nextPopover {
+  margin-left: auto;
+  flex: none;
+}
+
+.readyPop {
+  width: 320px;
+  max-width: calc(100vw - 2rem);
+  padding: 1rem 1rem 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+// Two equal buttons flush with the popover's bottom edge, like a Carbon modal
+// footer. Carbon keeps room on the right of a button for an icon; these have
+// none, so the padding is evened out to stop the label spilling out.
+.readyActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0.25rem -1rem 0;
+
+  :global(.cds--btn) {
+    width: 100%;
+    max-width: none;
+    padding-inline: 1rem;
+  }
+}
+
+// Narrow screens: the cue leaves the header for its own row under the
+// mentor's line, so it still never truncates.
+.cueRow {
+  display: none;
+}
+
+@media (max-width: 1055px) {
+  .cue {
+    display: none;
+  }
+
+  .cueRow {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.4rem 1rem;
+    background: var(--sim-surface);
+    border-bottom: 1px solid var(--sim-line);
+
+    .cueDot {
+      margin-top: 0.3rem;
+    }
+  }
+}
+
+// Phones: the header keeps the menu, the map, the pips, the case file, the
+// brief and logout. The app name, the step title (the page has its own) and
+// Portfolio (it is in the menu) make way.
+@media (max-width: 671px) {
+  .headerEngagement :global(.cds--header__name) {
+    display: none;
+  }
+
+  .whereTitle,
+  .portfolioLink {
+    display: none;
+  }
+
+  .bar {
+    gap: 0.4rem;
+    padding: 0 0.4rem;
+  }
+}
+
+// ─── Frame ──────────────────────────────────────────────────────────────────
+// Everything below Carbon's fixed header: the mentor's line, the step brief,
+// then the page. The header's height is reserved once, here.
+.shellRoot {
+  box-sizing: border-box;
+  padding-top: var(--sim-header);
+}
