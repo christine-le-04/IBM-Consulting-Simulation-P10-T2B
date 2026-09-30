@@ -261,7 +261,6 @@ export default function MeetingPreparationPage() {
               <Calendar size={20} />
               <div>
                 <h1>Meeting with {persona?.name ?? 'The client'}</h1>
-                <p>Meeting Preparation</p>
               </div>
             </div>
             <div className={`${styles.eventActions} objective-start`}>
