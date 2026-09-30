@@ -1,308 +1,337 @@
-@use '@carbon/styles/scss/theme' as *;
-@use '@carbon/styles/scss/spacing' as *;
-@use '@carbon/styles/scss/type' as *;
+$accent: #5b5fc7;
+$accent-ink: #4f52b2;
+$chip-bg: #e8e8f7;
+$chip-ink: #3d3fa0;
+$note-red: #9f1853;
+$note-ink: #1d3a6e;
+$mono: 'IBM Plex Mono', Menlo, monospace;
+
+$line: var(--cds-border-subtle-01, #e0e0e0);
+$line-strong: var(--cds-border-strong-01, #c6c6c6);
+$ink-2: var(--cds-text-secondary, #525252);
+$ink-3: var(--cds-text-placeholder, #8d8d8d);
 
 .page {
-  min-height: 100%;
-  padding: $spacing-05 $spacing-06;
-  background: $background;
+  flex: 1;
+  padding: 1.5rem 1rem 3rem;
 }
 
-.canvas {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: $spacing-05;
-  width: min(100%, 96rem);
-  min-height: min(50rem, calc(100vh - 8.75rem));
+.event {
+  max-width: 1180px;
   margin: 0 auto;
+  background: #fff;
+  border: 1px solid #d5dbe3;
+  box-shadow: 0 10px 30px -22px rgba(0, 0, 0, 0.4);
 }
 
-.pageHeader {
+.eventBar {
   display: flex;
-  align-items: flex-end;
   justify-content: space-between;
-  gap: $spacing-06;
-  margin-top: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-top: 4px solid $accent;
+  border-bottom: 1px solid $line;
 }
 
-.eyebrow {
-  @include type-style('label-01');
-  margin: 0;
-  color: $text-secondary;
-  text-transform: uppercase;
-}
-
-.pageDescription {
-  max-width: 42rem;
-  margin: $spacing-03 0 0;
-  color: $text-secondary;
-}
-
-.headerActions {
+.eventTitle {
   display: flex;
-  flex: 0 0 auto;
-  gap: $spacing-03;
+  align-items: flex-start;
+  gap: 0.75rem;
+
+  svg {
+    flex: none;
+    margin-top: 4px;
+    fill: $accent;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.375rem;
+    font-weight: 400;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+    font-size: 0.875rem;
+    color: $ink-2;
+  }
 }
 
-.readinessStrip {
+.eventActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.saveState {
+  margin-right: 0.25rem;
+  font-size: 0.75rem;
+  color: $ink-2;
+}
+
+.columns {
   display: grid;
-  grid-template-columns: minmax(14rem, 1fr) minmax(10rem, 1.25fr) minmax(22rem, 1.7fr);
-  align-items: center;
-  gap: $spacing-05;
-  padding: $spacing-05;
-  border: 1px solid $border-subtle;
-  border-top: 3px solid $interactive;
-  background: $layer-01;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-.readinessScore {
+.invite {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: $spacing-04;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  border-right: 1px solid $line;
 
-  strong {
-    @include type-style('heading-05');
+  @media (max-width: 900px) {
+    border-right: 0;
+  }
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $ink-2;
+}
+
+.block {
+  display: block;
+}
+
+.objective {
+  display: block;
+
+  textarea {
+    width: 100%;
+    padding: 0.7rem;
+    border: 1px solid $line-strong;
+    outline: none;
+    background: #fff;
+    color: var(--cds-text-primary, #161616);
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+    resize: vertical;
+
+    &:focus {
+      border-color: $accent;
+    }
+  }
+
+  small {
     display: block;
-    margin-top: $spacing-02;
-    color: $text-primary;
+    text-align: right;
+    font-family: $mono;
+    font-size: 0.6875rem;
+    color: $ink-2;
+  }
+}
 
-    span {
-      @include type-style('body-compact-01');
-      margin-left: $spacing-02;
-      color: $text-secondary;
+.agendaList,
+.linedList {
+  ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--cds-text-primary, #161616);
+    font: inherit;
+  }
+
+  li button {
+    display: flex;
+    border: 0;
+    background: none;
+    color: $ink-3;
+    opacity: 0;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--cds-support-error, #da1e28);
+    }
+
+    &:focus-visible {
+      opacity: 1;
+    }
+  }
+
+  li:hover button {
+    opacity: 1;
+  }
+}
+
+.agendaList {
+  li {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid $line;
+  }
+
+  input {
+    font-size: 0.9375rem;
+
+    &::placeholder {
+      color: $ink-3;
     }
   }
 }
 
-.readinessChecks {
+.itemNumber {
+  flex: none;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: $spacing-04;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: $chip-bg;
+  color: $chip-ink;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.readinessCheck {
-  display: flex;
+.addItem {
+  display: inline-flex;
   align-items: center;
-  gap: $spacing-03;
-  min-width: 0;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: $accent-ink;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
 
-  strong, span { display: block; }
-  strong { @include type-style('label-01'); color: $text-primary; }
-  span { @include type-style('caption-01'); margin-top: $spacing-01; color: $text-secondary; }
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
-.checkComplete, .checkPending { flex: 0 0 auto; width: 1rem; height: 1rem; }
-.checkComplete { fill: $support-success; }
-.checkPending { fill: $icon-secondary; opacity: .45; }
+.notepad {
+  position: relative;
+  min-height: 420px;
+  padding: 32px 1.25rem 2rem 64px;
+  background-color: #fffbe6;
+  background-image:
+    linear-gradient(90deg, transparent 46px, #f3a6a6 46px, #f3a6a6 48px, transparent 48px),
+    repeating-linear-gradient(#fffbe6 0, #fffbe6 31px, #b9d3ee 31px, #b9d3ee 32px);
+}
 
-.workspaceGrid {
+.notepadTitle {
+  margin: 0;
+  font-family: $mono;
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 32px;
+}
+
+.notepadHint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 32px;
+  color: #6f6f6f;
+}
+
+.linedList {
+  li {
+    height: 32px;
+  }
+
+  .itemNumber {
+    width: auto;
+    margin-left: -30px;
+    background: none;
+    color: $note-red;
+    font-family: $mono;
+  }
+
+  input {
+    height: 32px;
+    color: $note-ink;
+    font-family: $mono;
+
+    &::placeholder {
+      color: rgba(29, 58, 110, 0.45);
+    }
+  }
+
+  .addItem {
+    height: 32px;
+    margin-top: 0;
+    color: $note-red;
+  }
+}
+
+// Readiness checklist
+.readiness {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem);
-  min-height: 0;
-  gap: $spacing-05;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid $line;
+  background: var(--cds-layer-01, #f4f4f4);
+
+  .label {
+    margin-bottom: 0;
+  }
 }
 
-.primaryWorkspace {
+.readinessList {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-  gap: $spacing-05;
-}
-
-.objectivePanel, .collectionPanel, .coachingPanel, .scoreGuide {
-  border: 1px solid $border-subtle;
-  background: $layer-01;
-}
-
-.objectivePanel { padding: $spacing-05; }
-
-.panelHeading, .listHeading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: $spacing-04;
-
-  h2 { @include type-style('heading-compact-02'); margin: $spacing-02 0 0; }
-  > span { @include type-style('label-01'); color: $text-secondary; }
-}
-
-.objectivePanel :global(.cds--text-area__wrapper) { margin-top: $spacing-04; }
-.objectivePanel :global(.cds--text-area) { min-height: 5rem; resize: none; }
-
-.collectionPanel {
-  min-height: 0;
+  gap: 0.45rem;
+  margin: 0;
   padding: 0;
-  overflow: hidden;
-}
+  list-style: none;
 
-.sectionTabs { padding: 0 $spacing-05; background: $layer-01; }
-.tabCount { display: inline-flex; min-width: 1.25rem; justify-content: center; margin-left: $spacing-03; color: $text-secondary; }
-.tabPanel { padding: 0 !important; }
-
-.listWorkspace {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  height: clamp(19rem, calc(100vh - 25rem), 27rem);
-}
-
-.listHeading {
-  padding: $spacing-05;
-  border-bottom: 1px solid $border-subtle;
-}
-
-.listEyebrow { @include type-style('label-01'); margin: 0; color: $text-secondary; text-transform: uppercase; }
-
-.itemsViewport {
-  display: grid;
-  align-content: start;
-  min-height: 0;
-  padding: $spacing-02 $spacing-05;
-}
-
-.listRow {
-  display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr) 2rem;
-  align-items: center;
-  gap: $spacing-03;
-  min-height: 4rem;
-  border-bottom: 1px solid $border-subtle;
-
-  :global(.cds--text-input-wrapper) { width: 100%; }
-  :global(.cds--text-input) { border-bottom: 0; background: transparent; }
-}
-
-.rowNumber { @include type-style('label-01'); color: $text-secondary; text-align: right; }
-
-.listFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 3.5rem;
-  padding: $spacing-03 $spacing-05;
-  border-top: 1px solid $border-subtle;
-}
-
-.paginationControls {
-  display: flex;
-  align-items: center;
-  gap: $spacing-02;
-
-  span { @include type-style('label-01'); color: $text-secondary; }
-}
-
-.coachingRail { display: grid; align-content: start; gap: $spacing-04; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
-
-.coachingPanel, .scoreGuide { padding: $spacing-05; }
-
-.coachingPanel {
-  border-top: 3px solid $interactive;
-
-  h2 { @include type-style('heading-compact-02'); margin: $spacing-02 0; }
-  > p:not(.eyebrow) { @include type-style('body-compact-01'); margin: 0; color: $text-secondary; }
-}
-
-.coachingTip {
-  display: grid;
-  gap: $spacing-02;
-  margin-top: $spacing-05;
-  padding: $spacing-04;
-  border-left: 3px solid $interactive;
-  background: $layer-accent-01;
-
-  strong { @include type-style('label-01'); }
-  span { @include type-style('body-compact-01'); color: $text-secondary; }
-}
-
-.scoreGuide {
-  display: grid;
-  gap: $spacing-03;
-
-  > div {
+  li {
     display: flex;
-    justify-content: space-between;
-    border-bottom: 1px solid $border-subtle;
-    padding-bottom: $spacing-03;
-    @include type-style('body-compact-01');
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--cds-text-primary, #161616);
   }
 
-  > p:last-child { @include type-style('caption-01'); margin: $spacing-01 0 0; color: $text-secondary; }
+  svg {
+    flex: none;
+    margin-top: 1px;
+  }
 }
 
-.errorNotification { margin: 0; }
+.readinessDone {
+  color: $ink-2 !important;
 
-@media (max-width: 1055px) {
-  .page { padding: $spacing-05 $spacing-04; }
-  .canvas { min-height: auto; }
-  .readinessStrip { grid-template-columns: 1fr 1fr; }
-  .readinessChecks { grid-column: 1 / -1; }
-  .workspaceGrid { grid-template-columns: 1fr; }
-  .coachingRail { grid-template-columns: 1fr 1fr; }
+  svg {
+    fill: var(--cds-support-success, #198038);
+  }
 }
 
-@media (max-width: 671px) {
-  .pageHeader, .readinessStrip, .readinessChecks, .coachingRail { display: grid; grid-template-columns: 1fr; }
-  .headerActions { width: 100%; }
-  .headerActions > button { flex: 1 1 0; }
-  .listWorkspace { height: 24rem; }
-  .sectionTabs { padding: 0 $spacing-03; }
-  .itemsViewport, .listHeading, .listFooter { padding-left: $spacing-04; padding-right: $spacing-04; }
+.pendingDot {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1.5px dashed $ink-3;
+  border-radius: 50%;
 }
-
-/* Fixed desktop canvas: the plan has pagination, so all editing controls can
-   remain visible without turning the browser document into a long form. */
-@media (min-width: 82rem) and (min-height: 43.75rem) {
-  .page {
-    box-sizing: border-box;
-    height: 100%;
-    min-height: 0;
-    padding: $spacing-04 clamp($spacing-05, 3vw, $spacing-07);
-    overflow: hidden;
-  }
-
-  .canvas {
-    width: min(100%, 100rem);
-    min-height: 0;
-    height: 100%;
-    gap: $spacing-03;
-  }
-
-  .pageHeader h1 { @include type-style('heading-04'); }
-  .pageDescription { margin-top: $spacing-02; }
-
-  .readinessStrip {
-    gap: $spacing-04;
-    padding: $spacing-03 $spacing-04;
-  }
-  .readinessScore strong { @include type-style('heading-04'); margin-top: 2px; }
-  .readinessChecks { gap: $spacing-03; }
-
-  .workspaceGrid {
-    min-height: 0;
-    gap: $spacing-03;
-    grid-template-columns: minmax(0, 1fr) 18rem;
-    overflow: hidden;
-  }
-  .primaryWorkspace { min-height: 0; gap: $spacing-03; overflow: hidden; }
-
-  .objectivePanel { padding: $spacing-04; }
-  .objectivePanel :global(.cds--text-area__wrapper) { margin-top: $spacing-03; }
-  .objectivePanel :global(.cds--text-area) { min-height: 3.75rem; }
-
-  .collectionPanel { min-height: 0; }
-  .sectionTabs { padding: 0 $spacing-04; }
-  .listWorkspace { height: 100%; min-height: 0; }
-  .listHeading { padding: $spacing-03 $spacing-04; }
-  .itemsViewport { padding: 0 $spacing-04; }
-  .listRow { min-height: 3.25rem; }
-  .listFooter { min-height: 3rem; padding: $spacing-02 $spacing-04; }
-
-  .coachingRail { min-height: 0; gap: $spacing-03; overflow: hidden; }
-  .coachingPanel, .scoreGuide { padding: $spacing-04; }
-  .coachingPanel > p:not(.eyebrow) { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-  .coachingTip { margin-top: $spacing-03; padding: $spacing-03; }
-  .scoreGuide { gap: $spacing-02; min-height: 14rem; }
-  .scoreGuide > div { padding-bottom: $spacing-02; }
-  .scoreGuide > p:last-child { margin-top: $spacing-01 }
-}
-

@@ -9,6 +9,8 @@ import {
   useUpdateMeetingPreparation,
 } from '@/api/hooks/useMeeting'
 import type { MeetingPreparation } from '@/api/types'
+import { useScenario } from '@/api/hooks/useScenarios'
+import { useShellEngagement } from '@/components/shell/useShellEngagement'
 
 vi.mock('@/api/hooks/useMeeting', () => ({
   useMeetingPreparation: vi.fn(),
@@ -18,6 +20,8 @@ vi.mock('@/api/hooks/useMeeting', () => ({
 vi.mock('@/components/shared/ObjectiveTourProvider', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
+vi.mock('@/api/hooks/useScenarios', () => ({ useScenario: vi.fn(), }))
+vi.mock('@/components/shell/useShellEngagement', () => ({ useShellEngagement: vi.fn(), }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
 vi.mock('@/components/shared/ErrorState', () => ({ default: () => <div>Error...</div> }))
 
@@ -40,6 +44,8 @@ Object.defineProperty(window, 'matchMedia', {
 const mockedPreparation = vi.mocked(useMeetingPreparation)
 const mockedUpdatePreparation = vi.mocked(useUpdateMeetingPreparation)
 const mockedStartMeeting = vi.mocked(useStartMeeting)
+const mockedScenario = vi.mocked(useScenario)
+const mockedShellEngagement = vi.mocked(useShellEngagement)
 
 // helper function to set up the mocked meeting preparation data for tests
 function setup(preparation: Partial<MeetingPreparation>, isStarting = false) {
@@ -68,6 +74,26 @@ function setup(preparation: Partial<MeetingPreparation>, isStarting = false) {
     mutate: vi.fn(),
     isPending: isStarting,
   } as unknown as ReturnType<typeof useStartMeeting>)
+
+  mockedShellEngagement.mockReturnValue({
+    engagement: {
+      scenarioId: 'scenario-1',
+      personaId: 'persona-1',
+    } as never,
+    engagementId: 'eng-1',
+    viewingPhase: 'MEETING_PREPARATION',
+  })
+
+  mockedScenario.mockReturnValue({
+    data: {
+      personas: [
+        {
+          id: 'persona-1',
+          name: 'Elena Vargas Atlas',
+        },
+      ],
+    },
+  } as never)
 }
 
 // renders the meeting preparation page with the required router
@@ -90,13 +116,14 @@ describe('MeetingPreparationPage readiness labels', () => {
     window.localStorage.clear()
   })
 
-  it('reports agenda readiness out of 3 with zero items', () => {
-    setup({ agenda: [], discoveryQuestions: [] })
+  it('reports agenda readiness as incomplete with zero items', () => {
+    setup({ objective: "Test objective", agenda: [], discoveryQuestions: [] })
     renderPage()
 
-    // readiness should use the new threshold of 3 for both agenda items and questions
-    expect(screen.getByText('0/3 items')).toBeInTheDocument()
-    expect(screen.getByText('0/3 questions')).toBeInTheDocument()
+    // readiness should use the threshold of 3 for both agenda items and questions
+    expect(screen.getByText('An agenda with at least three points')).toBeInTheDocument()
+    expect(screen.getByText('At least three open questions to ask')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Not yet')).toHaveLength(2)
   })
 
   it('marks agenda readiness complete once exactly 3 non-empty agenda items exist', () => {
@@ -106,8 +133,8 @@ describe('MeetingPreparationPage readiness labels', () => {
     })
     renderPage()
 
-    // three non-empty agenda items should satisfy the new readiness threshold
-    expect(screen.getByText('3/3 items')).toBeInTheDocument()
+    expect(screen.getByText('An agenda with at least three points')).toBeInTheDocument()
+    expect(screen.getByLabelText('Done')).toBeInTheDocument()
   })
 
   it('allows adding a 4th agenda item, over cap', async () => {
