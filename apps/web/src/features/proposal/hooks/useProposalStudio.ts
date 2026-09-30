@@ -32,6 +32,7 @@ export function useProposalStudio(engagementId: string) {
   const [draft, setDraft] = useState<ProposalDraftRequest>(createEmptyProposalDraft)
   const [activeSection, setActiveSection] = useState<ProposalSection>('PROBLEM')
   const [review, setReview] = useState<ProposalReview | null>(null)
+  const [reviewDraftSnapshot, setReviewDraftSnapshot] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<DraftSaveState>('idle')
   const hydrated = useRef(false)
   const skipInitialAutosave = useRef(false)
@@ -113,11 +114,18 @@ export function useProposalStudio(engagementId: string) {
   const detach = useCallback((sourceId: string) => {
     updateDraft((current) => detachSource(current, activeSection, sourceId))
   }, [activeSection, updateDraft])
+  
+  const reviewIsStale = Boolean(review) && reviewDraftSnapshot !== JSON.stringify(draft)
 
   const reviewCurrentDraft = useCallback(async () => {
     if (!await persist()) return
     const reviewDraft = draftRef.current
-    reviewProposal.mutate(reviewDraft, { onSuccess: setReview })
+    reviewProposal.mutate(reviewDraft, {
+      onSuccess: (nextReview) => {
+        setReview(nextReview)
+        setReviewDraftSnapshot(JSON.stringify(reviewDraft))
+      },
+    })
   }, [persist, reviewProposal])
 
   const challengeCurrentDraft = useCallback(async () => {
@@ -144,7 +152,7 @@ export function useProposalStudio(engagementId: string) {
   ), [activeSection, draft.evidenceLinks])
 
   return {
-    workspace, proposal, submitted, draft, activeSection, review, saveState,
+    workspace, proposal, submitted, draft, activeSection, review, reviewIsStale, saveState,
     updateDraft, setActiveSection, attach, detach, attachedSourceIds,
     retrySave: persist, reviewCurrentDraft, challengeCurrentDraft, submit,
     saveDraft, reviewProposal, challengeProposal, submitProposal,

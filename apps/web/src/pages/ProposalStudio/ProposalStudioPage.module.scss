@@ -26,11 +26,33 @@
 
 .problem {
   flex: none;
-  padding: 0.75rem 1rem 0;
+  width: 100%;
+  max-width: 46rem;
+  margin: 0.75rem 1rem 0;
+  border: 1px solid #da1e28;
+  border-inline-start-width: 3px;
+  background: #fff1f1;
+
+  > :first-child {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border: 0;
+
+    &::before {
+      display: none;
+    }
+  }
 
   ul {
-    margin: 0.5rem 0 0;
+    margin: 0;
+    list-style: none;
+    padding: 0.25rem 1rem 0.75rem 1rem;
     font-size: 0.8125rem;
+  }
+
+  li {
+    padding-bottom: 0.25rem;
   }
 }
 
