@@ -29,8 +29,8 @@ import OutreachSelfCheck from '@/lifecycle/components/OutreachSelfCheck'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 
 const emailSchema = z.object({
-  subject: z.string().min(5, 'Enter a clear subject').max(200),
-  body: z.string().min(50, 'Message must be at least 50 characters').max(5000),
+  subject: z.string().trim().min(5, 'Enter a clear subject').max(200),
+  body: z.string().trim().min(50, 'Message must be at least 50 characters').max(5000),
 })
 
 const briefSchema = z.object({
