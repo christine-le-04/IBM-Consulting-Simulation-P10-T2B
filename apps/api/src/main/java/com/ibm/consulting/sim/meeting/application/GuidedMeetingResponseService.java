@@ -1,5 +1,11 @@
 package com.ibm.consulting.sim.meeting.application;
 
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.ai.application.AiOrchestrationService;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
@@ -8,17 +14,22 @@ import com.ibm.consulting.sim.knowledge.application.KnowledgeRetrievalService;
 import com.ibm.consulting.sim.knowledge.domain.KnowledgeCollection;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidence;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
-import com.ibm.consulting.sim.meeting.domain.*;
+import com.ibm.consulting.sim.meeting.domain.ConversationActor;
+import com.ibm.consulting.sim.meeting.domain.ConversationTurn;
+import com.ibm.consulting.sim.meeting.domain.ConversationTurnRepository;
+import com.ibm.consulting.sim.meeting.domain.Meeting;
+import com.ibm.consulting.sim.meeting.domain.MeetingInteractionMode;
+import com.ibm.consulting.sim.meeting.domain.MeetingRepository;
+import com.ibm.consulting.sim.meeting.domain.MeetingResponseOptionSet;
+import com.ibm.consulting.sim.meeting.domain.MeetingResponseOptionSetRepository;
+import com.ibm.consulting.sim.meeting.domain.MeetingStatus;
+import com.ibm.consulting.sim.meeting.domain.PersonaState;
+import com.ibm.consulting.sim.meeting.domain.PersonaStateRepository;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.application.PersonaCatalogService;
 import com.ibm.consulting.sim.scenario.application.PersonaProfile;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.UUID;
 
 /** Generates and durably caches AI-guided responses for Easy and Medium meetings. */
 @Service
@@ -105,8 +116,8 @@ public class GuidedMeetingResponseService {
                 new GuidedResponseOptionsParser(objectMapper), () -> new GuidedResponseOptions(List.of()));
         List<String> balancedOptions = GuidedResponseBalancePolicy.balance(generated.options(), profile, sourceSequence);
         if (!validOptions(balancedOptions)) {
-            return MeetingResponseOptionsResponse.unavailable(sourceSequence,
-                    "Guided responses are temporarily unavailable. Please try again.");
+                return MeetingResponseOptionsResponse.unavailable(sourceSequence,
+                        "Response choices couldn't be generated. Your previous response is saved; retry generating the choices.");
         }
         MeetingResponseOptionSet optionSet = optionSetRepository.save(
                 MeetingResponseOptionSet.generated(meeting.getId(), sourceSequence, balancedOptions));
@@ -126,8 +137,8 @@ public class GuidedMeetingResponseService {
         }
         List<String> balancedOptions = GuidedResponseBalancePolicy.balance(options, profile, sourceSequence);
         if (!validOptions(balancedOptions)) {
-            return MeetingResponseOptionsResponse.unavailable(sourceSequence,
-                    "Guided responses are temporarily unavailable. Please try again.");
+                return MeetingResponseOptionsResponse.unavailable(sourceSequence,
+                        "Response choices couldn't be generated. Your previous response is saved; retry generating the choices.");
         }
         // The send-message path already owns this same lock. Taking it here as
         // well makes direct/pre-generated creation and on-demand creation share

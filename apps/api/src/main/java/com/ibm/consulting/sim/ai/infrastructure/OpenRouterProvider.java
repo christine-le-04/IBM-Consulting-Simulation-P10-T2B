@@ -1,12 +1,9 @@
 package com.ibm.consulting.sim.ai.infrastructure;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ibm.consulting.sim.ai.domain.AiProvider;
-import com.ibm.consulting.sim.ai.domain.AiProviderException;
-import com.ibm.consulting.sim.ai.domain.AiTaskType;
-import com.ibm.consulting.sim.ai.domain.LatencyTier;
-import com.ibm.consulting.sim.ai.domain.ProviderCapabilities;
-import com.ibm.consulting.sim.ai.domain.ReasoningTier;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,11 +12,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ibm.consulting.sim.ai.domain.AiProvider;
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
+import com.ibm.consulting.sim.ai.domain.AiTaskType;
+import com.ibm.consulting.sim.ai.domain.LatencyTier;
+import com.ibm.consulting.sim.ai.domain.ProviderCapabilities;
+import com.ibm.consulting.sim.ai.domain.ReasoningTier;
 
 /**
  * OpenRouter free-tier provider — emergency/dev fallback candidate (§20 of the design
@@ -109,6 +111,13 @@ public class OpenRouterProvider implements AiProvider {
             return response.get("choices").get(0).path("message").path("content").asText("");
         } catch (AiProviderException e) {
             throw e;
+        } catch (HttpStatusCodeException e) {
+            log.warn("OpenRouter HTTP failure for use-case {}: status={}, contentType={}, body={}",
+                    useCase,
+                    e.getStatusCode(),
+                    e.getResponseHeaders().getContentType(),
+                    e.getResponseBodyAsString());
+            throw new AiProviderException("OpenRouter call failed for use-case " + useCase, e);
         } catch (Exception e) {
             log.warn("OpenRouter call failed for use-case {}: {}", useCase, e.getMessage());
             throw new AiProviderException("OpenRouter call failed for use-case " + useCase, e);

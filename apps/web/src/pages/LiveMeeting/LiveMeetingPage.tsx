@@ -316,8 +316,8 @@ export default function LiveMeetingPage() {
                         kind="warning"
                         lowContrast
                         hideCloseButton
-                        title="Response options are unavailable"
-                        subtitle={guidedOptionsError ?? responseOptions?.unavailableReason ?? 'Please try again to generate grounded response options.'}
+                        title="Response choices couldn't be generated"
+                        subtitle={guidedOptionsError ?? responseOptions?.unavailableReason ?? 'Your previous response is saved. Try again to generate the response choices.'}
                       />
                       <Button kind="tertiary" size="sm" onClick={() => void refetchResponseOptions()}>Try again</Button>
                     </div>

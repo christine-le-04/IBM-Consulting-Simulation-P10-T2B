@@ -395,6 +395,7 @@ export default function OutreachWorkspacePage() {
   const latestAttempt = thread.at(-1)
   const documentRequired = latestAttempt?.nextAction === 'SUBMIT_CAPABILITY_BRIEF' && brief?.outcome !== 'ACCEPTED'
   const meetingSecured = latestAttempt?.outcome === 'ACCEPTED' || brief?.outcome === 'ACCEPTED'
+  const sendUnavailable = axios.isAxiosError(sendOutreach.error) && sendOutreach.error.response?.status === 503
   const sendEmail = (data: EmailFormValues) => {
     setSendTimedOut(false)
 
@@ -507,7 +508,13 @@ export default function OutreachWorkspacePage() {
                     />
                     {draftSafety.message && <p className={styles.draftNotice} data-risk={draftSafety.risk}>{draftSafety.message}</p>}
                     {sendOutreach.isError && !sendTimedOut && (
-                      <InlineNotification kind="error" lowContrast title="Message could not be sent" subtitle={getProblemDetail(sendOutreach.error, 'Please retry after checking the latest client request.')} hideCloseButton />
+                      <InlineNotification
+                        kind={sendUnavailable ? 'warning' : 'error'}
+                        lowContrast
+                        title={sendUnavailable ? 'The client could not respond' : 'Message could not be sent'}
+                        subtitle={getProblemDetail(sendOutreach.error, 'Please retry after checking the latest client request.')}
+                        hideCloseButton
+                      />
                     )}
                     <div className={`${styles.composerFooter} objective-send`}>
                       <small>Evidence and tone are checked when you send. Your message is never sent automatically.</small>

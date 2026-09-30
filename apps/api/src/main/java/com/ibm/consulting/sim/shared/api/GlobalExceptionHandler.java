@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
 import com.ibm.consulting.sim.identity.application.LoginRateLimitExceededException;
 import com.ibm.consulting.sim.identity.domain.EmailVerificationRequiredException;
 import com.ibm.consulting.sim.proposal.application.ProposalService;
@@ -154,6 +155,13 @@ public class GlobalExceptionHandler {
         log.warn("Transactional email delivery unavailable: {}", ex.getMessage());
         return problem(HttpStatus.SERVICE_UNAVAILABLE, "email-delivery-unavailable",
                 "We could not send email right now. Please try again shortly.");
+    }
+
+    @ExceptionHandler(AiProviderException.class)
+    ProblemDetail handleAiUnavailable(AiProviderException ex) {
+        log.warn("AI provider unavailable; request not persisted: {}", ex.getMessage());
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "ai-unavailable",
+                "The client couldn't respond right now. Your message wasn't counted as an attempt, so please try again later.");
     }
 
     /** Domain guards use IllegalArgumentException for invalid authoring input. */

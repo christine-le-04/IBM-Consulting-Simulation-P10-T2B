@@ -1,22 +1,7 @@
 package com.ibm.consulting.sim.ai.application;
 
-import com.ibm.consulting.sim.ai.domain.AiModelGateway;
-import com.ibm.consulting.sim.ai.domain.AiProvider;
-import com.ibm.consulting.sim.ai.domain.AiProviderException;
-import com.ibm.consulting.sim.ai.domain.AiResponseParser;
-import com.ibm.consulting.sim.ai.domain.AiTaskType;
-import com.ibm.consulting.sim.ai.domain.AiValidationException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionService;
@@ -25,6 +10,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
+
+import com.ibm.consulting.sim.ai.domain.AiModelGateway;
+import com.ibm.consulting.sim.ai.domain.AiProvider;
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
+import com.ibm.consulting.sim.ai.domain.AiResponseParser;
+import com.ibm.consulting.sim.ai.domain.AiTaskType;
+import com.ibm.consulting.sim.ai.domain.AiValidationException;
+
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 
 /**
  * The "Provider Router" from the AI orchestration design: picks, for a given
@@ -179,12 +181,13 @@ public class AiProviderRouter implements AiModelGateway {
         AiValidationException lastValidationFailure = null;
         AiProviderException lastProviderFailure = null;
         int skippedCandidates = 0;
+        boolean timedOut = false;
         try {
             for (int completed = 0; completed < candidates.size(); completed++) {
                 long remainingNanos = deadlineNanos - System.nanoTime();
-                if (remainingNanos <= 0) break;
+                if (remainingNanos <= 0) { timedOut = true; break; }
                 Future<ProviderAttempt<T>> future = completions.poll(remainingNanos, TimeUnit.NANOSECONDS);
-                if (future == null) break;
+                if (future == null) { timedOut = true; break; }
                 ProviderAttempt<T> attempt = future.get();
                 if (attempt.skipped()) {
                     skippedCandidates++;
@@ -208,6 +211,11 @@ public class AiProviderRouter implements AiModelGateway {
             }
             if (preferredResult != null) {
                 return new AiValidatedResponse<>(preferredResult.value(), preferredResult.candidate().provider().id());
+            }
+            if (timedOut) {
+                throw new AiProviderException("Provider calls exceeded the " + timeoutMs + "ms budget for task " + task
+                    + (lastProviderFailure != null ? " (last failure: " + lastProviderFailure.getMessage() + ")" : ""),
+                    lastProviderFailure);
             }
             if (lastValidationFailure != null) throw lastValidationFailure;
             if (lastProviderFailure != null) throw lastProviderFailure;
