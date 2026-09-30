@@ -48,7 +48,7 @@ export default function CompanyFile({ engagement }: { engagement: Engagement }) 
           <Reveal label="Potential value" field={intel.potentialValueRange} unlock="Needs financial and stakeholder evidence" />
         </dl>
       )}
-      {!isLoading && !intel && <p className={styles.muted}>Choose a client first — the file fills in as you research them.</p>}
+      {!isLoading && !intel && <p className={styles.muted}>Choose a lead first — the file fills in as you research them.</p>}
 
       {scenario && scenario.personas.length > 0 && (
         <>

@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import AppShell from '@/components/layout/AppShell'
 import LoadingState from '@/components/shared/LoadingState'
+import RequireContact from '@/pages/ChooseContact/RequireContact'
+
 
 const LandingPage = lazy(() => import('@/pages/Landing/LandingPage'))
 const LoginPage = lazy(() => import('@/pages/Auth/LoginPage'))
@@ -12,6 +14,7 @@ const ForgotPasswordPage = lazy(() => import('@/pages/Auth/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/pages/Auth/ResetPasswordPage'))
 const CommandCentrePage = lazy(() => import('@/pages/CommandCentre/CommandCentrePage'))
 const LeadPipelinePage = lazy(() => import('@/pages/LeadPipeline/LeadPipelinePage'))
+const ChooseContactPage = lazy(() => import('@/pages/ChooseContact/ChooseContactPage'))
 const ClientIntelligencePage = lazy(() => import('@/pages/ClientIntelligence/ClientIntelligencePage'))
 const OutreachWorkspacePage = lazy(() => import('@/pages/OutreachWorkspace/OutreachWorkspacePage'))
 const MeetingPreparationPage = lazy(() => import('@/pages/MeetingPreparation/MeetingPreparationPage'))
@@ -96,6 +99,8 @@ export default function App() {
           <Route index element={<CommandCentrePage />} />
           <Route path="engagements/:engagementId/leads" element={<LeadPipelinePage />} />
           <Route path="engagements/:engagementId/intelligence" element={<ClientIntelligencePage />} />
+          <Route path="engagements/:engagementId/contact" element={<ChooseContactPage />} />
+          <Route path="engagements/:engagementId/outreach"element={<RequireContact><OutreachWorkspacePage /></RequireContact>}/>
           <Route path="engagements/:engagementId/outreach" element={<OutreachWorkspacePage />} />
           <Route path="engagements/:engagementId/preparation" element={<MeetingPreparationPage />} />
           <Route path="engagements/:engagementId/meetings/:meetingId" element={<LiveMeetingPage />} />

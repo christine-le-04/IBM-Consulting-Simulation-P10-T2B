@@ -9,6 +9,8 @@ import type { Engagement, EngagementPhase } from '@/api/types'
 import { phaseRoute } from '@/api/engagementRouting'
 import { PHASE_LABEL, phaseIndex } from '@/lifecycle/phases'
 import { ROOMS, isPhaseReached, roomIndex, roomPages } from './rooms'
+import ContactRoomRow from './ContactRoomRow'
+import { useOnContactPage } from './useOnContactPage'
 import styles from './shell.module.scss'
 
 export interface RoomGridProps {
@@ -25,12 +27,14 @@ export interface RoomGridProps {
 
 export default function RoomGrid({ engagement, viewingPhase = null, large = false, compact = false, onOpen }: RoomGridProps) {
   const navigate = useNavigate()
+  const onContactPage = useOnContactPage()
   const reached = engagement?.phase ?? null
   const reachedRoom = reached ? roomIndex(reached) : -1
   const hereRoom = viewingPhase ? roomIndex(viewingPhase) : reachedRoom
 
   const pageState = (phase: EngagementPhase) => {
-    if (phase === viewingPhase) return 'You are here'
+    // On Choose contact the phase is still Research, but "You are here" belongs to the contact row.
+    if (phase === viewingPhase && !onContactPage) return 'You are here'
     if (phase === 'COMPLETED') return 'Open'
     return reached && phaseIndex(phase) < phaseIndex(reached) ? 'Done' : 'Continue'
   }
@@ -83,6 +87,7 @@ export default function RoomGrid({ engagement, viewingPhase = null, large = fals
                     </button>
                   )
                 })}
+                {room.id === 'RESEARCH' && <ContactRoomRow engagement={engagement} onOpen={onOpen} />}
               </div>
             )}
           </li>
