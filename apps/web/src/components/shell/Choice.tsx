@@ -10,7 +10,7 @@ export interface ChoiceOption<T extends string> {
   label: string
 }
 
-export default function Choice<T extends string>({ id, label, value, options, onChange, hideLabel = false, size = 'md' }: {
+export default function Choice<T extends string>({ id, label, value, options, onChange, hideLabel = false, size = 'md', disabled = false }: {
   id: string
   label: string
   value: T
@@ -18,6 +18,7 @@ export default function Choice<T extends string>({ id, label, value, options, on
   onChange: (value: T) => void
   hideLabel?: boolean
   size?: 'sm' | 'md' | 'lg'
+  disabled?: boolean
 }) {
   return (
     <Dropdown
@@ -26,6 +27,7 @@ export default function Choice<T extends string>({ id, label, value, options, on
       hideLabel={hideLabel}
       label={label}
       size={size}
+      disabled={disabled}
       items={options}
       itemToString={(item) => (item ? item.label : '')}
       selectedItem={options.find((option) => option.value === value) ?? null}

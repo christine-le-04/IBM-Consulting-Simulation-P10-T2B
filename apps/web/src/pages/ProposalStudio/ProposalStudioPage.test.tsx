@@ -12,6 +12,10 @@ import type { ProposalDraftRequest } from '@/api/hooks/useProposal'
 vi.mock('@/features/proposal/hooks/useProposalStudio', () => ({
   useProposalStudio: vi.fn(),
 }))
+vi.mock('@/api/hooks/useProposal', () => ({
+  useProposalDecisionExplanation: () => ({ data: undefined, isPending: false, mutate: vi.fn() }),
+  useProposalCounterfactual: () => ({ data: undefined, isPending: false, mutate: vi.fn() }),
+}))
 vi.mock('@/api/hooks/useEngagements', () => ({
   useEngagement: () => ({ data: { leadCompanyName: 'Acme Insurance', scenarioId: 'scn-1', personaId: 'p-1' } }),
 }))
@@ -193,6 +197,14 @@ describe('ProposalStudioPage document', () => {
 describe('ProposalStudioPage submit and review', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('keeps the "Before you submit" checklist in the outline', () => {
+    setup([])
+    renderPage()
+
+    expect(screen.getByText('Before you submit')).toBeInTheDocument()
+    expect(screen.getAllByText('You have run a proposal review').length).toBeGreaterThan(0)
+  })
+
   it('shows what is missing before submitting early, and still lets the learner submit', async () => {
     const user = userEvent.setup()
     setup([])
@@ -232,5 +244,65 @@ describe('ProposalStudioPage submit and review', () => {
     expect(screen.getByText('Adequate')).toBeInTheDocument()
     expect(screen.getByText('Needs work')).toBeInTheDocument()
     expect(screen.queryByText(/\/100/)).not.toBeInTheDocument()
+  })
+})
+
+describe('ProposalStudioPage after submission', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function setupSubmitted() {
+    setup([makeSource('1')])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({
+      ...studio,
+      submitted: true,
+      proposal: {
+        clientDecisionOutcome: 'PILOT_APPROVED',
+        clientResponse: 'We will run the pilot.',
+        decisionRationale: '',
+        decisionInsights: [],
+        decisionDimensions: [],
+        evidenceImpacts: [],
+        submittedAt: '2026-09-28T10:00:00Z',
+      },
+      draft: { ...studio.draft, problemStatement: 'Duplicate entry costs nursing time.', evidenceLinks: [{ section: 'PROBLEM', sourceId: '1' }] },
+      attachedSourceIds: new Set(['1']),
+    } as unknown as ReturnType<typeof useProposalStudio>)
+  }
+
+  function renderAt(url: string) {
+    return render(
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/dashboard/engagements/:engagementId/proposal" element={<ProposalStudioPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('opens on the client’s decision, with a way back to the proposal that was sent', async () => {
+    const user = userEvent.setup()
+    setupSubmitted()
+    renderAt('/dashboard/engagements/eng-1/proposal')
+
+    expect(screen.getByText('We will run the pilot.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Read the proposal you sent' }))
+
+    expect(screen.getByDisplayValue('Duplicate entry costs nursing time.')).toBeInTheDocument()
+  })
+
+  it('shows the sent proposal read-only, without review, submit or attach', () => {
+    setupSubmitted()
+    renderAt('/dashboard/engagements/eng-1/proposal?view=proposal')
+
+    expect(screen.getByLabelText('Problem statement')).toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: 'Back to their decision' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Submit to client' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Review proposal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Attach source/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Attached to Foundation')).toBeInTheDocument()
+    // The checklist stays in the outline, as what was sent.
+    expect(screen.getByText('What you submitted')).toBeInTheDocument()
+    expect(screen.getByText('Every section cites evidence')).toBeInTheDocument()
   })
 })

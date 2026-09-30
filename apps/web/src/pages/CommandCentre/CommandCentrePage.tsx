@@ -9,8 +9,8 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Button, InlineNotification, Tag } from '@carbon/react'
-import { Add, ArrowRight } from '@carbon/icons-react'
+import { Button, InlineNotification, Tag, TextInput } from '@carbon/react'
+import { Add, ArrowRight, Renew, Search } from '@carbon/icons-react'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
 import { useScenarioCatalog } from '@/api/hooks/useScenarios'
@@ -19,6 +19,7 @@ import type { CompletedEngagementView, Engagement, ScenarioSummary } from '@/api
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
+import Choice from '@/components/shell/Choice'
 import DanaAvatar from '@/components/shell/DanaAvatar'
 import IndustryArt from '@/components/shell/IndustryArt'
 import { MENTOR } from '@/components/shell/mentor'
@@ -77,6 +78,39 @@ function statusOf(engagement: Engagement): Status {
   return { label: 'Action required', tag: 'blue' }
 }
 
+type StatusFilter = 'ALL' | Status['label']
+type SortMode = 'RECENT' | 'PROGRESS' | 'SCENARIO'
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: 'ALL', label: 'All engagements' },
+  { value: 'Action required', label: 'Action required' },
+  { value: 'Awaiting response', label: 'Awaiting response' },
+  { value: 'Ready for review', label: 'Ready for review' },
+  { value: 'Meeting failed', label: 'Meeting failed' },
+]
+const SORT_MODES: { value: SortMode; label: string }[] = [
+  { value: 'RECENT', label: 'Recently active' },
+  { value: 'PROGRESS', label: 'Progress' },
+  { value: 'SCENARIO', label: 'Scenario' },
+]
+
+/** "Attempt #n" for engagements that repeat the same scenario and lead. */
+function attemptLabels(engagements: Engagement[]) {
+  const groups = new Map<string, Engagement[]>()
+  engagements.forEach((engagement) => {
+    const key = `${engagement.scenarioTitle ?? engagement.scenarioId}|${engagement.leadCompanyName ?? 'unselected'}`
+    groups.set(key, [...(groups.get(key) ?? []), engagement])
+  })
+  const labels = new Map<string, string>()
+  groups.forEach((items) => {
+    if (items.length < 2) return
+    ;[...items]
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .forEach((engagement, index) => labels.set(engagement.id, `Attempt #${index + 1}`))
+  })
+  return labels
+}
+
 function latestActivity(engagement: Engagement): number {
   const lastEvent = engagement.events?.[engagement.events.length - 1]?.occurredAt
   return new Date(lastEvent ?? engagement.createdAt).getTime()
@@ -96,7 +130,7 @@ function lobbyLine(featured: Engagement | undefined, failed: Engagement[]): stri
   return 'Nothing on the floor right now. Pick your next client — a new industry is the fastest way to grow.'
 }
 
-function EngagementRow({ engagement }: { engagement: Engagement }) {
+function EngagementRow({ engagement, attemptLabel }: { engagement: Engagement; attemptLabel?: string }) {
   const navigate = useNavigate()
   const status = statusOf(engagement)
   return (
@@ -109,7 +143,7 @@ function EngagementRow({ engagement }: { engagement: Engagement }) {
             <Tag type={status.tag} size="sm">{status.label}</Tag>
           </span>
           <span className={styles.rowMeta}>
-            {ROOMS[roomIndex(engagement.phase)]?.name} · {engagement.scenarioIndustry ?? 'Unassigned'}
+            {ROOMS[roomIndex(engagement.phase)]?.name} · {engagement.scenarioIndustry ?? 'Unassigned'}{attemptLabel ? ` · ${attemptLabel}` : ''}
           </span>
           <span className={styles.rowNext}>{engagement.nextAction}</span>
         </span>
@@ -151,6 +185,9 @@ export default function CommandCentrePage() {
 
   const [catalogueOpen, setCatalogueOpen] = useState(false)
   const [briefingScenario, setBriefingScenario] = useState<ScenarioSummary | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const [sortMode, setSortMode] = useState<SortMode>('RECENT')
 
   const allEngagements = useMemo(() => engagements ?? [], [engagements])
   const active = useMemo(
@@ -162,7 +199,22 @@ export default function CommandCentrePage() {
     [allEngagements],
   )
   const featured = active[0]
-  const others = [...failed, ...active.slice(1)]
+  const labelsByEngagement = useMemo(() => attemptLabels(allEngagements), [allEngagements])
+  const others = useMemo(() => [...failed, ...active.slice(1)], [failed, active])
+  const visibleOthers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    return others
+      .filter((engagement) => statusFilter === 'ALL' || statusOf(engagement).label === statusFilter)
+      .filter((engagement) => !query || [
+        engagement.scenarioTitle, engagement.scenarioIndustry, engagement.leadCompanyName,
+        PHASE_LABEL[engagement.phase], engagement.nextAction,
+      ].some((value) => value?.toLowerCase().includes(query)))
+      .sort((a, b) => {
+        if (sortMode === 'PROGRESS') return b.progressPercent - a.progressPercent
+        if (sortMode === 'SCENARIO') return (a.scenarioTitle ?? '').localeCompare(b.scenarioTitle ?? '')
+        return latestActivity(b) - latestActivity(a)
+      })
+  }, [others, searchTerm, sortMode, statusFilter])
   const completedHistory = portfolio?.completedEngagementsHistory ?? []
 
   /**
@@ -170,6 +222,8 @@ export default function CommandCentrePage() {
    * between them; the catalogue stays one click away for anyone who wants it.
    */
   const starterScenario = starterPage?.items[0] ?? null
+  // A recommendation is something new: never a scenario already started.
+  const recommended = starterPage?.items.find((item) => !allEngagements.some((engagement) => engagement.scenarioId === item.id)) ?? null
 
   // Shows a notification when the learner was redirected from a protected route.
   const [deniedReason, setDeniedReason] = useState<string | undefined>(
@@ -276,6 +330,7 @@ export default function CommandCentrePage() {
                       <div className={styles.floorMeta}>
                         <Tag type="cyan" size="sm">{featured.scenarioIndustry ?? 'Unassigned'}</Tag>
                         {featured.scenarioTitle}
+                        {labelsByEngagement.get(featured.id) && <Tag type="gray" size="sm">{labelsByEngagement.get(featured.id)}</Tag>}
                       </div>
                     </div>
                   </div>
@@ -312,10 +367,21 @@ export default function CommandCentrePage() {
                   <h3>Other engagements</h3>
                   <Button kind="ghost" size="sm" renderIcon={Add} className="objective-scenario-catalogue" onClick={() => setCatalogueOpen(true)}>Start new</Button>
                 </div>
-                {others.length > 0 ? (
-                  <ul className={styles.list}>{others.map((item) => <EngagementRow key={item.id} engagement={item} />)}</ul>
-                ) : (
+                {others.length > 1 && (
+                  <div className={styles.listControls}>
+                    <TextInput id="engagement-search" labelText="Search engagements" hideLabel size="sm" placeholder="Search engagements" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+                    <div className={styles.listFilters}>
+                      <Choice id="status-filter" label="Filter" hideLabel size="sm" value={statusFilter} options={STATUS_FILTERS} onChange={setStatusFilter} />
+                      <Choice id="sort-mode" label="Sort" hideLabel size="sm" value={sortMode} options={SORT_MODES} onChange={setSortMode} />
+                    </div>
+                  </div>
+                )}
+                {others.length === 0 ? (
                   <p className={styles.sideEmpty}>Nothing else in flight.</p>
+                ) : visibleOthers.length > 0 ? (
+                  <ul className={styles.list}>{visibleOthers.map((item) => <EngagementRow key={item.id} engagement={item} attemptLabel={labelsByEngagement.get(item.id)} />)}</ul>
+                ) : (
+                  <p className={styles.sideEmpty}><Search size={16} /> No engagements match this search.</p>
                 )}
               </section>
 
@@ -330,6 +396,22 @@ export default function CommandCentrePage() {
                   <p className={styles.sideEmpty}>Completed engagements will appear here.</p>
                 )}
               </section>
+
+              {recommended && (
+                <section className={styles.panel}>
+                  <p className={styles.eyebrow}>Recommended for you</p>
+                  <div className={styles.recommended}>
+                    <IndustryArt industry={recommended.industry} size={40} />
+                    <div>
+                      <h3>{recommended.title}</h3>
+                      <p>Practise stakeholder discovery and commercial evidence gathering in a fresh industry context.</p>
+                    </div>
+                  </div>
+                  <Button kind="secondary" size="sm" renderIcon={Renew} disabled={startEngagement.isPending} onClick={() => openBriefing(recommended)}>
+                    Start scenario
+                  </Button>
+                </section>
+              )}
             </aside>
           </div>
         )}

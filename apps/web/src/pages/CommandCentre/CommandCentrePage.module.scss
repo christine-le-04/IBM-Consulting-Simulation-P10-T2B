@@ -191,6 +191,9 @@
 }
 
 .sideEmpty {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
   margin: 0;
   font-size: 0.875rem;
   color: var(--sim-ink-2);
@@ -442,4 +445,36 @@
 
 .stars {
   font-family: var(--sim-mono);
+}
+
+.listControls {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.listFilters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.recommended {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+
+  h3 {
+    margin: 0 0 0.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--sim-ink-2);
+    line-height: 1.4;
+  }
 }

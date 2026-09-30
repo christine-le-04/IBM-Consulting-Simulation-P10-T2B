@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ProposalOutcomeView } from './ProposalOutcomeView'
 import { useProposalCounterfactual, useProposalDecisionExplanation } from '@/api/hooks/useProposal'
 import type { Proposal } from '@/api/types'
-import styles from '@/pages/ProposalStudio/ProposalStudioPage.module.scss'
 
 // mock the decision coaching hooks so tests can control their state
 vi.mock('@/api/hooks/useProposal', () => ({
@@ -62,7 +62,11 @@ function makeProposal(overrides: Partial<Proposal> = {}): Proposal {
 function renderOutcome(proposal: Proposal) {
   return render(
     <MemoryRouter>
-      <ProposalOutcomeView proposal={proposal} engagementId="engagement-1" />
+      <ProposalOutcomeView
+        proposal={proposal}
+        engagementId="engagement-1"
+        client={{ company: 'MediCare Regional Hospital Network', contactName: 'Sarah Chen', contactTitle: 'Chief Operating Officer', subject: 'Ward re-entry' }}
+      />
     </MemoryRouter>,
   )
 }
@@ -74,59 +78,88 @@ describe('ProposalOutcomeView component', () => {
     mockedUseCounterfactual.mockReturnValue(idleMutation())
   })
 
-  it('does not render a decision rationale paragraph when decisionRationale is empty', () => {
-    const { container } = renderOutcome(makeProposal({ decisionRationale: '' }))
+  it('opens with the client’s letter: who decided, what they decided and what they said', () => {
+    renderOutcome(makeProposal({ clientDecisionOutcome: 'PILOT_APPROVED', clientResponse: 'We will approve the pilot.' }))
 
-    expect(container.querySelector(`.${styles.decisionRationale}`)).not.toBeInTheDocument()
-    expect(screen.getByText('Strongest factor')).toBeInTheDocument()
+    const letter = screen.getByRole('article', { name: 'The client\'s decision' })
+    expect(letter).toHaveTextContent('MediCare Regional Hospital Network')
+    expect(letter).toHaveTextContent('Office of the Chief Operating Officer')
+    expect(letter).toHaveTextContent('Re: Proposal — Ward re-entry')
+    expect(letter).toHaveTextContent('We will approve the pilot.')
+    expect(letter).toHaveTextContent('Sarah Chen')
   })
 
-  it('renders the decision rationale paragraph when decisionRationale is present', () => {
-    const { container } = renderOutcome(
-      makeProposal({ decisionRationale: 'Strong evidence coverage across every dimension.' }),
-    )
+  it('falls back to the decision rationale when the client has not replied', () => {
+    renderOutcome(makeProposal({ clientResponse: null, decisionRationale: 'Rationale used because no client response exists.' }))
 
-    expect(container.querySelector(`.${styles.decisionRationale}`),).toHaveTextContent('Strong evidence coverage across every dimension.')
+    expect(screen.getByText('Rationale used because no client response exists.')).toBeInTheDocument()
   })
 
-  it('falls back to clientResponse for "What the client said" when it is present', () => {
+  it('shows the default message when there is neither a reply nor a rationale', () => {
+    renderOutcome(makeProposal({ clientResponse: null, decisionRationale: null as unknown as string }))
+
+    expect(screen.getByText('The client response is not yet available.')).toBeInTheDocument()
+  })
+
+  it('leads with words and keeps the numbers one click away (SRS FR-14)', async () => {
+    const user = userEvent.setup()
     renderOutcome(makeProposal({
-      clientResponse: 'The client accepted the pilot proposal outright.',
-      decisionRationale: 'Rationale text that should not be used here.',
+      decisionConfidence: 70,
+      learnerPerformanceScore: 78,
+      decisionRationale: 'Client alignment 23 and commercial logic 100 produced a decision score of 72.',
+      decisionDimensions: [
+        { dimension: 'Commercial logic', score: 100, interpretation: 'Budget and phasing were credible.' },
+        { dimension: 'Client alignment', score: 23, interpretation: 'The priorities were only partly addressed.' },
+      ],
     }))
 
-    expect(screen.getByText('The client accepted the pilot proposal outright.')).toBeInTheDocument()
-    expect(screen.getByText('Rationale text that should not be used here.')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'How they weighed it' }))
+    expect(screen.getByText('Carried the decision')).toBeInTheDocument()
+    expect(screen.getByText('Held it back')).toBeInTheDocument()
+
+    // The figures sit in a closed disclosure until the learner asks for them.
+    const numbers = screen.getByText('Show the numbers behind the decision').closest('details')!
+    expect(numbers).not.toHaveAttribute('open')
+    expect(numbers).toHaveTextContent('70%')
+    expect(numbers).toHaveTextContent('78/100')
+    expect(numbers).toHaveTextContent('Client alignment 23 and commercial logic 100')
+    expect(numbers).toHaveTextContent('100/100')
+    await user.click(screen.getByText('Show the numbers behind the decision'))
+    expect(numbers).toHaveAttribute('open')
   })
 
-  it('falls back to decisionRationale for "What the client said" when clientResponse is absent', () => {
+  it('lists every claim at once and filters by support level', async () => {
+    const user = userEvent.setup()
     renderOutcome(makeProposal({
-      clientResponse: null,
-      decisionRationale: 'Rationale used because no client response exists.',
+      evidenceImpacts: [
+        { claim: 'Re-entry costs nursing time', supportLevel: 'WELL_SUPPORTED', explanation: 'Backed by E-01.' },
+        { claim: 'Ward sisters back the pilot', supportLevel: 'PARTIALLY_SUPPORTED', explanation: 'One source.' },
+        { claim: 'It can be funded divisionally', supportLevel: 'UNSUPPORTED', explanation: 'No evidence attached.' },
+      ],
     }))
 
-    // appears twice - once in the decision rail and once as the client-response fallback
-    expect(screen.getAllByText('Rationale used because no client response exists.'),).toHaveLength(2)
+    await user.click(screen.getByRole('tab', { name: 'Your claims, checked (3)' }))
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+
+    await user.click(screen.getByRole('button', { name: /Unsupported/ }))
+    expect(screen.getByText('“It can be funded divisionally”')).toBeInTheDocument()
+    expect(screen.queryByText('“Re-entry costs nursing time”')).not.toBeInTheDocument()
+
+    // Pressing the same filter again shows every claim.
+    await user.click(screen.getByRole('button', { name: /Unsupported/ }))
+    expect(screen.getByText('“Re-entry costs nursing time”')).toBeInTheDocument()
   })
 
-  // checks the default client response when both values are nullish
-  it('shows the default message when clientResponse and decisionRationale are both nullish', () => {
-    renderOutcome(makeProposal({
-      clientResponse: null,
-      decisionRationale: undefined as unknown as string,
-    }))
+  it('shows the coaching view the learner asked for last', async () => {
+    const user = userEvent.setup()
+    mockedUseExplanation.mockReturnValue({ ...idleMutation(), data: { message: 'Explanation text.' } } as unknown as ReturnType<typeof useProposalDecisionExplanation>)
+    mockedUseCounterfactual.mockReturnValue({ ...idleMutation(), data: { message: 'Counterfactual text.' } } as unknown as ReturnType<typeof useProposalCounterfactual>)
+    renderOutcome(makeProposal())
 
-    const clientResponseCard = screen.getByText('What the client said').closest('section')
-    expect(clientResponseCard).toHaveTextContent('The client response is not yet available.')
-  })
-
-  // checks the empty client response when no client response or rationale is provided
-  it('renders an empty client response section when decisionRationale is "" and clientResponse is absent', () => {
-    renderOutcome(makeProposal({ clientResponse: null, decisionRationale: '' }))
-
-    const clientResponseParagraphs = screen.getByText('What the client said').closest('section')?.querySelectorAll('p')
-
-    expect(clientResponseParagraphs).toHaveLength(2)
-    expect(clientResponseParagraphs?.[1]).toHaveTextContent('')
+    await user.click(screen.getByRole('button', { name: 'Explain decision' }))
+    expect(screen.getByText('Explanation text.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'What could change?' }))
+    expect(screen.getByText('Counterfactual text.')).toBeInTheDocument()
+    expect(screen.getByText('What could have changed')).toBeInTheDocument()
   })
 })

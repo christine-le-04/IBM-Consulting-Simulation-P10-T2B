@@ -233,6 +233,10 @@ export default function LiveMeetingPage() {
               <strong>{clientName}</strong>
               <span>{[persona?.jobTitle, persona?.organisation ?? engagement?.leadCompanyName].filter(Boolean).join(' · ')}</span>
             </div>
+            {/* Hard mode is free text; every other difficulty picks from suggested replies. */}
+            <Tag type={isFreeformMeeting ? 'purple' : 'blue'} size="sm" title={isFreeformMeeting ? 'Hard mode · respond in your own words' : 'Pick from suggested replies'}>
+              {isFreeformMeeting ? 'Free text' : 'Guided'}
+            </Tag>
             {!isCompleted && hint.length > 0 && (
               <div className={`${styles.hintWrap} objective-hints`}>
                 <button type="button" className={styles.hintButton} aria-expanded={hintOpen} aria-controls="meeting-response-hint" onClick={() => setHintOpen((open) => !open)}>

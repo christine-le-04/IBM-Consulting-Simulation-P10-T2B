@@ -55,8 +55,9 @@ export function resolveEngagementRoute(engagement: Engagement): string {
 /**
  * The page for one phase of an engagement — what the office map and the room
  * buttons open. Earlier phases stay reachable, so a learner can walk back.
- * Debrief and the client's decision have no page of their own: the debrief is
- * read on the assessment, and the decision is shown in the proposal studio.
+ * The debrief has no page of its own (it is read on the assessment). The
+ * client's decision and the submitted proposal share /proposal, told apart by
+ * `?view=proposal`.
  */
 export function phaseRoute(engagement: Engagement, phase: EngagementPhase): string {
   const base = `/dashboard/engagements/${engagement.id}`
@@ -72,6 +73,9 @@ export function phaseRoute(engagement: Engagement, phase: EngagementPhase): stri
     case 'LIVE_MEETING':
       return engagement.meetingId ? `${base}/meetings/${engagement.meetingId}` : `${base}/preparation`
     case 'PROPOSAL':
+      // Once submitted, /proposal opens on the client's decision; the
+      // proposal itself stays readable here.
+      return `${base}/proposal?view=proposal`
     case 'OUTCOME':
       return `${base}/proposal`
     case 'MEETING_REVIEW':

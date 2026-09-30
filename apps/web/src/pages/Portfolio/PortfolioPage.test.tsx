@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render as renderRaw, screen, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfolio'
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { useAuthStore } from '@/store/authStore'
 import PortfolioPage from './PortfolioPage'
 import type { CompetencyTrend } from '@/api/types'
+
+// The page links to each engagement's review, so it renders inside a router.
+const render = (ui: ReactElement) => renderRaw(<MemoryRouter>{ui}</MemoryRouter>)
 
 // mock hocks and share compoents for tests
 vi.mock('@/api/hooks/usePortfolio', () => ({
@@ -426,5 +431,33 @@ describe('PortfolioPage competency progression', () => {
     expect(screen.getByText('Progress Across Attempts')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Communication' })).toBeInTheDocument()
     expect(screen.queryByText('Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.'),).not.toBeInTheDocument()
+  })
+})
+describe('PortfolioPage completed engagements', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('opens the review of a completed engagement', () => {
+    setupPortfolio([])
+    mockedUsePortfolioSummary.mockReturnValue({
+      data: {
+        ...basePortfolio,
+        completedEngagementsHistory: [{
+          engagementId: 'eng-7',
+          scenarioId: 'scn-7',
+          scenarioTitle: 'MediCare Digital Transformation',
+          industry: 'Healthcare',
+          outcome: 'PROPOSAL_ACCEPTED',
+          overallScore: 82,
+          completedAt: '2026-09-28T10:00:00Z',
+        }],
+      },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof usePortfolioSummary>)
+
+    render(<PortfolioPage />)
+
+    expect(screen.getByRole('link', { name: 'Open the review of MediCare Digital Transformation' }))
+      .toHaveAttribute('href', '/dashboard/engagements/eng-7/assessment')
   })
 })
