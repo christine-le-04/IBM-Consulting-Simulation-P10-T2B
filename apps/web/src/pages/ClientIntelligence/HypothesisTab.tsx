@@ -6,10 +6,8 @@
 import { useState } from 'react'
 import { Button, Checkbox, InlineLoading, RadioButton, RadioButtonGroup, Tag, TextArea, InlineNotification } from '@carbon/react'
 import { ChevronLeft, ChevronRight } from '@carbon/icons-react'
-import type { ConfidenceLevel, ResearchEvidence, ResearchGateStatus, SaveResearchPayload } from '@/api/types'
-import ReadinessList from '@/components/shell/ReadinessList'
+import type { ConfidenceLevel, ResearchEvidence, SaveResearchPayload } from '@/api/types'
 import { currentHypothesis, evidenceCode } from '@/components/shell/evidence'
-import { readinessFor } from './research'
 import styles from './ClientIntelligencePage.module.scss'
 
 const CONFIDENCE_TAG: Record<ConfidenceLevel, 'red' | 'warm-gray' | 'green'> = { LOW: 'red', MEDIUM: 'warm-gray', HIGH: 'green' }
@@ -26,9 +24,8 @@ const RESEARCH_AREAS = new Set([
   'TECHNOLOGY_INDICATOR',
 ])
 
-export default function HypothesisTab({ evidence, gate, saving, onSave }: {
+export default function HypothesisTab({ evidence, saving, onSave }: {
   evidence: ResearchEvidence[]
-  gate: ResearchGateStatus | undefined
   saving: boolean
   onSave: (payload: SaveResearchPayload, onDone: () => void) => void
 }) {
@@ -140,14 +137,14 @@ export default function HypothesisTab({ evidence, gate, saving, onSave }: {
           </RadioButtonGroup>
           {saving && <InlineLoading description="Saving hypothesis" />}
           {hypothesisIssues.length > 0 && (
-            <InlineNotification kind="warning" lowContrast hideCloseButton title="Your hypothesis is not grounded yet" 
-            subtitle={
-              <div> 
-                {hypothesisIssues.map((issue) => (
-                  <div key={issue}>• {issue}</div>
-                ))}
-              </div>
-            }/>
+            <InlineNotification
+              className={styles.hypothesisNotification}
+              kind="warning"
+              lowContrast
+              hideCloseButton
+              title="Your hypothesis is not grounded yet"
+              subtitle={hypothesisIssues.map((issue) => `• ${issue}`).join('\n')}
+            />
           )}
           <div className={styles.clipActions}>
             <Button kind="secondary" size="sm" onClick={() => setComposing(false)}>Cancel</Button>
