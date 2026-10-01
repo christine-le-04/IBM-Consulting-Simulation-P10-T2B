@@ -93,6 +93,8 @@ public class Scenario extends BaseEntity {
 
     @OneToMany(mappedBy = "scenario", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 24)
+    // Alphabetical, so a contact's position never hints at who the decision maker is.
+    @OrderBy("name ASC")
     private List<Persona> personas = new ArrayList<>();
 
     protected Scenario() {}
@@ -265,6 +267,11 @@ public class Scenario extends BaseEntity {
     public UUID getScenarioLineageId() { return scenarioLineageId; }
     public String getAuthoringConfig() { return authoringConfig; }
     public List<Persona> getPersonas() { return Collections.unmodifiableList(personas); }
+
+    /** The contact who can accept a meeting (the AI client). */
+    public java.util.Optional<Persona> decisionMaker() {
+        return personas.stream().filter(Persona::isDecisionMaker).findFirst();
+    }
 
     private void assertDraftEditable() {
         if (status != ScenarioStatus.DRAFT) throw new ScenarioNotEditableException(status);
