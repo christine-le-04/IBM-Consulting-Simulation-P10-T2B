@@ -10,10 +10,11 @@
  * Submit is never locked — pressed early, it shows what is missing first.
  *
  * Once submitted, /proposal opens on the client's decision; `?view=proposal`
- * shows the proposal that was sent, read-only (it can be submitted once).
+ * shows the submitted attempt read-only. Retryable losses can reopen the editor;
+ * wins and exhausted losses go directly to the feedback/review page.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, InlineLoading, InlineNotification, Tag } from '@carbon/react'
 import { Add, ArrowLeft, Checkmark, CheckmarkFilled, ChevronLeft, ChevronRight, Renew, Send, TrashCan, WarningAlt } from '@carbon/icons-react'
 import { useEngagement } from '@/api/hooks/useEngagements'
@@ -135,6 +136,7 @@ function ReviewComment({ review }: { review: ProposalReview }) {
 
 export default function ProposalStudioPage() {
   const { engagementId = '' } = useParams<{ engagementId: string }>()
+  const navigate = useNavigate()
   const studio = useProposalStudio(engagementId)
   const { data: engagement } = useEngagement(engagementId)
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
@@ -176,6 +178,15 @@ export default function ProposalStudioPage() {
 
   const readOnly = studio.submitted
   const readingSent = readOnly && searchParams.get('view') === 'proposal'
+  const finalResult = studio.submitted && Boolean(studio.proposal
+    && (studio.proposal.decision === 'WON'
+      || (studio.proposal.decision === 'LOST' && !studio.proposal.revisionAvailable)))
+
+  useEffect(() => {
+    if (finalResult && !readingSent) {
+      navigate(`/dashboard/engagements/${engagementId}/assessment`, { replace: true })
+    }
+  }, [engagementId, finalResult, navigate, readingSent])
 
   useMentor(
     readingSent ? 'This is what you sent. Compare it with what they said.'
@@ -188,12 +199,16 @@ export default function ProposalStudioPage() {
   if (studio.workspace.isError) {
     return <InlineNotification kind="error" title="Proposal workspace unavailable" subtitle="Please return to the Office and reopen this engagement." hideCloseButton />
   }
+  if (finalResult && !readingSent) return <LoadingState description="Opening feedback and review…" />
   if (studio.submitted && studio.proposal && !readingSent) {
     return (
       <ProposalOutcomeView
         proposal={studio.proposal}
         engagementId={engagementId}
         onReadProposal={() => setSearchParams({ view: 'proposal' })}
+        onRevise={() => { setSearchParams({}); void studio.revise() }}
+        revising={studio.reviseProposal.isPending}
+        revisionError={studio.reviseProposal.isError}
         client={{ company: engagement?.leadCompanyName, contactName: contact?.name, contactTitle: contact?.jobTitle, subject: engagement?.scenarioTitle }}
       />
     )

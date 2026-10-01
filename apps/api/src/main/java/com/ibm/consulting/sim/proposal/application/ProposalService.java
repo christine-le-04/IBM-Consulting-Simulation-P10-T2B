@@ -191,7 +191,18 @@ public class ProposalService {
                 state.getTrust(), state.getInterest(), state.getPatience(), profile);
         PersonaProfile persona = personaCatalogService.getPersona(engagement.getPersonaId());
         proposal.submit();
-        proposal.resolve(decisionSnapshot, ProposalClientDecision.fromDecision(decisionSnapshot).message());
+        String clientMessage = ProposalClientDecision.fromDecision(decisionSnapshot).message();
+        if (!decisionSnapshot.accepted() && proposal.getSubmissionCount() >= Proposal.MAX_SUBMISSIONS) {
+            clientMessage = "We will not proceed after three submissions. " + clientMessage;
+        }
+        proposal.resolve(decisionSnapshot, clientMessage);
+        try {
+            proposal.recordSubmission(objectMapper.writeValueAsString(java.util.Map.of(
+                    "submission", proposal.getSubmissionCount(), "content", content,
+                    "decision", decisionSnapshot, "submittedAt", proposal.getSubmittedAt().toString())));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException serializationFailure) {
+            throw new IllegalStateException("Could not preserve proposal submission", serializationFailure);
+        }
         proposalRepository.save(proposal);
 
         if (engagement.getState() == EngagementState.DISCOVERY_COMPLETE) {
@@ -202,7 +213,26 @@ public class ProposalService {
                 "Client decision: " + decisionSnapshot.outcome());
         engagementRepository.save(engagement);
         eventPublisher.publishEvent(new ProposalDecisionSubmittedEvent(engagementId, content, sources, persona,
-                decisionSnapshot));
+                decisionSnapshot, proposal.getSubmissionCount()));
+        return ProposalResponse.from(proposal);
+    }
+
+    @Transactional
+    public ProposalResponse revise(UUID engagementId, UUID userId) {
+        Engagement engagement = loadOwnedEngagementForUpdate(engagementId, userId);
+        Proposal proposal = proposalRepository.findByEngagementId(engagementId)
+                .orElseThrow(() -> new NotFoundException("Proposal", engagementId));
+        if (engagement.getState() == EngagementState.PROPOSAL_DRAFT && proposal.getStatus() == ProposalStatus.DRAFT) {
+            return ProposalResponse.from(proposal);
+        }
+        if (engagement.getState() != EngagementState.CLIENT_DECISION || !proposal.isRevisionAvailable()) {
+            throw new InvalidProposalStateException(engagement.getState());
+        }
+        proposal.reopenForRevision();
+        engagement.transitionTo(EngagementState.PROPOSAL_DRAFT,
+                "Proposal revision opened; submission " + (proposal.getSubmissionCount() + 1) + " of 3");
+        proposalRepository.save(proposal);
+        engagementRepository.save(engagement);
         return ProposalResponse.from(proposal);
     }
 

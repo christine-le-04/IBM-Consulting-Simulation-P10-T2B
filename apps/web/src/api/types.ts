@@ -604,6 +604,9 @@ export interface ProposalDecisionExplanation {
 }
 
 export interface Proposal {
+  submissionCount?: number
+  submissionsRemaining?: number
+  revisionAvailable?: boolean
   id: string
   engagementId: string
   status: ProposalStatus

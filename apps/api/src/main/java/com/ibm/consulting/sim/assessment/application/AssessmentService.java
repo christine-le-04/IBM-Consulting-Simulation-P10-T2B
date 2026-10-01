@@ -109,6 +109,12 @@ public class AssessmentService {
         }
         UUID engagementId = engagement.getId();
 
+        Proposal currentProposal = proposalRepository.findByEngagementId(engagementId).orElse(null);
+        if (currentProposal != null && (currentProposal.isRevisionAvailable()
+                || currentProposal.getDecision() == com.ibm.consulting.sim.proposal.domain.ProposalDecision.PENDING)) {
+            throw new AssessmentNotAvailableException(engagement.getState());
+        }
+
         int evidenceCount = evidenceRepository.findByEngagementId(engagementId).size();
         int avgOutreachScore = averageOutreachScore(outreachRepository.findByEngagementId(engagementId));
         PersonaState state = personaStateRepository.findByEngagementId(engagementId)
@@ -167,6 +173,7 @@ public class AssessmentService {
      */
     private String proposalOutcome(Proposal proposal) {
         if (proposal == null) return "PROPOSAL_REJECTED";
+        if (proposal.getDecision() == ProposalDecision.LOST) return ClientDecisionOutcome.REJECTED.name();
         ClientDecisionOutcome clientOutcome = proposal.getClientDecisionOutcome();
         if (clientOutcome != null) return clientOutcome.name();
         return proposal.getDecision() == ProposalDecision.WON ? "PROPOSAL_ACCEPTED" : "PROPOSAL_REJECTED";

@@ -25,6 +25,17 @@ function idleMutation() {
   } as unknown as ReturnType<typeof useProposalDecisionExplanation>
 }
 
+it('offers revision before the third unsuccessful submission and hides final assessment', async () => {
+  mockedUseExplanation.mockReturnValue(idleMutation())
+  mockedUseCounterfactual.mockReturnValue(idleMutation())
+  const revise = vi.fn()
+  render(<MemoryRouter><ProposalOutcomeView engagementId="engagement-1" onRevise={revise}
+    proposal={makeProposal({ decision: 'LOST', submissionCount: 1, submissionsRemaining: 2, revisionAvailable: true })} /></MemoryRouter>)
+  await userEvent.click(screen.getByRole('button', { name: /Retry proposal/ }))
+  expect(revise).toHaveBeenCalledOnce()
+  expect(screen.queryByRole('button', { name: 'View full assessment' })).not.toBeInTheDocument()
+})
+
 // creates a base proposal object for tests with optional field overrides
 function makeProposal(overrides: Partial<Proposal> = {}): Proposal {
   return {

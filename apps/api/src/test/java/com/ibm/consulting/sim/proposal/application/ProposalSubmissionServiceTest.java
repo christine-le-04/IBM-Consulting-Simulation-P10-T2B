@@ -205,6 +205,51 @@ class ProposalSubmissionServiceTest {
         when(personaCatalogService.getPersona(data.engagement().getPersonaId())).thenReturn(data.persona());
     }
 
+    @Test
+    void permitsTwoRevisionsThenFinalizesTheThirdNonWinningSubmissionAsLost() {
+        stubDecisionInputs();
+        ProposalDraftContent weak = new ProposalDraftContent("Unrelated problem", "Unrelated strategy",
+                List.of(), BigDecimal.ZERO, 1, "LOW", "", List.of(), List.of(), List.of(), List.of(), List.of());
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            ProposalResponse result = service.submit(data.engagement().getId(), data.userId(), weak, false);
+            assertThat(result.submissionCount()).isEqualTo(attempt);
+            assertThat(result.revisionAvailable()).isEqualTo(attempt < 3);
+            assertThat(result.decision()).isEqualTo("LOST");
+            assertThat(result.alignmentScore()).isBetween(0, 100);
+            assertThat(result.decisionDimensions()).isNotEmpty();
+            if (attempt < 3) {
+                ProposalResponse reopened = service.revise(data.engagement().getId(), data.userId());
+                assertThat(reopened.status()).isEqualTo("DRAFT");
+                assertThat(data.engagement().getState()).isEqualTo(EngagementState.PROPOSAL_DRAFT);
+            }
+        }
+        assertThat(proposalRepository.proposal.orElseThrow().getSubmissionHistory()).hasSize(3);
+        assertThatThrownBy(() -> service.revise(data.engagement().getId(), data.userId()))
+                .isInstanceOf(ProposalService.InvalidProposalStateException.class);
+        assertThatThrownBy(() -> service.submit(data.engagement().getId(), data.userId(), weak, false))
+                .isInstanceOf(ProposalService.InvalidProposalStateException.class);
+    }
+
+    @Test
+    void aLateNarrativeFromTheFirstSubmissionCannotOverwriteTheSecondSubmission() {
+        stubDecisionInputs();
+        ProposalDraftContent weak = new ProposalDraftContent("Unrelated problem", "Unrelated strategy",
+                List.of(), BigDecimal.ZERO, 1, "LOW", "", List.of(), List.of(), List.of(), List.of(), List.of());
+        service.submit(data.engagement().getId(), data.userId(), weak, false);
+        ArgumentCaptor<ProposalDecisionSubmittedEvent> event = ArgumentCaptor.forClass(ProposalDecisionSubmittedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        service.revise(data.engagement().getId(), data.userId());
+        service.submit(data.engagement().getId(), data.userId(), weak, false);
+        String currentReply = proposalRepository.proposal.orElseThrow().getClientResponse();
+        when(aiOrchestrationService.execute(anyString(), any(), anyString(), anyInt(), any(), any()))
+                .thenReturn(new ProposalClientDecision("Old reply"));
+        ProposalDecisionNarrativeEnricher enricher = new ProposalDecisionNarrativeEnricher(
+                proposalRepository, aiOrchestrationService, new ObjectMapper(),
+                new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_DECISION_NARRATIVE_CACHE));
+        enricher.enrich(event.getValue());
+        assertThat(proposalRepository.proposal.orElseThrow().getClientResponse()).isEqualTo(currentReply);
+    }
+
     private ProposalDraftContent validDraft(List<ProposalEvidenceLink> evidenceLinks) {
         return new ProposalDraftContent(
                 "Manual reconciliation is causing audit delays and operational risk across the network.",
