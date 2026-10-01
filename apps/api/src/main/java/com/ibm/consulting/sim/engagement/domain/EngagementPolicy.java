@@ -18,7 +18,9 @@ public final class EngagementPolicy {
             Map.entry(EngagementState.HYPOTHESIS_READY,
                     EnumSet.of(EngagementState.OUTREACHING)),
             Map.entry(EngagementState.OUTREACHING,
-                    EnumSet.of(EngagementState.OUTREACHING, EngagementState.MEETING_SECURED)),
+                    // HYPOTHESIS_READY: every contact failed, so back to research for a new round.
+                    EnumSet.of(EngagementState.OUTREACHING, EngagementState.MEETING_SECURED,
+                            EngagementState.HYPOTHESIS_READY)),
             Map.entry(EngagementState.MEETING_SECURED,
                     EnumSet.of(EngagementState.PREPARING)),
             Map.entry(EngagementState.PREPARING,
