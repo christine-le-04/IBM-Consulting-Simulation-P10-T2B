@@ -242,8 +242,19 @@ export default function CommandCentrePage() {
     )
   }
 
+  // Scenarios the learner is already playing continue where they left off.
+  const inProgressByScenario = useMemo(
+    () => new Map(active.map((engagement) => [engagement.scenarioId, engagement])),
+    [active],
+  )
+
   const openBriefing = (scenario: ScenarioSummary) => {
     setCatalogueOpen(false)
+    const inProgress = inProgressByScenario.get(scenario.id)
+    if (inProgress) {
+      navigate(resolveEngagementRoute(inProgress))
+      return
+    }
     setBriefingScenario(scenario)
   }
 
@@ -420,6 +431,7 @@ export default function CommandCentrePage() {
           <ScenarioCatalogueModal
             firstVisit={firstVisit}
             isPending={startEngagement.isPending}
+            inProgressScenarioIds={new Set(inProgressByScenario.keys())}
             onClose={() => setCatalogueOpen(false)}
             onStart={openBriefing}
           />

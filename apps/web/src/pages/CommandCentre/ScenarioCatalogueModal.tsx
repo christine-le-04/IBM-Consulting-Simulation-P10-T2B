@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Button, ComposedModal, Dropdown, ModalBody, ModalHeader, Pagination, Tag, TextInput } from '@carbon/react'
-import { Add, Search } from '@carbon/icons-react'
+import { Add, ArrowRight, Search } from '@carbon/icons-react'
 import { useScenarioCatalog, useScenarioCatalogIndustries } from '@/api/hooks/useScenarios'
 import type { ScenarioSummary } from '@/api/types'
 import LoadingState from '@/components/shared/LoadingState'
@@ -17,11 +17,14 @@ const DIFFICULTY_VALUE: Record<string, number> = { Guided: 2, Standard: 3, Advan
 export default function ScenarioCatalogueModal({
   firstVisit,
   isPending,
+  inProgressScenarioIds = new Set<string>(),
   onClose,
   onStart,
 }: {
   firstVisit: boolean
   isPending: boolean
+  /** Scenarios the learner is already playing: shown as "Continue" instead of "Start". */
+  inProgressScenarioIds?: ReadonlySet<string>
   onClose: () => void
   onStart: (scenario: ScenarioSummary) => void
 }) {
@@ -91,7 +94,11 @@ export default function ScenarioCatalogueModal({
                 </div>
                 <h4>{scenario.title}</h4>
                 <p>{scenario.description}</p>
-                <Button renderIcon={Add} size="sm" disabled={isPending} onClick={() => onStart(scenario)}>Start Engagement</Button>
+                {inProgressScenarioIds.has(scenario.id) ? (
+                  <Button kind="secondary" renderIcon={ArrowRight} size="sm" onClick={() => onStart(scenario)}>Continue</Button>
+                ) : (
+                  <Button renderIcon={Add} size="sm" disabled={isPending} onClick={() => onStart(scenario)}>Start Engagement</Button>
+                )}
               </article>
             ))}
           </div>
