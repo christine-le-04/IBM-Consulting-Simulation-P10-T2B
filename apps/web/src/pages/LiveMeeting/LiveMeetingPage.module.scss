@@ -264,40 +264,6 @@
   font-size: 0.875rem;
 }
 
-.suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.6rem;
-
-  p {
-    width: 100%;
-    margin: 0 0 0.1rem;
-    font-size: 0.75rem;
-    color: #6f6f6f;
-  }
-
-  button {
-    border: 1px solid #0f62fe;
-    background: #fff;
-    color: #0043ce;
-    border-radius: 16px;
-    padding: 0.4rem 0.85rem;
-    font: inherit;
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    text-align: left;
-    cursor: pointer;
-
-    &:hover:not(:disabled) {
-      background: #0f62fe;
-      color: #fff;
-    }
-
-    &:disabled { opacity: 0.5; cursor: default; }
-  }
-}
-
 .composeBox {
   display: flex;
   align-items: flex-end;
@@ -507,10 +473,4 @@
 
 .streaming {
   opacity: 0.85;
-}
-
-.unavailable {
-  display: grid;
-  gap: 0.5rem;
-  justify-items: start;
 }

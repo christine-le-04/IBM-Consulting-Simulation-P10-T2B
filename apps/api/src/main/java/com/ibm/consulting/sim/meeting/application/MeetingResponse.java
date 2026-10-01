@@ -20,7 +20,7 @@ public record MeetingResponse(UUID id, UUID engagementId, UUID personaId, String
     public MeetingResponse(UUID id, UUID engagementId, UUID personaId, String status,
                            Instant completedAt, String transcriptStorageReference,
                            String completionOutcome, String debriefFeedback, java.util.List<String> debriefTips) {
-        this(id, engagementId, personaId, status, MeetingInteractionMode.GUIDED.name(), MeetingCompletionPolicy.REQUIRED_SCORE,
+        this(id, engagementId, personaId, status, MeetingInteractionMode.FREEFORM.name(), MeetingCompletionPolicy.REQUIRED_SCORE,
                 completedAt, transcriptStorageReference,
                 completionOutcome, debriefFeedback, debriefTips, null, null, false, 0, List.of());
     }
@@ -32,7 +32,7 @@ public record MeetingResponse(UUID id, UUID engagementId, UUID personaId, String
     public static MeetingResponse from(Meeting m, DifficultyProfile profile,
                                        boolean meetingRetryAvailable, int meetingRetriesRemaining) {
         MeetingInteractionMode interactionMode = profile == null
-                ? MeetingInteractionMode.GUIDED
+                ? MeetingInteractionMode.FREEFORM
                 : MeetingInteractionMode.forDifficulty(profile.level());
         return new MeetingResponse(m.getId(), m.getEngagementId(), m.getPersonaId(), m.getStatus().name(),
                 interactionMode.name(), MeetingCompletionPolicy.requiredScoreFor(profile),

@@ -13,6 +13,7 @@ import com.ibm.consulting.sim.meeting.application.GuidedResponseOptions;
 import com.ibm.consulting.sim.meeting.application.MeetingResponseOptionsResponse;
 import com.ibm.consulting.sim.meeting.domain.ConversationTurnRepository;
 import com.ibm.consulting.sim.meeting.domain.Meeting;
+import com.ibm.consulting.sim.meeting.domain.MeetingInteractionMode;
 import com.ibm.consulting.sim.meeting.domain.MeetingRepository;
 import com.ibm.consulting.sim.meeting.domain.MeetingResponseOptionSetRepository;
 import com.ibm.consulting.sim.meeting.domain.PersonaStateRepository;
@@ -51,8 +52,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DataJpaTest
@@ -85,7 +85,7 @@ class GuidedMeetingResponseConcurrencyIntegrationTest {
     @Autowired PlatformTransactionManager transactionManager;
 
     @Test
-    void concurrentOnDemandRequestsReturnOneDurableOptionSet() throws Exception {
+    void concurrentLegacyRequestsReturnFreeformWithoutGeneratingChoices() throws Exception {
         UUID meetingId = inTransaction(this::persistMeeting);
         Fixture fixture = fixture();
 
@@ -93,13 +93,14 @@ class GuidedMeetingResponseConcurrencyIntegrationTest {
                 () -> fixture.service().optionsFor(meetingId, fixture.userId()),
                 () -> fixture.service().optionsFor(meetingId, fixture.userId()));
 
-        assertThat(responses).allMatch(MeetingResponseOptionsResponse::available);
-        assertThat(countOptionSets(meetingId, 0)).isEqualTo(1L);
-        verify(fixture.ai(), times(1)).execute(any(), any(), any(), any(Integer.class), any(), any());
+        assertThat(responses).allMatch(response -> response.interactionMode() == MeetingInteractionMode.FREEFORM
+                && response.options().isEmpty());
+        assertThat(countOptionSets(meetingId, 0)).isZero();
+        verifyNoInteractions(fixture.ai());
     }
 
     @Test
-    void onDemandAndPreGeneratedCreationRaceIsIdempotent() throws Exception {
+    void legacyRequestsAndPreGeneratedChoicesDoNotCreateOptionSets() throws Exception {
         UUID meetingId = inTransaction(this::persistMeeting);
         Fixture fixture = fixture();
 
@@ -107,30 +108,25 @@ class GuidedMeetingResponseConcurrencyIntegrationTest {
                 () -> fixture.service().optionsFor(meetingId, fixture.userId()),
                 () -> fixture.service().cachePreGenerated(meetingId, 0, PROFILE, OPTIONS));
 
-        assertThat(responses).allMatch(MeetingResponseOptionsResponse::available);
-        assertThat(countOptionSets(meetingId, 0)).isEqualTo(1L);
+        assertThat(responses).allMatch(response -> response.interactionMode() == MeetingInteractionMode.FREEFORM
+                && response.options().isEmpty());
+        assertThat(countOptionSets(meetingId, 0)).isZero();
     }
 
     @Test
-    void differentMeetingsGenerateWithoutAProcessWideLock() throws Exception {
+    void differentMeetingsDoNotGenerateChoices() throws Exception {
         UUID firstMeeting = inTransaction(this::persistMeeting);
         UUID secondMeeting = inTransaction(this::persistMeeting);
         Fixture fixture = fixture();
-        CountDownLatch aiCallsReached = new CountDownLatch(2);
-        when(fixture.ai().execute(any(), any(), any(), any(Integer.class), any(), any()))
-                .thenAnswer(ignored -> {
-                    aiCallsReached.countDown();
-                    assertThat(aiCallsReached.await(5, TimeUnit.SECONDS)).isTrue();
-                    return new GuidedResponseOptions(OPTIONS);
-                });
-
         List<MeetingResponseOptionsResponse> responses = runConcurrently(
                 () -> fixture.service().optionsFor(firstMeeting, fixture.userId()),
                 () -> fixture.service().optionsFor(secondMeeting, fixture.userId()));
 
-        assertThat(responses).allMatch(MeetingResponseOptionsResponse::available);
-        assertThat(countOptionSets(firstMeeting, 0)).isEqualTo(1L);
-        assertThat(countOptionSets(secondMeeting, 0)).isEqualTo(1L);
+        assertThat(responses).allMatch(response -> response.interactionMode() == MeetingInteractionMode.FREEFORM
+                && response.options().isEmpty());
+        assertThat(countOptionSets(firstMeeting, 0)).isZero();
+        assertThat(countOptionSets(secondMeeting, 0)).isZero();
+        verifyNoInteractions(fixture.ai());
     }
 
     private Fixture fixture() {

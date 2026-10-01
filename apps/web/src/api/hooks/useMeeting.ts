@@ -119,3 +119,17 @@ export function useRetryMeeting(meetingId: string, engagementId: string) {
     },
   })
 }
+
+export function useReturnToPreparation(meetingId: string, engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post(`/api/v1/meetings/${meetingId}/preparation`)
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['engagements'] })
+      await qc.invalidateQueries({ queryKey: meetingKeys.meeting(meetingId) })
+      await qc.invalidateQueries({ queryKey: meetingKeys.preparation(engagementId) })
+    },
+  })
+}

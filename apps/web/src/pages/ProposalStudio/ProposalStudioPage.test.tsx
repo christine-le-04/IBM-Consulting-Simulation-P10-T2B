@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProposalStudioPage from './ProposalStudioPage'
 import { useProposalStudio } from '@/features/proposal/hooks/useProposalStudio'
 import { createEmptyProposalDraft } from '@/features/proposal/services/proposalDraftService'
-import type { ProposalReview, ProposalSource } from '@/api/types'
+import type { Proposal, ProposalReview, ProposalSource } from '@/api/types'
 import type { ProposalDraftRequest } from '@/api/hooks/useProposal'
 
 // mock hooks and shared components for tests
@@ -80,6 +80,7 @@ function setup(sources: ProposalSource[]) {
       isError: false,
       error: null,
     },
+    reviseProposal: { isPending: false, isError: false },
   } as unknown as ReturnType<typeof useProposalStudio>)
 }
 
@@ -124,10 +125,46 @@ function renderPage() {
           path="/dashboard/engagements/:engagementId/proposal"
           element={<ProposalStudioPage />}
         />
+        <Route path="/dashboard/engagements/:engagementId/assessment" element={<div>Feedback and review page</div>} />
       </Routes>
     </MemoryRouter>
   )
 }
+
+describe('scored proposal results', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it.each([
+    ['WON', 1, false],
+    ['WON', 2, false],
+    ['WON', 3, false],
+    ['LOST', 3, false],
+  ] as const)('moves %s on submission %i directly to feedback/review', async (decision, submissionCount, revisionAvailable) => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, submitted: true,
+      proposal: { status: 'SUBMITTED', decision, submissionCount, revisionAvailable } as Proposal })
+    renderPage()
+    expect(await screen.findByText('Feedback and review page')).toBeInTheDocument()
+  })
+
+  it.each([1, 2])('keeps unsuccessful submission %i on the proposal page with a retry action', async (submissionCount) => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    const revise = vi.fn()
+    mockedUseProposalStudio.mockReturnValue({ ...studio, submitted: true, revise,
+      proposal: { ...createEmptyProposalDraft(), id: 'proposal-1', engagementId: 'eng-1',
+        status: 'SUBMITTED', decision: 'LOST', submissionCount, submissionsRemaining: 3 - submissionCount,
+        revisionAvailable: true, clientDecisionOutcome: 'REJECTED', budget: '100', submittedAt: '',
+        alignmentScore: 40, decisionRationale: 'Score below acceptance threshold', decisionConfidence: 60,
+        learnerPerformanceScore: 40,
+        decisionDimensions: [], decisionInsights: [], evidenceImpacts: [], clientResponse: 'The client did not buy.' } as Proposal })
+    renderPage()
+    expect(screen.queryByText('Feedback and review page')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Retry proposal/ }))
+    expect(revise).toHaveBeenCalledOnce()
+  })
+})
 
 describe('ProposalStudioPage evidence library', () => {
   beforeEach(() => vi.clearAllMocks())

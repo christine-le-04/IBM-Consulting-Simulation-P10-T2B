@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import LiveMeetingPage from './LiveMeetingPage'
 import { useMeeting, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting, } from '@/api/hooks/useMeeting'
@@ -19,6 +19,7 @@ vi.mock('@/api/hooks/useMeeting', () => ({
   usePersonaState: vi.fn(),
   useMeetingResponseOptions: vi.fn(),
   useRetryMeeting: vi.fn(),
+  useReturnToPreparation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useMeetingPreparation: () => ({ data: { objective: 'Validate the problem', agenda: ['Confirm objectives'], discoveryQuestions: ['Which site hurts most?'] } }),
 }))
 vi.mock('@/api/hooks/useEngagements', () => ({
@@ -137,6 +138,22 @@ function renderPage() {
 
 describe('LiveMeetingPage states', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it.each(['GUIDED', 'FREEFORM'] as const)('sends typed responses without requesting choices when the API reports %s', async (interactionMode) => {
+    setup(makeMeeting({ interactionMode }))
+    renderPage()
+
+    const input = screen.getByRole('textbox', { name: 'Message Sarah Chen' })
+    expect(screen.queryByLabelText('Suggested replies')).not.toBeInTheDocument()
+    expect(mockedResponseOptions).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+
+    fireEvent.change(input, { target: { value: '  Which constraint matters most?  ' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    })
+    expect(mockedMeetingSocket.mock.results.at(-1)?.value.sendMessage).toHaveBeenCalledWith('Which constraint matters most?')
+  })
 
   // empty state when user has not 
   it('shows the empty-transcript placeholder when there are no turns yet', () => {

@@ -113,6 +113,32 @@ class AssessmentServiceTest {
     }
 
     @Test
+    void aLostProposalWithAttemptsRemainingCannotFinalizeTheEngagement() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        var proposal = org.mockito.Mockito.mock(com.ibm.consulting.sim.proposal.domain.Proposal.class);
+        when(proposal.isRevisionAvailable()).thenReturn(true);
+        when(proposalRepository.findByEngagementId(data.engagement().getId())).thenReturn(Optional.of(proposal));
+        assertThatThrownBy(() -> service.generate(data.engagement().getId(), data.userId()))
+                .isInstanceOf(AssessmentService.AssessmentNotAvailableException.class);
+        assertThat(data.engagement().getState()).isEqualTo(EngagementState.CLIENT_DECISION);
+        assertThat(assessmentRepository.saveCount).isZero();
+    }
+
+    @Test
+    void anExhaustedLostProposalCanGenerateTheFinalReview() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        stubScoringInputs(data);
+        var proposal = org.mockito.Mockito.mock(com.ibm.consulting.sim.proposal.domain.Proposal.class);
+        when(proposal.getDecision()).thenReturn(com.ibm.consulting.sim.proposal.domain.ProposalDecision.LOST);
+        when(proposalRepository.findByEngagementId(data.engagement().getId())).thenReturn(Optional.of(proposal));
+        AssessmentResponse review = service.generate(data.engagement().getId(), data.userId());
+        assertThat(review.outcome()).isEqualTo("REJECTED");
+        assertThat(data.engagement().getState()).isEqualTo(EngagementState.COMPLETED);
+    }
+
+    @Test
     void anotherUserCannotGenerateOrReadTheAssessment() {
         TestData data = engagementIn(EngagementState.CLIENT_DECISION);
         UUID otherUserId = UUID.randomUUID();

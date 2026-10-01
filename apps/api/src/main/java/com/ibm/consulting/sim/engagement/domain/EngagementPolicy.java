@@ -27,6 +27,8 @@ public final class EngagementPolicy {
                     EnumSet.of(EngagementState.PREPARING, EngagementState.IN_MEETING)),
             Map.entry(EngagementState.IN_MEETING,
                     EnumSet.of(EngagementState.DISCOVERY_COMPLETE, EngagementState.MEETING_FAILED)),
+            Map.entry(EngagementState.MEETING_FAILED,
+                    EnumSet.of(EngagementState.MEETING_SECURED)),
             Map.entry(EngagementState.DISCOVERY_COMPLETE,
                     EnumSet.of(EngagementState.PROPOSAL_DRAFT)),
             Map.entry(EngagementState.PROPOSAL_DRAFT,
@@ -34,7 +36,7 @@ public final class EngagementPolicy {
             Map.entry(EngagementState.PROPOSAL_SUBMITTED,
                     EnumSet.of(EngagementState.CLIENT_DECISION)),
             Map.entry(EngagementState.CLIENT_DECISION,
-                    EnumSet.of(EngagementState.REVIEW)),
+                    EnumSet.of(EngagementState.REVIEW, EngagementState.PROPOSAL_DRAFT)),
             Map.entry(EngagementState.REVIEW,
                     EnumSet.of(EngagementState.COMPLETED))
     );

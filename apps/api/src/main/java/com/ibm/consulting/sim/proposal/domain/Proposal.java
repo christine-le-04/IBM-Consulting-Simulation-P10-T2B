@@ -1,14 +1,23 @@
 package com.ibm.consulting.sim.proposal.domain;
 
-import com.ibm.consulting.sim.shared.domain.BaseEntity;
-import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+
+import com.ibm.consulting.sim.shared.domain.BaseEntity;
+
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "proposals")
@@ -110,6 +119,33 @@ public class Proposal extends BaseEntity {
     @Column(nullable = false)
     private ProposalStatus status = ProposalStatus.DRAFT;
 
+    public static final int MAX_SUBMISSIONS = 3;
+
+    @Column(nullable = false)
+    private int submissionCount;
+
+    @ElementCollection
+    @CollectionTable(name = "proposal_submission_history", joinColumns = @JoinColumn(name = "proposal_id"))
+    @OrderColumn(name = "position")
+    @Column(name = "snapshot", nullable = false, columnDefinition = "text")
+    private List<String> submissionHistory = new ArrayList<>();
+
+    public int getSubmissionCount() { return submissionCount; }
+    public List<String> getSubmissionHistory() { return List.copyOf(submissionHistory); }
+    public void recordSubmission(String snapshot) { submissionHistory.add(snapshot); }
+
+    public boolean isRevisionAvailable() {
+        return status == ProposalStatus.SUBMITTED && decision == ProposalDecision.LOST
+                && submissionCount < MAX_SUBMISSIONS;
+    }
+
+    public void reopenForRevision() {
+        if (!isRevisionAvailable()) throw new IllegalStateException("This proposal cannot be revised");
+        status = ProposalStatus.DRAFT;
+        decision = ProposalDecision.PENDING;
+        submittedAt = null;
+    }
+
     protected Proposal() {}
 
     public static Proposal draft(UUID engagementId, ProposalDraftContent content) {
@@ -128,6 +164,8 @@ public class Proposal extends BaseEntity {
 
     public void submit() {
         if (status == ProposalStatus.SUBMITTED) throw new IllegalStateException("Proposal has already been submitted");
+        if (submissionCount >= MAX_SUBMISSIONS) throw new IllegalStateException("All three proposal submissions have been used");
+        submissionCount++;
         status = ProposalStatus.SUBMITTED;
         submittedAt = Instant.now();
     }

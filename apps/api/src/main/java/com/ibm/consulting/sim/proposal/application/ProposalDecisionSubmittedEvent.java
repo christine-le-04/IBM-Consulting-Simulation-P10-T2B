@@ -10,7 +10,12 @@ import java.util.UUID;
 /** Published after the deterministic submission transaction commits. */
 record ProposalDecisionSubmittedEvent(UUID engagementId, ProposalDraftContent content,
                                      List<ProposalSource> sources, PersonaProfile persona,
-                                     ProposalDecisionSnapshot decision) {
+                                     ProposalDecisionSnapshot decision, int submissionNumber) {
+    ProposalDecisionSubmittedEvent(UUID engagementId, ProposalDraftContent content,
+                                  List<ProposalSource> sources, PersonaProfile persona,
+                                  ProposalDecisionSnapshot decision) {
+        this(engagementId, content, sources, persona, decision, 1);
+    }
     ProposalDecisionSubmittedEvent {
         sources = List.copyOf(sources);
     }

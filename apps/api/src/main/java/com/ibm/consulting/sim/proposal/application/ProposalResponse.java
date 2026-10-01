@@ -34,7 +34,10 @@ public record ProposalResponse(
         List<ProposalDecisionDimensionResponse> decisionDimensions,
         List<ProposalDecisionInsightResponse> decisionInsights,
         List<ProposalEvidenceImpactResponse> evidenceImpacts,
-        String submittedAt) {
+        String submittedAt,
+        int submissionCount,
+        int submissionsRemaining,
+        boolean revisionAvailable) {
 
     public static ProposalResponse from(Proposal p) {
         return new ProposalResponse(p.getId(), p.getEngagementId(), p.getStatus().name(), p.getProblemStatement(),
@@ -50,7 +53,9 @@ public record ProposalResponse(
                 outcome(p), valueOr(p.getDecisionConfidence(), p.getAlignmentScore()),
                 valueOr(p.getLearnerPerformanceScore(), p.getAlignmentScore()),
                 dimensions(p), insights(p), impacts(p),
-                p.getSubmittedAt() == null ? "" : p.getSubmittedAt().toString());
+                p.getSubmittedAt() == null ? "" : p.getSubmittedAt().toString(),
+                p.getSubmissionCount(), Math.max(0, Proposal.MAX_SUBMISSIONS - p.getSubmissionCount()),
+                p.isRevisionAvailable());
     }
 
     private static String outcome(Proposal proposal) {

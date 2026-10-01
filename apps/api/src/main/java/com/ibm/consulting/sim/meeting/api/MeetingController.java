@@ -179,4 +179,10 @@ public class MeetingController {
     MeetingResponse retry(@PathVariable UUID meetingId, @AuthenticationPrincipal User user) {
         return meetingService.retry(meetingId, user.getId());
     }
+
+    @PostMapping("/meetings/{meetingId}/preparation")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void returnToPreparation(@PathVariable UUID meetingId, @AuthenticationPrincipal User user) {
+        meetingService.returnToPreparation(meetingId, user.getId());
+    }
 }

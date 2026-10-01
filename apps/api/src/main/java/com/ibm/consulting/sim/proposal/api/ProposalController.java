@@ -147,6 +147,11 @@ public class ProposalController {
         return proposalService.review(engagementId, user.getId(), request.toContent());
     }
 
+    @PostMapping("/revise")
+    ProposalResponse revise(@PathVariable UUID engagementId, @AuthenticationPrincipal User user) {
+        return proposalService.revise(engagementId, user.getId());
+    }
+
     @PostMapping("/challenge")
     ProposalChallengeResponse challenge(@PathVariable UUID engagementId, @Valid @RequestBody ProposalDraftRequest request,
                                         @AuthenticationPrincipal User user) {
