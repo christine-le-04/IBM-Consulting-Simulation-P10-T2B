@@ -1,0 +1,43 @@
+.page { max-width: 58rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+.title { font-size: 1.75rem; font-weight: 400; margin: 0 0 0.5rem; }
+.lede { color: #525252; margin: 0 0 1.5rem; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.card { background: #fff; border: 1px solid #e0e0e0; display: flex; flex-direction: column; min-width: 0; }
+.chosen { outline: 3px solid #0f62fe; outline-offset: -1px; }
+.locked { background: #f4f4f4; color: #6f6f6f; }
+
+.cardHead { display: flex; gap: 1rem; align-items: center; padding: 1.25rem; border-bottom: 3px solid #161616; }
+.locked .cardHead { border-bottom-color: #8d8d8d; }
+.avatar {
+  flex: 0 0 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: #161616;
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.locked .avatar { background: #6f6f6f; }
+.name { font-family: 'IBM Plex Serif', serif; font-size: 1.25rem; margin: 0; }
+.role { margin: 0.25rem 0 0; }
+.org { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: #6f6f6f; margin: 0.25rem 0 0; }
+
+.cardBody { padding: 1.25rem; flex: 1; }
+.cardBody p { margin: 0 0 1rem; }
+.eyebrow { font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: #6f6f6f; margin-bottom: 0.5rem !important; }
+
+.cardFoot { padding: 0 1.25rem 1.25rem; }
+.chosenLabel { color: #0043ce; }
+.muted { color: #8d8d8d; }
+
+.footer { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
+
+/* ContactLine, shown on Make contact */
+.contactLine { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; color: #525252; font-size: 0.875rem; }

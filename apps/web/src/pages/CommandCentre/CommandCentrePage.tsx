@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Button, InlineNotification, Modal, RadioButton, RadioButtonGroup, Tag, TextInput } from '@carbon/react'
+import { Button, InlineNotification, Tag, TextInput } from '@carbon/react'
 import { Add, ArrowRight, Renew, Search } from '@carbon/icons-react'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
@@ -185,8 +185,6 @@ export default function CommandCentrePage() {
 
   const [catalogueOpen, setCatalogueOpen] = useState(false)
   const [briefingScenario, setBriefingScenario] = useState<ScenarioSummary | null>(null)
-  const [personaPickerScenario, setPersonaPickerScenario] = useState<ScenarioSummary | null>(null)
-  const [selectedPersonaId, setSelectedPersonaId] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [sortMode, setSortMode] = useState<SortMode>('RECENT')
@@ -255,19 +253,9 @@ export default function CommandCentrePage() {
     setBriefingScenario(null)
     // The backend still fixes the contact when an engagement starts. Once the
     // contact is chosen after research (SRS v2), this picker goes away.
-    if (scenario.personas.length > 1) {
-      setSelectedPersonaId(scenario.personas[0].id)
-      setPersonaPickerScenario(scenario)
-      return
-    }
     beginEngagement(scenario)
   }
 
-  const confirmPersonaSelection = () => {
-    if (!personaPickerScenario) return
-    beginEngagement(personaPickerScenario, selectedPersonaId)
-    setPersonaPickerScenario(null)
-  }
 
   if (engLoading || scenLoading) return <LoadingState />
   if (engError || scenarioError) return <ErrorState />
@@ -444,31 +432,6 @@ export default function CommandCentrePage() {
             onConfirm={confirmBriefing}
             isPending={startEngagement.isPending}
           />
-        )}
-
-        {personaPickerScenario && (
-          <Modal
-            open
-            modalHeading="Choose a stakeholder persona"
-            modalLabel={personaPickerScenario.title}
-            primaryButtonText="Start Engagement"
-            secondaryButtonText="Cancel"
-            onRequestClose={() => setPersonaPickerScenario(null)}
-            onRequestSubmit={confirmPersonaSelection}
-            primaryButtonDisabled={!selectedPersonaId || startEngagement.isPending}
-          >
-            <p className={styles.note}>This scenario has multiple stakeholder personalities. Pick who you will be engaging with.</p>
-            <RadioButtonGroup
-              name="persona-picker"
-              orientation="vertical"
-              valueSelected={selectedPersonaId}
-              onChange={(value) => setSelectedPersonaId(String(value))}
-            >
-              {personaPickerScenario.personas.map((persona) => (
-                <RadioButton key={persona.id} id={`persona-${persona.id}`} value={persona.id} labelText={`${persona.name} - ${persona.jobTitle}`} />
-              ))}
-            </RadioButtonGroup>
-          </Modal>
         )}
       </main>
     </ObjectiveTourProvider>

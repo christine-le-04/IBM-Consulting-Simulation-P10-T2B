@@ -37,7 +37,7 @@ export const PHASE_ORDER: readonly EngagementPhase[] = [
  * drifts from this list again.
  */
 export const PHASE_LABEL: Record<EngagementPhase, string> = {
-  LEAD: 'Choose a client',
+  LEAD: 'Choose a lead',
   CLIENT_INTELLIGENCE: 'Research the client',
   OUTREACH: 'Make contact',
   MEETING_PREPARATION: 'Prepare',
@@ -72,8 +72,8 @@ export const PHASE_BRIEF: Record<EngagementPhase, { goal: string; done: string; 
   },
   CLIENT_INTELLIGENCE: {
     goal: 'Gather evidence about the client and commit to a hypothesis about their real problem.',
-    done: 'Enough corroborated evidence, a named stakeholder, and a submitted hypothesis.',
-    next: 'The outreach desk opens so you can contact them with something to say.',
+    done: 'Enough corroborated evidence, a submitted hypothesis, and the contact who can say yes.',
+    next: 'The outreach desk opens so you can write to your contact.',
   },
   OUTREACH: {
     goal: 'Earn a meeting by email. One clear reason, one low-friction ask.',
@@ -133,6 +133,8 @@ export function phaseFromPath(pathname: string): EngagementPhase | null {
     case 'leads':
       return 'LEAD'
     case 'intelligence':
+      return 'CLIENT_INTELLIGENCE'
+    case 'contact':
       return 'CLIENT_INTELLIGENCE'
     case 'outreach':
       return 'OUTREACH'
