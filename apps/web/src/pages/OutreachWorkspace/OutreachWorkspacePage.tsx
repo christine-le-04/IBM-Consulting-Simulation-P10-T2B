@@ -14,7 +14,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Tag } from '@carbon/react'
-import { z } from 'zod'
 import { ArrowRight, CheckmarkFilled, DocumentBlank, Edit, Locked } from '@carbon/icons-react'
 import axios from 'axios'
 import { useCapabilityBrief, useOutreach, useSendOutreach, useSubmitCapabilityBrief } from '@/api/hooks/useOutreach'
@@ -35,18 +34,6 @@ import { useChosenContact } from '@/store/contactSelectionStore'
 import BriefComposer from './BriefComposer'
 import MailComposer from './MailComposer'
 import styles from './OutreachWorkspacePage.module.scss'
-
-const emailSchema = z.object({
-  subject: z.string().trim().min(5, 'Enter a clear subject').max(200),
-  body: z.string().trim().min(50, 'Message must be at least 50 characters').max(5000),
-})
-
-const briefSchema = z.object({
-  relevantExperience: z.string().trim().min(80, 'Add at least 80 characters of relevant experience').max(3000),
-  approach: z.string().trim().min(80, 'Explain the approach in at least 80 characters').max(3000),
-  caseExample: z.string().trim().min(80, 'Add a concrete case example').max(3000),
-  clientFit: z.string().trim().min(80, 'Explain why this fits the client').max(3000),
-})
 
 const OUTREACH_WORKSPACE_OBJECTIVES = [
   {
