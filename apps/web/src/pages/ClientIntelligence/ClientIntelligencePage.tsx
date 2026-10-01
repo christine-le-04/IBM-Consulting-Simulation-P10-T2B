@@ -264,7 +264,7 @@ export default function ClientIntelligencePage() {
                   )
                 )}
 
-                {tab === 'hypothesis' && <HypothesisTab evidence={evidence ?? []} gate={gate} saving={saveResearch.isPending} onSave={save} />}
+                {tab === 'hypothesis' && <HypothesisTab evidence={evidence ?? []} saving={saveResearch.isPending} onSave={save} />}
 
                 {saveResearch.isError && (
                   <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle="Your evidence could not be saved. Check your connection and try again." />

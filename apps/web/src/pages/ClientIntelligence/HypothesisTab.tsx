@@ -4,20 +4,28 @@
  * modal. The readiness checklist sits on top, in words.
  */
 import { useState } from 'react'
-import { Button, Checkbox, InlineLoading, RadioButton, RadioButtonGroup, Tag, TextArea } from '@carbon/react'
+import { Button, Checkbox, InlineLoading, RadioButton, RadioButtonGroup, Tag, TextArea, InlineNotification } from '@carbon/react'
 import { ChevronLeft, ChevronRight } from '@carbon/icons-react'
-import type { ConfidenceLevel, ResearchEvidence, ResearchGateStatus, SaveResearchPayload } from '@/api/types'
-import ReadinessList from '@/components/shell/ReadinessList'
+import type { ConfidenceLevel, ResearchEvidence, SaveResearchPayload } from '@/api/types'
 import { currentHypothesis, evidenceCode } from '@/components/shell/evidence'
-import { readinessFor } from './research'
 import styles from './ClientIntelligencePage.module.scss'
 
 const CONFIDENCE_TAG: Record<ConfidenceLevel, 'red' | 'warm-gray' | 'green'> = { LOW: 'red', MEDIUM: 'warm-gray', HIGH: 'green' }
 const PAGE = 4
+const MIN_HYPOTHESIS_LENGTH = 40
+const MIN_SUPPORTING_EVIDENCE = 2
+const MIN_SUBSTANTIVE_EVIDENCE = 3
+const MIN_COVERAGE = 2
 
-export default function HypothesisTab({ evidence, gate, saving, onSave }: {
+const RESEARCH_AREAS = new Set([
+  'COMPANY_NEWS',
+  'STAKEHOLDER_PROFILE',
+  'FINANCIAL_SIGNAL',
+  'TECHNOLOGY_INDICATOR',
+])
+
+export default function HypothesisTab({ evidence, saving, onSave }: {
   evidence: ResearchEvidence[]
-  gate: ResearchGateStatus | undefined
   saving: boolean
   onSave: (payload: SaveResearchPayload, onDone: () => void) => void
 }) {
@@ -28,6 +36,30 @@ export default function HypothesisTab({ evidence, gate, saving, onSave }: {
   const [page, setPage] = useState(0)
 
   const citable = evidence.filter((item) => item.evidenceType !== 'HYPOTHESIS')
+  const substantiveEvidence = citable.length
+  const coverageCount = new Set(
+    citable
+      .filter((item) => RESEARCH_AREAS.has(item.evidenceType))
+      .map((item) => {
+        if (item.evidenceType === 'COMPANY_NEWS' || item.evidenceType === 'MARKET_TREND') {
+          return 'COMPANY_NEWS_OR_MARKET_TREND'
+        }
+        return item.evidenceType
+      }),
+  ).size
+
+  const hypothesisIssues = [
+    statement.trim().length < MIN_HYPOTHESIS_LENGTH
+      ? `Your hypothesis is ${statement.trim().length} characters long; it needs at least ${MIN_HYPOTHESIS_LENGTH}.`
+      : null,
+    support.length < MIN_SUPPORTING_EVIDENCE
+      ? `Link at least ${MIN_SUPPORTING_EVIDENCE} supporting findings to your hypothesis.`
+      : null,
+    support.length < MIN_SUPPORTING_EVIDENCE &&
+    (substantiveEvidence < MIN_SUBSTANTIVE_EVIDENCE || coverageCount < MIN_COVERAGE)
+      ? `You do not have enough evidence in your evidence board. Your research must contain at least ${MIN_SUBSTANTIVE_EVIDENCE} findings across ${MIN_COVERAGE} research areas.`
+      : null,
+  ].filter((issue): issue is string => issue !== null)
   const pages = Math.max(1, Math.ceil(citable.length / PAGE))
   const current = currentHypothesis(evidence)
   const codeById = new Map(evidence.map((item) => [item.id, evidenceCode(item.sequenceNo)]))
@@ -52,11 +84,6 @@ export default function HypothesisTab({ evidence, gate, saving, onSave }: {
 
   return (
     <div className={styles.hypothesis}>
-      <section className={styles.readinessBox} aria-label="Before you contact the client">
-        <p className={styles.panelEyebrow}>Before you contact the client</p>
-        <ReadinessList items={readinessFor(gate)} />
-      </section>
-
       <div className={styles.hypoHead}>
         <p className={styles.panelEyebrow}>Your hypothesis</p>
         {!composing && <Button kind="ghost" size="sm" onClick={() => setComposing(true)}>{current ? 'Refine hypothesis' : 'Add hypothesis'}</Button>}
@@ -109,6 +136,16 @@ export default function HypothesisTab({ evidence, gate, saving, onSave }: {
             {(['LOW', 'MEDIUM', 'HIGH'] as ConfidenceLevel[]).map((level) => <RadioButton key={level} id={`hypothesis-confidence-${level}`} value={level} labelText={level.charAt(0) + level.slice(1).toLowerCase()} />)}
           </RadioButtonGroup>
           {saving && <InlineLoading description="Saving hypothesis" />}
+          {hypothesisIssues.length > 0 && (
+            <InlineNotification
+              className={styles.hypothesisNotification}
+              kind="warning"
+              lowContrast
+              hideCloseButton
+              title="Your hypothesis is not grounded yet"
+              subtitle={hypothesisIssues.map((issue) => `• ${issue}`).join('\n')}
+            />
+          )}
           <div className={styles.clipActions}>
             <Button kind="secondary" size="sm" onClick={() => setComposing(false)}>Cancel</Button>
             <Button size="sm" disabled={!statement.trim() || saving} onClick={save}>Save hypothesis</Button>

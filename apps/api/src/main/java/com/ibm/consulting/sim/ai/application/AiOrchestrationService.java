@@ -1,6 +1,13 @@
 package com.ibm.consulting.sim.ai.application;
 
-import com.ibm.consulting.sim.ai.domain.*;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -8,9 +15,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
-import java.util.concurrent.*;
-import java.util.function.Supplier;
+import com.ibm.consulting.sim.ai.domain.AiModelGateway;
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
+import com.ibm.consulting.sim.ai.domain.AiResponseParser;
+import com.ibm.consulting.sim.ai.domain.AiTaskType;
+import com.ibm.consulting.sim.ai.domain.AiTraceStatus;
+import com.ibm.consulting.sim.ai.domain.AiValidationException;
 
 /**
  * Orchestrates a single AI invocation end to end: timeout enforcement, schema
@@ -38,7 +48,7 @@ public class AiOrchestrationService {
                                    AiTraceRecorder traceRecorder,
                                    @Qualifier("aiProviderExecutor") ExecutorService executor,
                                    @Value("${app.ai.timeout-ms:15000}") long timeoutMs,
-                                   @Value("${app.ai.conversation-timeout-ms:4000}") long conversationTimeoutMs,
+                                   @Value("${app.ai.conversation-timeout-ms:14000}") long conversationTimeoutMs,
                                    @Value("${app.ai.client-intelligence-timeout-ms:1200}") long clientIntelligenceTimeoutMs,
                                    @Value("${app.ai.classification-timeout-ms:2500}") long classificationTimeoutMs,
                                    @Value("${app.watsonx.model-id}") String modelId) {

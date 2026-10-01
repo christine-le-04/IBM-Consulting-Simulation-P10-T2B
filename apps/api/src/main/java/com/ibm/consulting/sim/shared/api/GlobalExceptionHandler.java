@@ -1,15 +1,18 @@
 package com.ibm.consulting.sim.shared.api;
 
-import com.ibm.consulting.sim.shared.domain.DomainException;
-import com.ibm.consulting.sim.shared.domain.NotFoundException;
-import com.ibm.consulting.sim.identity.domain.EmailVerificationRequiredException;
-import com.ibm.consulting.sim.identity.application.LoginRateLimitExceededException;
-import com.ibm.consulting.sim.shared.email.application.EmailDeliveryUnavailableException;
-import org.springframework.http.HttpStatus;
+import java.net.URI;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -21,19 +24,20 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
+import com.ibm.consulting.sim.identity.application.LoginRateLimitExceededException;
+import com.ibm.consulting.sim.identity.domain.EmailVerificationRequiredException;
+import com.ibm.consulting.sim.proposal.application.ProposalService;
+import com.ibm.consulting.sim.proposal.application.ProposalValidationIssue;
+import com.ibm.consulting.sim.shared.domain.DomainException;
+import com.ibm.consulting.sim.shared.domain.NotFoundException;
+import com.ibm.consulting.sim.shared.email.application.EmailDeliveryUnavailableException;
 
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
-
-import java.net.URI;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /** Maps domain and Spring exceptions to RFC 7807 Problem Details. */
 @RestControllerAdvice
@@ -45,6 +49,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     ProblemDetail handleNotFound(NotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, "not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(ProposalService.ProposalValidationException.class)
+    ProblemDetail handleProposalValidation(ProposalService.ProposalValidationException ex) {
+        Map<String, String> violations = ex.getIssues().stream()
+                .collect(Collectors.toMap(
+                        ProposalValidationIssue::code,
+                        ProposalValidationIssue::message,
+                        (first, second) -> first,
+                        LinkedHashMap::new));
+        ProblemDetail pd = problem(HttpStatus.UNPROCESSABLE_ENTITY, "domain-error", ex.getMessage());
+        pd.setProperty("violations", violations);
+        return pd;
     }
 
     @ExceptionHandler(DomainException.class)
@@ -138,6 +155,13 @@ public class GlobalExceptionHandler {
         log.warn("Transactional email delivery unavailable: {}", ex.getMessage());
         return problem(HttpStatus.SERVICE_UNAVAILABLE, "email-delivery-unavailable",
                 "We could not send email right now. Please try again shortly.");
+    }
+
+    @ExceptionHandler(AiProviderException.class)
+    ProblemDetail handleAiUnavailable(AiProviderException ex) {
+        log.warn("AI provider unavailable; request not persisted: {}", ex.getMessage());
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "ai-unavailable",
+                "The client couldn't respond right now. Your message wasn't counted as an attempt, so please try again later.");
     }
 
     /** Domain guards use IllegalArgumentException for invalid authoring input. */

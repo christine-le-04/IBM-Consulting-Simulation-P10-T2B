@@ -146,7 +146,7 @@ app:
     timeout-ms: ${AI_TIMEOUT_MS:20000}
     # End-to-end budget for latency-sensitive dialogue, including provider failover
     # and any JSON repair attempt. The orchestration layer never exceeds this total.
-    conversation-timeout-ms: ${AI_CONVERSATION_TIMEOUT_MS:4000}
+    conversation-timeout-ms: ${AI_CONVERSATION_TIMEOUT_MS:14000}
     # Client Intelligence must feel immediate. If a provider cannot return a
     # schema-valid response inside this budget, the service returns deterministic
     # scenario-safe artefacts and records the fallback in ai_traces.

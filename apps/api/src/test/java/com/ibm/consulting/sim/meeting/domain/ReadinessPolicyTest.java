@@ -1,10 +1,9 @@
 package com.ibm.consulting.sim.meeting.domain;
 
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class ReadinessPolicyTest {
 
@@ -22,7 +21,7 @@ class ReadinessPolicyTest {
 
     @Test
     void agendaItemsCapAtMaxCredit() {
-        List<String> agenda = List.of("Intro", "Discovery", "Scope", "Budget", "Timeline", "Next steps");
+        List<String> agenda = List.of("Introduction", "Discovery details", "Project scope", "Budget planning", "Project timeline", "Next steps");
         int score = ReadinessPolicy.calculate(null, agenda, List.of());
         // 6 items * 10 credit each = 60, capped at MAX_AGENDA_CREDIT (40)
         assertThat(score).isEqualTo(40);
@@ -30,7 +29,7 @@ class ReadinessPolicyTest {
 
     @Test
     void discoveryQuestionsCapAtMaxCredit() {
-        List<String> questions = List.of("Q1", "Q2", "Q3", "Q4", "Q5", "Q6");
+        List<String> questions = List.of("What is your budget?", "Who is the decision maker?", "What is the timeline?", "What are your priorities?", "What are the key challenges?", "What does success look like?");
         int score = ReadinessPolicy.calculate(null, List.of(), questions);
         // 6 items * 8 credit each = 48, capped at MAX_QUESTION_CREDIT (40)
         assertThat(score).isEqualTo(40);
@@ -46,7 +45,7 @@ class ReadinessPolicyTest {
     void fullyPreparedMeetingReachesReadyThreshold() {
         int score = ReadinessPolicy.calculate(
                 "Confirm scope and budget",
-                List.of("Intro", "Discovery", "Scope", "Next steps"),
+                List.of("Introduction", "Discovery", "Project scope", "Next steps"),
                 List.of("What is your budget?", "Who is the decision maker?", "What is the timeline?"));
         assertThat(score).isGreaterThanOrEqualTo(ReadinessPolicy.READY_THRESHOLD);
     }

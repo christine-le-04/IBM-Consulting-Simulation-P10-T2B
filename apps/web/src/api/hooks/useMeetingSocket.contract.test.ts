@@ -5,6 +5,7 @@ describe('live meeting transport contract', () => {
   it('matches the backend STOMP endpoint and destination prefixes', () => {
     expect(toWebSocketUrl('https://api.example.test/base')).toBe('wss://api.example.test/ws')
     expect(toWebSocketUrl('', 'http://localhost:8080')).toBe('ws://localhost:8080/ws')
+    expect(toWebSocketUrl('/api', 'http://localhost:3000')).toBe('ws://localhost:3000/ws')
     expect(meetingSocketContract.topic('meeting-1')).toBe('/topic/meetings/meeting-1')
     expect(meetingSocketContract.sendDestination('meeting-1')).toBe('/app/meetings/meeting-1/send')
   })

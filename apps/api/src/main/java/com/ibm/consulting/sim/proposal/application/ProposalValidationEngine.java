@@ -1,9 +1,5 @@
 package com.ibm.consulting.sim.proposal.application;
 
-import com.ibm.consulting.sim.proposal.domain.ProposalDraftContent;
-import com.ibm.consulting.sim.proposal.domain.ProposalEvidenceLink;
-import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,6 +11,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import com.ibm.consulting.sim.proposal.domain.ProposalDraftContent;
+import com.ibm.consulting.sim.proposal.domain.ProposalEvidenceLink;
+import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 
 /**
  * Deterministic proposal guardrail. It is deliberately independent of LLM output:
@@ -38,7 +38,7 @@ public final class ProposalValidationEngine {
         if (meaningfulCount(draft.components()) == 0 || draft.solutionStrategy().length() < 20) {
             issues.add(blocking("SOLUTION_REQUIRED", "Explain the recommended solution and include at least one component.", "SOLUTION"));
         }
-        if (draft.businessOutcomes().isEmpty()) {
+        if (draft.businessOutcomes().stream().noneMatch(outcome -> !blank(outcome.getOutcome()) || !blank(outcome.getMetric()) || !blank(outcome.getTarget()))) {
             issues.add(blocking("OUTCOME_REQUIRED", "Add at least one measurable business outcome or KPI.", "OUTCOMES"));
         }
         if (draft.risks().isEmpty()) {
@@ -71,7 +71,14 @@ public final class ProposalValidationEngine {
             }
         }
 
-        Set<String> groundedNumbers = extractNumbers(sources.stream().map(ProposalSource::content).toList());
+        Set<String> linkedSourceIds = draft.evidenceLinks().stream()
+                .map(ProposalEvidenceLink::getSourceId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        Set<String> groundedNumbers = extractNumbers(sources.stream()
+                .filter(source -> linkedSourceIds.contains(source.id()))
+                .map(ProposalSource::content)
+                .toList());
         Set<String> proposalNumbers = extractNumbers(List.of(allProposalText(draft)));
         proposalNumbers.removeAll(groundedNumbers);
         // The quoted commercial estimate is allowed when the learner explicitly records it as a consultant estimate.

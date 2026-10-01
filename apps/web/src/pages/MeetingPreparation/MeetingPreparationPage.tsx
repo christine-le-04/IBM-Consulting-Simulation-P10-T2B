@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, InlineLoading, InlineNotification } from '@carbon/react'
-import { Add, TrashCan, ArrowRight, CheckmarkFilled, Calendar } from '@carbon/icons-react'
+import { Add, TrashCan, ArrowRight, Calendar } from '@carbon/icons-react'
 import {
   useMeetingPreparation,
   useUpdateMeetingPreparation,
@@ -27,11 +27,17 @@ interface PreparationDraft {
 
 const READY_THRESHOLD = 70
 const OBJECTIVE_MAX_LENGTH = 300
+const MIN_MEANINGFUL_LENGTH = 10
+const OBJECTIVE_CREDIT = 20
+const MAX_AGENDA_CREDIT = 40
+const MAX_QUESTION_CREDIT = 40
+const CREDIT_PER_AGENDA_ITEM = 10
+const CREDIT_PER_QUESTION = 8
 const MEETING_PREP_OBJECTIVES = [
   {
     id: 'readiness',
     objective: 'Understand readiness preview',
-    description: 'The checklist shows what you need to complete before you can move to the live meeting.',
+    description: 'The readiness score shows how much preparation you have completed before you can move to the live meeting.',
     targets: ['.objective-readiness'],
   },
   {
@@ -49,7 +55,7 @@ const MEETING_PREP_OBJECTIVES = [
   {
     id: 'start',
     objective: 'Opening the meeting',
-    description: 'Save your plan without leaving here or join the meeting. The join button stays locked until the checklist is complete.',
+    description: 'Save your plan without leaving here or join the meeting. The join button stays locked until the readiness score reaches the threshold.',
     targets: ['.objective-start'],
   },
 ]
@@ -139,21 +145,6 @@ function EditableList({
   )
 }
 
-function ReadinessList({ items }: { items: { label: string; done: boolean }[] }) {
-  return (
-    <ul className={styles.readinessList}>
-      {items.map((item) => (
-        <li key={item.label} className={item.done ? styles.readinessDone : undefined}>
-          {item.done
-            ? <CheckmarkFilled size={16} aria-label="Done" />
-            : <span className={styles.pendingDot} role="img" aria-label="Not yet" />}
-          <span>{item.label}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export default function MeetingPreparationPage() {
   const { engagementId } = useParams<{ engagementId: string }>()
   const navigate = useNavigate()
@@ -233,20 +224,20 @@ export default function MeetingPreparationPage() {
     })
   }
 
-  const agendaCount = agenda.filter((item) => item.value.trim()).length
-  const questionCount = discoveryQuestions.filter((item) => item.value.trim()).length
+  const agendaCount = agenda.filter((item) => item.value.trim().length >= MIN_MEANINGFUL_LENGTH).length
+  const questionCount = discoveryQuestions.filter((item) => item.value.trim().length >= MIN_MEANINGFUL_LENGTH).length
   const objectiveReady = objective.trim().length > 0
-  const readinessScore = Math.min(100,
-    (objectiveReady ? 20 : 0)
-    + Math.min(40, agendaCount * 10)
-    + Math.min(40, questionCount * 8),
-  )
+  const objectiveScore = objectiveReady ? OBJECTIVE_CREDIT : 0
+  const agendaScore = Math.min(MAX_AGENDA_CREDIT, agendaCount * CREDIT_PER_AGENDA_ITEM)
+  const questionScore = Math.min(MAX_QUESTION_CREDIT, questionCount * CREDIT_PER_QUESTION)
+  const readinessScore = Math.min(100, objectiveScore + agendaScore + questionScore)
+  const remainingPoints = Math.max(0, READY_THRESHOLD - readinessScore)
   const ready = readinessScore >= READY_THRESHOLD
   const isSaving = updatePreparation.isPending || launchingMeeting
-  const checklist = [
-    { label: 'A clear outcome you need from the meeting', done: objectiveReady },
-    { label: 'An agenda with at least three points', done: agendaCount >= 3 },
-    { label: 'At least three open questions to ask', done: questionCount >= 3 },
+  const readinessBreakdown = [
+    `Objective — ${objectiveScore}/${OBJECTIVE_CREDIT} points`,
+    `Agenda — ${agendaScore}/${MAX_AGENDA_CREDIT} points (${CREDIT_PER_AGENDA_ITEM} points each)`,
+    `Discovery questions — ${questionScore}/${MAX_QUESTION_CREDIT} points (${CREDIT_PER_QUESTION} points each)`,
   ]
   const saveState = updatePreparation.isPending && !launchingMeeting ? 'Saving…' : updatePreparation.isSuccess ? 'Plan saved' : 'Saved in this browser as you type'
   const persona = scenario?.personas.find((item) => item.id === engagement?.personaId)
@@ -305,8 +296,24 @@ export default function MeetingPreparationPage() {
               </div>
 
               <section className={`${styles.readiness} objective-readiness`} aria-label="Before you join the meeting">
-                <span className={styles.label}>Before you join the meeting</span>
-                <ReadinessList items={checklist} />
+                <span className={styles.label}>Readiness</span>
+                <div className={styles.readinessScore}>
+                  <strong>{readinessScore}/{READY_THRESHOLD}</strong>
+                  <span> points</span>
+                </div>
+                <ul className={styles.readinessList}>
+                  {readinessBreakdown.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                {ready ? (
+                  <p>You have reached the readiness threshold and can join the meeting.</p>
+                ) : (
+                  <>
+                    <p>{remainingPoints} more point{remainingPoints === 1 ? '' : 's'} needed to reach readiness.</p>
+                    <p>Note: Each entry must be at least 10 characters to be counted as a meaningful response.</p>
+                  </>
+                )}
               </section>
 
               {updatePreparation.isError && (

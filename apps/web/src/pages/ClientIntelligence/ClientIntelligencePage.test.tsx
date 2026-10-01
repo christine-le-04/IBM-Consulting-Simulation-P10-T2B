@@ -157,13 +157,15 @@ describe('ClientIntelligencePage research desk', () => {
     )
   })
 
-  it('shows the outreach checklist in words and a loading state while saving a hypothesis', async () => {
+  it('shows the empty hypothesis state before a hypothesis is added', async () => {
     const user = userEvent.setup()
     setup([], true)
     renderPage()
 
     await user.click(screen.getByRole('tab', { name: 'Hypothesis' }))
-    expect(screen.getByText('You know who makes the decision')).toBeInTheDocument()
+    expect(screen.getByText(
+      'No hypothesis yet. Once you have a few pieces of evidence, say what you think their real problem is — and who can act on it.',),
+    ).toBeInTheDocument()
     expect(screen.queryByText(/%/)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Add hypothesis/i }))

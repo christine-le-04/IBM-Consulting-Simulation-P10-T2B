@@ -29,9 +29,9 @@ export function deckSources(deck: ResearchSourceDeck | undefined): ResearchArtif
  */
 export function readinessFor(gate: ResearchGateStatus | undefined): ReadinessItem[] {
   return [
-    { label: 'At least two pieces of evidence', done: Boolean(gate && gate.evidenceCount >= gate.requiredEvidenceCount) },
-    { label: 'You know who makes the decision', done: Boolean(gate?.hasStakeholderEvidence) },
-    { label: 'Evidence from two different areas', done: Boolean(gate && gate.coverageCount >= gate.requiredCoverageCount) },
-    { label: 'Your hypothesis cites its evidence', done: Boolean(gate?.groundedHypothesis) },
+    { label: 'Attach at least two pieces of evidence', done: Boolean(gate && gate.evidenceCount >= gate.requiredEvidenceCount) },
+    { label: 'Attach stakeholder evidence', done: Boolean(gate?.hasStakeholderEvidence) },
+    { label: 'Evidence must cover at least two different areas', done: Boolean(gate && gate.coverageCount >= gate.requiredCoverageCount) },
+    { label: 'Create a grounded hypothesis with sufficient evidence cited', done: Boolean(gate?.groundedHypothesis) },
   ]
 }

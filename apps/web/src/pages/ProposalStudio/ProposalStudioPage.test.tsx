@@ -303,6 +303,6 @@ describe('ProposalStudioPage after submission', () => {
     expect(screen.getByText('Attached to Foundation')).toBeInTheDocument()
     // The checklist stays in the outline, as what was sent.
     expect(screen.getByText('What you submitted')).toBeInTheDocument()
-    expect(screen.getByText('Every section cites evidence')).toBeInTheDocument()
+    expect(screen.getByText('At least one evidence source is attached')).toBeInTheDocument()
   })
 })

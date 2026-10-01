@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/api/client'
 import type { CapabilityBrief, OutreachAttempt } from '@/api/types'
 
+const OUTREACH_REQUEST_TIMEOUT_MS = 20_000
+
 export function useOutreach(engagementId: string) {
   return useQuery({
     queryKey: ['outreach', engagementId],
@@ -21,7 +23,8 @@ export function useSendOutreach(engagementId: string) {
     mutationFn: async (data: { subject: string; body: string }) => {
       const res = await apiClient.post<OutreachAttempt>(
         `/api/v1/engagements/${engagementId}/outreach`,
-        data
+        data,
+        { timeout: OUTREACH_REQUEST_TIMEOUT_MS }
       )
       return res.data
     },
@@ -54,7 +57,8 @@ export function useSubmitCapabilityBrief(engagementId: string) {
   return useMutation({
     mutationFn: async (data: Pick<CapabilityBrief, 'relevantExperience' | 'approach' | 'caseExample' | 'clientFit'>) => {
       const res = await apiClient.post<CapabilityBrief>(
-        `/api/v1/engagements/${engagementId}/outreach/capability-brief`, data
+        `/api/v1/engagements/${engagementId}/outreach/capability-brief`, data,
+        { timeout: OUTREACH_REQUEST_TIMEOUT_MS }
       )
       return res.data
     },

@@ -116,25 +116,24 @@ describe('MeetingPreparationPage readiness labels', () => {
     window.localStorage.clear()
   })
 
-  it('reports agenda readiness as incomplete with zero items', () => {
-    setup({ objective: "Test objective", agenda: [], discoveryQuestions: [] })
+  it('reports agenda readiness as zero points with no meaningful items', () => {
+    setup({ objective: 'Test objective', agenda: [], discoveryQuestions: [] })
     renderPage()
 
-    // readiness should use the threshold of 3 for both agenda items and questions
-    expect(screen.getByText('An agenda with at least three points')).toBeInTheDocument()
-    expect(screen.getByText('At least three open questions to ask')).toBeInTheDocument()
-    expect(screen.getAllByLabelText('Not yet')).toHaveLength(2)
+    expect(screen.getByText('Agenda — 0/40 points (10 points each)')).toBeInTheDocument()
+    expect(screen.getByText('Discovery questions — 0/40 points (8 points each)')).toBeInTheDocument()
+    expect(screen.getByText('50 more points needed to reach readiness.')).toBeInTheDocument()
   })
 
-  it('marks agenda readiness complete once exactly 3 non-empty agenda items exist', () => {
+  it('awards agenda points for three meaningful agenda items', () => {
     setup({
-      agenda: ['Intro', 'Discovery', 'Next steps'],
+      agenda: ['Discuss meeting objectives', 'Explore current issues', 'Agree next steps'],
       discoveryQuestions: [],
     })
     renderPage()
 
-    expect(screen.getByText('An agenda with at least three points')).toBeInTheDocument()
-    expect(screen.getByLabelText('Done')).toBeInTheDocument()
+    expect(screen.getByText('Agenda — 30/40 points (10 points each)')).toBeInTheDocument()
+    expect(screen.getByText('40 more points needed to reach readiness.')).toBeInTheDocument()
   })
 
   it('allows adding a 4th agenda item, over cap', async () => {
