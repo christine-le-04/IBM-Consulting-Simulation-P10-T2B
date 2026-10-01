@@ -25,7 +25,9 @@ public record OutreachResponse(
         String requestSummary,
         java.util.List<String> requestRequirements,
         String coachingHint,
-        Instant createdAt) {
+        Instant createdAt,
+        UUID personaId,
+        int outreachRound) {
 
     public static OutreachResponse from(OutreachAttempt a) {
         OutreachRequestDetails request = OutreachRequestPolicy.detailsFor(
@@ -34,6 +36,7 @@ public record OutreachResponse(
                 a.getSubject(), a.getBody(), a.getClientReply(), a.getOutcome().name(),
                 a.getScorePersonalisation(), a.getScoreRelevance(),
                 a.getScoreClarity(), a.getScoreCallToAction(), request.nextAction().name(),
-                request.title(), request.summary(), request.requirements(), OutreachCoachingPolicy.hintFor(a), a.getCreatedAt());
+                request.title(), request.summary(), request.requirements(), OutreachCoachingPolicy.hintFor(a), a.getCreatedAt(),
+                a.getPersonaId(), a.getOutreachRound());
     }
 }

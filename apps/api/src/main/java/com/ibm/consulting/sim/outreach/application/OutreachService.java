@@ -22,6 +22,7 @@ import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.lead.domain.Lead;
 import com.ibm.consulting.sim.lead.domain.LeadRepository;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
+import com.ibm.consulting.sim.outreach.domain.ContactAttemptPolicy;
 import com.ibm.consulting.sim.outreach.domain.OutreachAttempt;
 import com.ibm.consulting.sim.outreach.domain.OutreachContentPolicy;
 import com.ibm.consulting.sim.outreach.domain.OutreachNextAction;
@@ -31,13 +32,16 @@ import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
 import com.ibm.consulting.sim.outreach.domain.OutreachRequestPolicy;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
+import com.ibm.consulting.sim.scenario.domain.Persona;
+import com.ibm.consulting.sim.scenario.domain.Scenario;
+import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
 import com.ibm.consulting.sim.shared.domain.DomainException;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
 
 @Service
 public class OutreachService {
 
-    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_ATTEMPTS = ContactAttemptPolicy.MAX_EMAILS_PER_CONTACT;
     private static final int PROMPT_VERSION = 1;
     private static final byte[] IDEMPOTENCY_NAMESPACE =
             "consulting-sim:outreach-attempt:v1".getBytes(StandardCharsets.UTF_8);
@@ -49,6 +53,7 @@ public class OutreachService {
     private final DifficultyProfileService difficultyProfileService;
     private final LeadRepository leadRepository;
     private final ResearchEvidenceRepository evidenceRepository;
+    private final ScenarioRepository scenarioRepository;
 
     public OutreachService(OutreachRepository outreachRepository,
                            EngagementRepository engagementRepository,
@@ -56,7 +61,8 @@ public class OutreachService {
                            ObjectMapper objectMapper,
                            DifficultyProfileService difficultyProfileService,
                            LeadRepository leadRepository,
-                           ResearchEvidenceRepository evidenceRepository) {
+                           ResearchEvidenceRepository evidenceRepository,
+                           ScenarioRepository scenarioRepository) {
         this.outreachRepository = outreachRepository;
         this.engagementRepository = engagementRepository;
         this.aiOrchestrationService = aiOrchestrationService;
@@ -64,6 +70,7 @@ public class OutreachService {
         this.difficultyProfileService = difficultyProfileService;
         this.leadRepository = leadRepository;
         this.evidenceRepository = evidenceRepository;
+        this.scenarioRepository = scenarioRepository;
     }
 
     @Transactional
@@ -99,25 +106,41 @@ public class OutreachService {
             throw new InvalidOutreachStateException(engagement.getState());
         }
 
+        // Choose contact: every email goes to the contact the learner chose.
+        UUID contactId = engagement.getContactPersonaId();
+        if (contactId == null) {
+            throw new ContactNotChosenException();
+        }
+        Scenario scenario = scenarioRepository.findById(engagement.getScenarioId())
+                .orElseThrow(() -> new NotFoundException("Scenario", engagement.getScenarioId()));
+        Persona contact = scenario.getPersonas().stream()
+                .filter(p -> p.getId().equals(contactId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Contact", contactId));
+        int round = engagement.getOutreachRound();
+
         List<OutreachAttempt> existingAttempts = outreachRepository.findByEngagementId(engagementId);
-        existingAttempts.stream()
+        List<OutreachAttempt> emailsToContact = ContactAttemptPolicy.emailsTo(existingAttempts, contactId, round);
+        emailsToContact.stream()
                 .max(Comparator.comparingInt(OutreachAttempt::getAttemptNumber))
                 .ifPresent(this::assertFollowUpIsAllowed);
 
-        int attemptCount = existingAttempts.size();
-        if (attemptCount >= MAX_ATTEMPTS) {
+        // The limit is per contact; attempt numbers stay unique across the engagement.
+        if (emailsToContact.size() >= MAX_ATTEMPTS) {
             throw new MaxOutreachAttemptsException();
         }
+        int attemptNumber = existingAttempts.size() + 1;
 
         // Transition to in-progress
         if (engagement.getState() == EngagementState.HYPOTHESIS_READY) {
-            engagement.transitionTo(EngagementState.OUTREACHING, "Outreach attempt #" + (attemptCount + 1));
+            engagement.transitionTo(EngagementState.OUTREACHING, "Outreach attempt #" + attemptNumber);
         }
 
         OutreachAttempt attempt = idempotentAttemptId == null
-                ? OutreachAttempt.create(engagementId, attemptCount + 1, subject, body)
+                ? OutreachAttempt.create(engagementId, attemptNumber, subject, body)
                 : OutreachAttempt.createIdempotent(
-                        idempotentAttemptId, engagementId, attemptCount + 1, subject, body);
+                        idempotentAttemptId, engagementId, attemptNumber, subject, body);
+        attempt.assignContact(contactId, round);
         DifficultyProfile profile = difficultyProfileService.forEngagement(engagement);
         Lead lead = leadRepository.findById(engagement.getSelectedLeadId())
                 .orElseThrow(() -> new NotFoundException("Lead", engagement.getSelectedLeadId()));
@@ -135,19 +158,38 @@ public class OutreachService {
         evaluation = OutreachContentPolicy.apply(evaluation, subject, body, lead.getCompanyName(),
                 lead.getDecisionMaker(), evidenceNotes);
 
-        OutreachOutcome outcome = OutreachOutcomePolicy.decide(evaluation, profile);
-        OutreachNextAction nextAction = OutreachRequestPolicy.nextActionFor(outcome, evaluation.clientReply());
-        attempt.resolve(evaluation.clientReply(), outcome, nextAction,
+        // Every email is scored the same way, so scores never reveal who the
+        // decision maker is. Only the decision maker can accept; a distractor
+        // always declines with its pre-written reply.
+        OutreachOutcome outcome;
+        String clientReply;
+        if (contact.isDecisionMaker()) {
+            outcome = OutreachOutcomePolicy.decide(evaluation, profile);
+            clientReply = evaluation.clientReply();
+        } else {
+            outcome = OutreachOutcome.REJECTED;
+            clientReply = contact.distractorReply();
+        }
+        OutreachNextAction nextAction = OutreachRequestPolicy.nextActionFor(outcome, clientReply);
+        attempt.resolve(clientReply, outcome, nextAction,
                 evaluation.personalisation(), evaluation.relevance(),
                 evaluation.clarity(), evaluation.callToAction());
 
         outreachRepository.save(attempt);
 
-        // Transition engagement based on outcome
-        EngagementState nextState = outcome == OutreachOutcome.ACCEPTED
-                ? EngagementState.MEETING_SECURED
-                : EngagementState.OUTREACHING;
-        engagement.transitionTo(nextState, "Outreach outcome: " + outcome);
+        if (outcome == OutreachOutcome.ACCEPTED) {
+            // The meeting is held with the contact who accepted.
+            engagement.meetWith(contactId);
+            engagement.transitionTo(EngagementState.MEETING_SECURED, "Outreach outcome: " + outcome);
+        } else {
+            engagement.transitionTo(EngagementState.OUTREACHING, "Outreach outcome: " + outcome);
+            List<OutreachAttempt> allAttempts = new java.util.ArrayList<>(existingAttempts);
+            allAttempts.add(attempt);
+            List<UUID> contactIds = scenario.getPersonas().stream().map(Persona::getId).toList();
+            if (ContactAttemptPolicy.allExhausted(allAttempts, contactIds, round)) {
+                engagement.startNewOutreachRound();
+            }
+        }
         engagementRepository.save(engagement);
 
         return OutreachResponse.from(attempt);
@@ -238,7 +280,13 @@ public class OutreachService {
 
     public static class MaxOutreachAttemptsException extends DomainException {
         public MaxOutreachAttemptsException() {
-            super("Maximum outreach attempts (%d) reached".formatted(MAX_ATTEMPTS));
+            super("You have sent %d emails to this contact. Choose someone else to contact.".formatted(MAX_ATTEMPTS));
+        }
+    }
+
+    public static class ContactNotChosenException extends DomainException {
+        public ContactNotChosenException() {
+            super("Choose who you will contact before writing an email.");
         }
     }
 

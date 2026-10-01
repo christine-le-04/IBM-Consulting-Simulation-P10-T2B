@@ -182,6 +182,17 @@ export interface LeadIntelligence {
   technologyStack: IntelligenceField
   budgetSignal: IntelligenceField
   painSeverity: IntelligenceField
+  /** Company size and financial summary, shown from the start. Research explains the why. */
+  companyFacts?: CompanyFact[]
+}
+
+/** One line of the company profile, e.g. "Operating margin · 2.1% (was 4.4%)". */
+export interface CompanyFact {
+  section: 'SIZE' | 'FINANCIAL'
+  label: string
+  value: string
+  /** WARNING shows amber, ALERT shows red. */
+  tone: 'NORMAL' | 'WARNING' | 'ALERT'
 }
 
 // ─── Research Evidence ────────────────────────────────────────────────────────
@@ -357,6 +368,12 @@ export interface Engagement {
   evidenceCount: number
   daysElapsed: number
   meetingId: string | null
+  /** Choose contact: who the learner is emailing now (null until chosen). */
+  contactPersonaId?: string | null
+  contactName?: string | null
+  contactJobTitle?: string | null
+  /** Starts at 1; goes up each time every contact fails and the learner returns to research. */
+  outreachRound?: number
 }
 
 // ─── Outreach ─────────────────────────────────────────────────────────────────
@@ -379,6 +396,32 @@ export interface OutreachAttempt {
   requestRequirements: string[]
   coachingHint?: string | null
   createdAt: string
+  /** The contact this email went to (null for emails from before Choose contact). */
+  personaId?: string | null
+  outreachRound?: number
+}
+
+// ─── Choose contact ───────────────────────────────────────────────────────────
+
+/** A contact on Choose contact. Deliberately has no role: that would reveal the decision maker. */
+export interface ContactOption {
+  id: string
+  name: string
+  jobTitle: string
+  organisation: string
+  visibleConcerns: string
+  emailsSent: number
+  emailsLeft: number
+  /** Used all their emails this round without agreeing to meet. */
+  usedUp: boolean
+  current: boolean
+}
+
+export interface ContactsResponse {
+  outreachRound: number
+  currentContactId: string | null
+  canChangeContact: boolean
+  contacts: ContactOption[]
 }
 
 export interface CapabilityBrief {

@@ -1,17 +1,24 @@
 import { Button, InlineNotification } from '@carbon/react'
 import { ArrowRight } from '@carbon/icons-react'
 import type { PersonaSummary } from '@/api/types'
+
+/** A contact card. `usedUp` comes from the backend once outreach has started. */
+export type ContactCard = Pick<PersonaSummary, 'id' | 'name' | 'jobTitle' | 'organisation' | 'visibleConcerns'> & {
+  usedUp?: boolean
+}
 import styles from './ChooseContactPage.module.scss'
 import { firstName, initials, type ContactStatus } from '@/lifecycle/contactSelection'
 
 export interface ChooseContactViewProps {
   company: string
-  contacts: PersonaSummary[]
+  contacts: ContactCard[]
   chosenId: string | null
   status: ContactStatus
   onChoose: (personaId: string) => void
   onContinue: () => void
   onBackToResearch: () => void
+  /** Disables the buttons while a choice is being saved. */
+  pending?: boolean
 }
 
 /**
@@ -19,7 +26,7 @@ export interface ChooseContactViewProps {
  * at the company can actually say yes. Props only, so it can be previewed.
  */
 export function ChooseContactView({
-  company, contacts, chosenId, status, onChoose, onContinue, onBackToResearch,
+  company, contacts, chosenId, status, onChoose, onContinue, onBackToResearch, pending = false,
 }: ChooseContactViewProps) {
   const chosen = contacts.find((c) => c.id === chosenId)
   const canChoose = status !== 'LOCKED'
@@ -62,7 +69,9 @@ export function ChooseContactView({
       <div className={styles.cards}>
         {contacts.map((contact) => {
           const isChosen = contact.id === chosenId
-          const locked = !canChoose && !isChosen
+          // Used all their emails this round (only the chosen contact shows "Three emails used").
+          const usedUp = Boolean(contact.usedUp) && !isChosen
+          const locked = (!canChoose && !isChosen) || usedUp
           return (
             <article
               key={contact.id}
@@ -85,9 +94,10 @@ export function ChooseContactView({
               <footer className={styles.cardFoot}>
                 {isChosen && status === 'REOPENED' && <span className={styles.muted}>Three emails used</span>}
                 {isChosen && status !== 'REOPENED' && <strong className={styles.chosenLabel}>Your contact</strong>}
-                {locked && <span className={styles.muted}>Another contact already chosen</span>}
-                {canChoose && !isChosen && (
-                  <Button size="sm" kind={chosen ? 'tertiary' : 'primary'} onClick={() => onChoose(contact.id)}>
+                {usedUp && <span className={styles.muted}>Emails used this round</span>}
+                {locked && !usedUp && <span className={styles.muted}>Another contact already chosen</span>}
+                {canChoose && !isChosen && !usedUp && (
+                  <Button size="sm" kind={chosen ? 'tertiary' : 'primary'} disabled={pending} onClick={() => onChoose(contact.id)}>
                     {chosen && status === 'CHANGEABLE' ? `Choose ${firstName(contact.name)} instead` : `Choose ${firstName(contact.name)}`}
                   </Button>
                 )}

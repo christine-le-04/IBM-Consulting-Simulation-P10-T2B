@@ -38,6 +38,14 @@ public class Engagement extends BaseEntity {
     @Column(name = "retry_of_engagement_id")
     private UUID retryOfEngagementId;
 
+    /** The contact the learner is emailing now; null until they choose one. */
+    @Column(name = "contact_persona_id")
+    private UUID contactPersonaId;
+
+    /** Starts at 1. Goes up each time every contact fails and the learner returns to research. */
+    @Column(name = "outreach_round", nullable = false)
+    private int outreachRound = 1;
+
     @Column(nullable = false)
     private int meetingRetryBaseline;
 
@@ -98,6 +106,29 @@ public class Engagement extends BaseEntity {
         selectLead(leadId);
     }
 
+    /** Choose contact: the learner decides who to email. Rules live in ContactService. */
+    public void chooseContact(UUID personaId) {
+        this.contactPersonaId = personaId;
+        recordEvent("Contact chosen: " + personaId);
+    }
+
+    /** The contact who accepted becomes the client the meeting is held with. */
+    public void meetWith(UUID personaId) {
+        this.personaId = personaId;
+    }
+
+    /**
+     * Every contact used their emails without a meeting: back to research, with
+     * research kept and every contact given fresh attempts in a new round.
+     */
+    public void startNewOutreachRound() {
+        // Transition first: if the move isn't allowed, nothing else changes.
+        transitionTo(EngagementState.HYPOTHESIS_READY,
+                "No contact agreed to meet; back to research for outreach round " + (outreachRound + 1));
+        this.outreachRound += 1;
+        this.contactPersonaId = null;
+    }
+
     /** Records a failed attempt without changing the engagement's lifecycle state. */
     public void recordActivity(String description) {
         recordEvent(description);
@@ -116,4 +147,6 @@ public class Engagement extends BaseEntity {
     public List<EngagementEvent> getEvents() { return Collections.unmodifiableList(events); }
     public String getDifficultyProfileSnapshot() { return difficultyProfileSnapshot; }
     public UUID getRetryOfEngagementId() { return retryOfEngagementId; }
+    public UUID getContactPersonaId() { return contactPersonaId; }
+    public int getOutreachRound() { return outreachRound; }
 }

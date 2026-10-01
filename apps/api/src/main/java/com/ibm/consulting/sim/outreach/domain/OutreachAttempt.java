@@ -37,6 +37,14 @@ public class OutreachAttempt extends BaseEntity {
     private Integer scoreClarity;
     private Integer scoreCallToAction;
 
+    /** The contact this email went to; null for attempts made before Choose contact existed. */
+    @Column(name = "persona_id")
+    private UUID personaId;
+
+    /** Outreach round this attempt belongs to (see Engagement.outreachRound). */
+    @Column(name = "outreach_round", nullable = false)
+    private int outreachRound = 1;
+
     protected OutreachAttempt() {}
 
     private OutreachAttempt(UUID id) {
@@ -85,4 +93,13 @@ public class OutreachAttempt extends BaseEntity {
     public Integer getScoreRelevance() { return scoreRelevance; }
     public Integer getScoreClarity() { return scoreClarity; }
     public Integer getScoreCallToAction() { return scoreCallToAction; }
+
+    /** Records who the email went to and in which round, for per-contact attempt limits. */
+    public void assignContact(UUID personaId, int outreachRound) {
+        this.personaId = personaId;
+        this.outreachRound = outreachRound;
+    }
+
+    public UUID getPersonaId() { return personaId; }
+    public int getOutreachRound() { return outreachRound; }
 }

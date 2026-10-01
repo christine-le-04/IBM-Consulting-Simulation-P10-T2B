@@ -22,6 +22,7 @@ import CompanyFile from '@/components/shell/CompanyFile'
 import EvidenceRegister from '@/components/shell/EvidenceRegister'
 import { usableEvidence } from '@/components/shell/evidence'
 import { useMentor } from '@/components/shell/useMentor'
+import { isBackFromFailedOutreach } from '@/lifecycle/contactSelection'
 import ClipForm, { type ClipValues } from './ClipForm'
 import HypothesisTab from './HypothesisTab'
 import ManualSourceForm from './ManualSourceForm'
@@ -97,7 +98,9 @@ export default function ClientIntelligencePage() {
   useMentor(
     completeResearch.isError
       ? 'The engagement could not move on yet. Tick off what is missing, then try again.'
-      : gate?.coaching?.[0] ?? (gate?.ready ? 'You have enough to go on. Now decide who can actually say yes.' : null),
+      : isBackFromFailedOutreach(engagement)
+        ? 'Nobody agreed to meet. Your research is still here: look again at who can actually say yes.'
+        : gate?.coaching?.[0] ?? (gate?.ready ? 'You have enough to go on. Now decide who can actually say yes.' : null),
     {
       label: completeResearch.isPending ? 'Advancing…' : `Choose who to contact`,
       ready: Boolean(gate?.ready),

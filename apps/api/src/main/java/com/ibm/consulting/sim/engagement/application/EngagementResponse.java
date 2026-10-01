@@ -30,7 +30,12 @@ public record EngagementResponse(
         String nextAction,
         long evidenceCount,
         long daysElapsed,
-        UUID meetingId) {
+        UUID meetingId,
+        // ─── Choose contact ───
+        UUID contactPersonaId,
+        String contactName,
+        String contactJobTitle,
+        int outreachRound) {
 
     public record EventRecord(UUID id, String state, String description, Instant occurredAt) {
         static EventRecord from(EngagementEvent e) {
@@ -45,6 +50,12 @@ public record EngagementResponse(
 
     public static EngagementResponse enrich(Engagement e, String scenarioTitle, String scenarioIndustry,
                                             String leadCompanyName, long evidenceCount, UUID meetingId) {
+        return enrich(e, scenarioTitle, scenarioIndustry, leadCompanyName, evidenceCount, meetingId, null, null);
+    }
+
+    public static EngagementResponse enrich(Engagement e, String scenarioTitle, String scenarioIndustry,
+                                            String leadCompanyName, long evidenceCount, UUID meetingId,
+                                            String contactName, String contactJobTitle) {
         var phase = EngagementProgressCalculator.phaseOf(e.getState());
         long daysElapsed = Duration.between(e.getCreatedAt(), Instant.now()).toDays();
         return new EngagementResponse(
@@ -56,6 +67,7 @@ public record EngagementResponse(
                 phase.name(), phase.label(),
                 EngagementProgressCalculator.progressPercent(e.getState()),
                 EngagementProgressCalculator.nextAction(e.getState()),
-                evidenceCount, daysElapsed, meetingId);
+                evidenceCount, daysElapsed, meetingId,
+                e.getContactPersonaId(), contactName, contactJobTitle, e.getOutreachRound());
     }
 }

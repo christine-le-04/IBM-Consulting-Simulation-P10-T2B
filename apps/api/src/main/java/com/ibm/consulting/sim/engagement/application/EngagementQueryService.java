@@ -116,10 +116,13 @@ public class EngagementQueryService {
         UUID meetingId = meetingRepository.findByEngagementId(engagement.getId())
                 .map(Meeting::getId)
                 .orElse(null);
+        var contact = contactOf(scenario, engagement);
         return EngagementResponse.enrich(engagement,
                 scenario != null ? scenario.getTitle() : null,
                 scenario != null ? scenario.getIndustry() : null,
-                leadCompanyName, evidenceCount, meetingId);
+                leadCompanyName, evidenceCount, meetingId,
+                contact != null ? contact.getName() : null,
+                contact != null ? contact.getJobTitle() : null);
     }
 
     /** Uses set-based repository queries rather than four lookups per engagement. */
@@ -146,13 +149,25 @@ public class EngagementQueryService {
             Scenario scenario = scenarios.get(engagement.getScenarioId());
             Lead lead = leads.get(engagement.getSelectedLeadId());
             Meeting meeting = latestMeetings.get(engagement.getId());
+            var contact = contactOf(scenario, engagement);
             return EngagementResponse.enrich(engagement,
                     scenario != null ? scenario.getTitle() : null,
                     scenario != null ? scenario.getIndustry() : null,
                     lead != null ? lead.getCompanyName() : null,
                     evidenceCounts.getOrDefault(engagement.getId(), 0L),
-                    meeting != null ? meeting.getId() : null);
+                    meeting != null ? meeting.getId() : null,
+                    contact != null ? contact.getName() : null,
+                    contact != null ? contact.getJobTitle() : null);
         }).toList();
+    }
+
+    /** The contact the learner is emailing, for display only (never their role). */
+    private static com.ibm.consulting.sim.scenario.domain.Persona contactOf(Scenario scenario, Engagement engagement) {
+        if (scenario == null || engagement.getContactPersonaId() == null) return null;
+        return scenario.getPersonas().stream()
+                .filter(p -> p.getId().equals(engagement.getContactPersonaId()))
+                .findFirst()
+                .orElse(null);
     }
 
     private static <T> Map<UUID, T> byId(Collection<T> source, java.util.function.Function<T, UUID> id) {

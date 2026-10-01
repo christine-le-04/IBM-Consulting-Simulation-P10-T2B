@@ -10,7 +10,8 @@ import type { EngagementPhase } from '@/api/types'
 
 /** Canonical order of the engagement lifecycle, matching the backend enum. */
 export const PHASE_ORDER: readonly EngagementPhase[] = [
-  'LEAD',
+  // 'LEAD' (Choose a lead) was removed: engagements start in research.
+  // It stays a valid phase only so older data still has a label.
   'CLIENT_INTELLIGENCE',
   'OUTREACH',
   'MEETING_PREPARATION',

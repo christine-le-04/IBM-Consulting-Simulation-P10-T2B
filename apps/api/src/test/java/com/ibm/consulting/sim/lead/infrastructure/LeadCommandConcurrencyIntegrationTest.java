@@ -6,7 +6,6 @@ import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.identity.domain.User;
 import com.ibm.consulting.sim.identity.domain.UserRole;
 import com.ibm.consulting.sim.lead.application.LeadService;
-import com.ibm.consulting.sim.lead.application.LeadAlreadySelectedException;
 import com.ibm.consulting.sim.lead.domain.ConfidenceLevel;
 import com.ibm.consulting.sim.lead.domain.EvidenceOrigin;
 import com.ibm.consulting.sim.lead.domain.EvidenceType;
@@ -76,24 +75,6 @@ class LeadCommandConcurrencyIntegrationTest {
     @Autowired LeadRepository leadRepository;
     @Autowired ResearchEvidenceRepository evidenceRepository;
     @Autowired PlatformTransactionManager transactionManager;
-
-    @Test
-    void concurrentSelectionsLockInTheFirstLead() throws Exception {
-        TestData data = inTransaction(() -> persistData(false));
-        CountDownLatch readsReached = new CountDownLatch(2);
-        LeadService service = service(gateOrdinaryEngagementReads(readsReached), evidenceRepository);
-
-        List<Outcome> outcomes = runConcurrently(
-                () -> service.selectLead(data.engagementId(), data.firstLeadId(), data.userId()),
-                () -> service.selectLead(data.engagementId(), data.secondLeadId(), data.userId()));
-
-        Engagement persisted = inTransaction(() -> entityManager.find(Engagement.class, data.engagementId()));
-        assertThat(persisted.getSelectedLeadId()).isIn(data.firstLeadId(), data.secondLeadId());
-        assertThat(outcomes).filteredOn(Outcome::succeeded).hasSize(1);
-        assertThat(outcomes).filteredOn(outcome -> !outcome.succeeded())
-                .extracting(Outcome::failure)
-                .allMatch(LeadAlreadySelectedException.class::isInstance);
-    }
 
     @Test
     void concurrentEvidenceSavesAllocateUniqueMonotonicSequences() throws Exception {
@@ -242,20 +223,19 @@ class LeadCommandConcurrencyIntegrationTest {
         Scenario scenario = Scenario.create("Lead scenario", "Technology", "Scenario", 3);
         Persona persona = Persona.create(scenario, "Client", "CIO", "Example Co", "Direct", "Risk",
                 "Budget", "Delivery");
-        Lead first = Lead.create(scenario.getId(), "First Co", "Technology", "Modernisation", LeadDifficulty.MEDIUM);
-        Lead second = Lead.create(scenario.getId(), "Second Co", "Technology", "Modernisation", LeadDifficulty.MEDIUM);
+        // One company profile per scenario (uq_leads_one_per_scenario).
+        Lead lead = Lead.create(scenario.getId(), "First Co", "Technology", "Modernisation", LeadDifficulty.MEDIUM);
         entityManager.persist(user);
         entityManager.persist(scenario);
         entityManager.persist(persona);
-        entityManager.persist(first);
-        entityManager.persist(second);
+        entityManager.persist(lead);
         Engagement engagement = Engagement.start(user.getId(), scenario.getId(), persona.getId());
         if (selectLead) {
-            engagement.selectLead(first.getId());
+            engagement.selectLead(lead.getId());
         }
         entityManager.persist(engagement);
         entityManager.flush();
-        return new TestData(user.getId(), engagement.getId(), first.getId(), second.getId());
+        return new TestData(user.getId(), engagement.getId(), lead.getId());
     }
 
     private <T> T inTransaction(Callable<T> work) {
@@ -283,7 +263,7 @@ class LeadCommandConcurrencyIntegrationTest {
         }
     }
 
-    private record TestData(UUID userId, UUID engagementId, UUID firstLeadId, UUID secondLeadId) {}
+        private record TestData(UUID userId, UUID engagementId, UUID firstLeadId) {}
     private record Outcome(RuntimeException failure) {
         boolean succeeded() { return failure == null; }
     }

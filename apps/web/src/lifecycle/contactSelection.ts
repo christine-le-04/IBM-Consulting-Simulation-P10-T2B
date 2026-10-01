@@ -1,7 +1,24 @@
-import type { ContactChoice } from '@/store/contactSelectionStore'
-import type { Engagement, OutreachAttempt } from '@/api/types'
+import type { ContactsResponse, Engagement, OutreachAttempt } from '@/api/types'
 
 export const MAX_EMAILS_PER_CONTACT = 3
+
+/** Who the learner is emailing now, as the backend reports it on the engagement. */
+export interface CurrentContact {
+  personaId: string
+  name: string
+  jobTitle: string
+  round: number
+}
+
+export function currentContactOf(engagement: Engagement | undefined): CurrentContact | undefined {
+  if (!engagement?.contactPersonaId) return undefined
+  return {
+    personaId: engagement.contactPersonaId,
+    name: engagement.contactName ?? '',
+    jobTitle: engagement.contactJobTitle ?? '',
+    round: engagement.outreachRound ?? 1,
+  }
+}
 
 export type ContactStatus =
   | 'NONE'       // no contact chosen yet
@@ -9,16 +26,37 @@ export type ContactStatus =
   | 'LOCKED'     // emailing this contact (1–2 emails, or they agreed to meet)
   | 'REOPENED'   // 3 emails without a meeting: choose again
 
-export function contactStatus(attempts: OutreachAttempt[], choice: ContactChoice | undefined): ContactStatus {
-  if (!choice) return 'NONE'
-  const ordered = [...attempts].sort((a, b) => a.attemptNumber - b.attemptNumber)
-  const sent = ordered.slice(choice.emailsBefore)
+/** Emails sent to the current contact in the current round, oldest first. */
+export function emailsToContact(attempts: OutreachAttempt[], contact: CurrentContact | undefined): OutreachAttempt[] {
+  if (!contact) return []
+  return attempts
+    .filter((a) => a.personaId === contact.personaId && (a.outreachRound ?? 1) === contact.round)
+    .sort((a, b) => a.attemptNumber - b.attemptNumber)
+}
+
+export function contactStatus(attempts: OutreachAttempt[], contact: CurrentContact | undefined): ContactStatus {
+  if (!contact) return 'NONE'
+  const sent = emailsToContact(attempts, contact)
   if (sent.length === 0) return 'CHANGEABLE'
   if (sent.some((a) => a.outcome === 'ACCEPTED')) return 'LOCKED'
   return sent.length >= MAX_EMAILS_PER_CONTACT ? 'REOPENED' : 'LOCKED'
 }
 
+/** The same status, from the Choose contact list the backend returns. */
+export function statusFromContacts(response: ContactsResponse | undefined): ContactStatus {
+  const current = response?.contacts.find((c) => c.current)
+  if (!current) return 'NONE'
+  if (current.usedUp) return 'REOPENED'
+  return response!.canChangeContact ? 'CHANGEABLE' : 'LOCKED'
+}
+
 export const canChooseContact = (status: ContactStatus) => status !== 'LOCKED'
+
+/** After every contact fails, the learner goes back to research before choosing again. */
+export function isBackFromFailedOutreach(engagement: Engagement | undefined): boolean {
+  return engagement?.state === 'HYPOTHESIS_READY' && !engagement.contactPersonaId && (engagement.outreachRound ?? 1) > 1
+}
+
 /** Research is done once the engagement has moved past these states. */
 export function isResearchDone(engagement: Engagement): boolean {
   return engagement.state !== 'QUALIFYING' && engagement.state !== 'CLIENT_INTELLIGENCE'

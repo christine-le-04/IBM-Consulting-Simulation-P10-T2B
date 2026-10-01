@@ -131,7 +131,11 @@ public final class ResearchReadinessPolicy {
     }
 
     private static List<ResearchEvidence> substantiveEvidence(List<ResearchEvidence> evidence) {
-        return evidence.stream().filter(e -> e.getEvidenceType() != EvidenceType.HYPOTHESIS).toList();
+        return evidence.stream()
+                .filter(e -> e.getEvidenceType() != EvidenceType.HYPOTHESIS)
+                // Starting evidence from the briefing can be cited but isn't research the learner did.
+                .filter(e -> e.getOrigin() != EvidenceOrigin.SCENARIO_GIVEN)
+                .toList();
     }
 
     private static int corroborationScore(List<ResearchEvidence> evidence, int coverage) {

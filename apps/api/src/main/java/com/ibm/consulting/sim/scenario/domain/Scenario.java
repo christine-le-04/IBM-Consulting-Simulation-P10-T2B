@@ -93,7 +93,15 @@ public class Scenario extends BaseEntity {
 
     @OneToMany(mappedBy = "scenario", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 24)
+    // Alphabetical, so a contact's position never hints at who the decision maker is.
+    @OrderBy("name ASC")
     private List<Persona> personas = new ArrayList<>();
+
+    /** Company size and financial summary, shown from the start (read-only, written by migrations). */
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scenario_id", referencedColumnName = "id", insertable = false, updatable = false)
+    @OrderBy("section ASC, sortOrder ASC")
+    private List<CompanyFact> companyFacts = new ArrayList<>();
 
     protected Scenario() {}
 
@@ -212,6 +220,16 @@ public class Scenario extends BaseEntity {
         return persona;
     }
 
+    /** Adds a contact without authority, who declines with a pre-written reply. */
+    public Persona addDistractor(String name, String jobTitle, String organisation, String visibleConcerns,
+                                 String declineReply, String hintReply) {
+        assertDraftEditable();
+        Persona persona = Persona.createDistractor(this, name, jobTitle, organisation,
+                visibleConcerns, declineReply, hintReply);
+        this.personas.add(persona);
+        return persona;
+    }
+
     /**
      * Replaces the scenario's competency weighting used by {@code AssessmentEngine}
      * when computing the overall score. Weights must sum to 100; an empty map
@@ -265,6 +283,12 @@ public class Scenario extends BaseEntity {
     public UUID getScenarioLineageId() { return scenarioLineageId; }
     public String getAuthoringConfig() { return authoringConfig; }
     public List<Persona> getPersonas() { return Collections.unmodifiableList(personas); }
+    public List<CompanyFact> getCompanyFacts() { return Collections.unmodifiableList(companyFacts); }
+
+    /** The contact who can accept a meeting (the AI client). */
+    public java.util.Optional<Persona> decisionMaker() {
+        return personas.stream().filter(Persona::isDecisionMaker).findFirst();
+    }
 
     private void assertDraftEditable() {
         if (status != ScenarioStatus.DRAFT) throw new ScenarioNotEditableException(status);

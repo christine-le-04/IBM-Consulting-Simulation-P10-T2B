@@ -36,6 +36,19 @@ public class Persona extends BaseEntity {
     @Column(nullable = false)
     private int promptVersion;
 
+    /** Server-side only: never exposed to learners, or they could see who the decision maker is. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "contact_role", nullable = false)
+    private ContactRole contactRole = ContactRole.DECISION_MAKER;
+
+    /** Pre-written reply a distractor sends. Server-side only. */
+    @Column(name = "decline_reply", columnDefinition = "text")
+    private String declineReply;
+
+    /** Optional pre-written decline that nudges towards the right contact. Server-side only. */
+    @Column(name = "hint_reply", columnDefinition = "text")
+    private String hintReply;
+
     protected Persona() {}
 
     public static Persona create(Scenario scenario, String name, String jobTitle, String organisation,
@@ -54,6 +67,19 @@ public class Persona extends BaseEntity {
         return p;
     }
 
+    /**
+     * A contact without authority. It never talks to the AI, so it only needs what
+     * learners see plus its pre-written replies.
+     */
+    public static Persona createDistractor(Scenario scenario, String name, String jobTitle, String organisation,
+                                           String visibleConcerns, String declineReply, String hintReply) {
+        Persona p = create(scenario, name, jobTitle, organisation, null, visibleConcerns, null, null);
+        p.contactRole = ContactRole.DISTRACTOR;
+        p.declineReply = declineReply;
+        p.hintReply = hintReply;
+        return p;
+    }
+
     public Scenario getScenario() { return scenario; }
     public String getName() { return name; }
     public String getJobTitle() { return jobTitle; }
@@ -63,4 +89,13 @@ public class Persona extends BaseEntity {
     public String getHiddenConcerns() { return hiddenConcerns; }
     public String getBusinessGoals() { return businessGoals; }
     public int getPromptVersion() { return promptVersion; }
+    public ContactRole getContactRole() { return contactRole; }
+    public boolean isDecisionMaker() { return contactRole != ContactRole.DISTRACTOR; }
+
+    /** What a distractor replies: the hint if there is one, otherwise the decline. */
+    public String distractorReply() {
+        if (hintReply != null && !hintReply.isBlank()) return hintReply;
+        if (declineReply != null && !declineReply.isBlank()) return declineReply;
+        return "Thanks for reaching out, but I'm not the right person to take this further.";
+    }
 }
