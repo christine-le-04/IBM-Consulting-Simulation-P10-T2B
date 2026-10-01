@@ -161,15 +161,6 @@ export default function ClientIntelligencePage() {
 
   return (
     <ObjectiveTourProvider tourId="client-intelligence" objectives={CLIENT_INTELLIGENCE_OBJECTIVES}>
-      {isBackFromFailedOutreach(engagement) && (
-        <InlineNotification
-          kind="warning"
-          lowContrast
-          hideCloseButton
-          title="No contact agreed to meet"
-          subtitle="Every contact has used their three emails. Your research is kept, and every contact has three fresh emails. Look again at who has the authority to say yes, then choose who to contact."
-        />
-      )}
       <div className={styles.desk}>
         <div className={`${styles.reading} objective-source`} ref={readingRef}>
           {source ? (
