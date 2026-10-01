@@ -5,6 +5,7 @@ import com.ibm.consulting.sim.lead.domain.LeadIntelligencePolicy;
 import com.ibm.consulting.sim.lead.domain.LeadIntelligencePolicy.Insight;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidence;
 import com.ibm.consulting.sim.lead.domain.EvidenceType;
+import com.ibm.consulting.sim.scenario.domain.CompanyFact;
 import com.ibm.consulting.sim.scenario.domain.RevealRule;
 import com.ibm.consulting.sim.scenario.domain.RevealTarget;
 import com.ibm.consulting.sim.scenario.domain.ScenarioAuthoringConfig;
@@ -33,7 +34,16 @@ public record LeadIntelligenceSummary(
         Field decisionMaker,
         Field technologyStack,
         Field budgetSignal,
-        Field painSeverity) {
+        Field painSeverity,
+        // Company size and financial summary, shown from the start.
+        List<CompanyFactView> companyFacts) {
+
+    /** One line of the company profile, e.g. "Operating margin · 2.1% (was 4.4%)". */
+    public record CompanyFactView(String section, String label, String value, String tone) {
+        public static CompanyFactView from(CompanyFact fact) {
+            return new CompanyFactView(fact.getSection().name(), fact.getLabel(), fact.getValue(), fact.getTone().name());
+        }
+    }
 
     /** A single revealed (or not-yet-revealed) intelligence field: the value plus
      *  the evidence sequence numbers ("E-01", "E-03", ...) that earned it. */
@@ -50,6 +60,11 @@ public record LeadIntelligenceSummary(
     /** Applies author-owned reveal rules; facts remain derived from learner evidence. */
     public static LeadIntelligenceSummary from(Lead lead, List<ResearchEvidence> evidence,
                                               ScenarioAuthoringConfig config) {
+        return from(lead, evidence, config, List.of());
+    }
+
+    public static LeadIntelligenceSummary from(Lead lead, List<ResearchEvidence> evidence,
+                                              ScenarioAuthoringConfig config, List<CompanyFact> companyFacts) {
         return new LeadIntelligenceSummary(
                 lead.getId(), lead.getCompanyName(), lead.getIndustry(), evidence.size(),
                 LeadIntelligencePolicy.confidenceLabel(evidence),
@@ -64,7 +79,8 @@ public record LeadIntelligenceSummary(
                 Field.from(gate(LeadIntelligencePolicy.budgetSignal(evidence), evidence,
                         config.ruleFor(RevealTarget.BUDGET_SIGNAL))),
                 Field.from(gate(LeadIntelligencePolicy.painSeverity(evidence), evidence,
-                        config.ruleFor(RevealTarget.PAIN_SEVERITY))));
+                        config.ruleFor(RevealTarget.PAIN_SEVERITY))),
+                companyFacts.stream().map(CompanyFactView::from).toList());
     }
 
     private static Insight gate(Insight insight, List<ResearchEvidence> evidence, RevealRule rule) {

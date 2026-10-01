@@ -97,6 +97,12 @@ public class Scenario extends BaseEntity {
     @OrderBy("name ASC")
     private List<Persona> personas = new ArrayList<>();
 
+    /** Company size and financial summary, shown from the start (read-only, written by migrations). */
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scenario_id", referencedColumnName = "id", insertable = false, updatable = false)
+    @OrderBy("section ASC, sortOrder ASC")
+    private List<CompanyFact> companyFacts = new ArrayList<>();
+
     protected Scenario() {}
 
     public static Scenario create(String title, String industry, String description, int difficulty) {
@@ -267,6 +273,7 @@ public class Scenario extends BaseEntity {
     public UUID getScenarioLineageId() { return scenarioLineageId; }
     public String getAuthoringConfig() { return authoringConfig; }
     public List<Persona> getPersonas() { return Collections.unmodifiableList(personas); }
+    public List<CompanyFact> getCompanyFacts() { return Collections.unmodifiableList(companyFacts); }
 
     /** The contact who can accept a meeting (the AI client). */
     public java.util.Optional<Persona> decisionMaker() {

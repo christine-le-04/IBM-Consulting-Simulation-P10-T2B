@@ -233,6 +233,9 @@ public class LeadService {
         var authoringConfig = scenario
                 .map(authoringConfigService::forScenario)
                 .orElseGet(com.ibm.consulting.sim.scenario.domain.ScenarioAuthoringConfig::defaults);
-        return LeadIntelligenceSummary.from(lead, evidence, authoringConfig);
+        var companyFacts = scenario
+                .map(com.ibm.consulting.sim.scenario.domain.Scenario::getCompanyFacts)
+                .orElse(List.of());
+        return LeadIntelligenceSummary.from(lead, evidence, authoringConfig, companyFacts);
     }
 }
