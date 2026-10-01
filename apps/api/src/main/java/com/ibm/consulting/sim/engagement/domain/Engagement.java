@@ -112,10 +112,11 @@ public class Engagement extends BaseEntity {
      * research kept and every contact given fresh attempts in a new round.
      */
     public void startNewOutreachRound() {
+        // Transition first: if the move isn't allowed, nothing else changes.
+        transitionTo(EngagementState.HYPOTHESIS_READY,
+                "No contact agreed to meet; back to research for outreach round " + (outreachRound + 1));
         this.outreachRound += 1;
         this.contactPersonaId = null;
-        transitionTo(EngagementState.HYPOTHESIS_READY,
-                "No contact agreed to meet; back to research for outreach round " + outreachRound);
     }
 
     /** Records a failed attempt without changing the engagement's lifecycle state. */

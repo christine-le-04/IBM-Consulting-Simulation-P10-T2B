@@ -66,6 +66,8 @@ class EngagementPolicyTest {
                 Arguments.of(EngagementState.HYPOTHESIS_READY, EngagementState.OUTREACHING),
                 Arguments.of(EngagementState.OUTREACHING, EngagementState.OUTREACHING),
                 Arguments.of(EngagementState.OUTREACHING, EngagementState.MEETING_SECURED),
+                // Every contact failed: back to research for a new outreach round.
+                Arguments.of(EngagementState.OUTREACHING, EngagementState.HYPOTHESIS_READY),
                 Arguments.of(EngagementState.MEETING_SECURED, EngagementState.PREPARING),
                 Arguments.of(EngagementState.PREPARING, EngagementState.PREPARING),
                 Arguments.of(EngagementState.PREPARING, EngagementState.IN_MEETING),
