@@ -6,7 +6,12 @@ import OutreachWorkspacePage from './OutreachWorkspacePage'
 import { useCapabilityBrief, useOutreach, useSendOutreach, useSubmitCapabilityBrief } from '@/api/hooks/useOutreach'
 import { useLeadIntelligence, useResearch } from '@/api/hooks/useLeads'
 import type { CapabilityBrief, LeadIntelligence, OutreachAttempt, ResearchEvidence } from '@/api/types'
-import { useContactSelectionStore } from '@/store/contactSelectionStore'
+
+/** The engagement the page sees; tests set the chosen contact on it, as the backend would. */
+const engagement = vi.hoisted(() => ({
+  current: { scenarioId: 'scn-1', personaId: 'p-1', leadCompanyName: 'Company Test' } as Record<string, unknown>,
+}))
+const BASE_ENGAGEMENT = { scenarioId: 'scn-1', personaId: 'p-1', leadCompanyName: 'Company Test' }
 
 vi.mock('@/api/hooks/useOutreach', () => ({
   useOutreach: vi.fn(),
@@ -19,7 +24,7 @@ vi.mock('@/api/hooks/useLeads', () => ({
   useResearch: vi.fn(),
 }))
 vi.mock('@/api/hooks/useEngagements', () => ({
-  useEngagement: () => ({ data: { scenarioId: 'scn-1', personaId: 'p-1', leadCompanyName: 'Company Test' } }),
+  useEngagement: () => ({ data: engagement.current }),
 }))
 vi.mock('@/api/hooks/useScenarios', () => ({
   useScenario: () => ({ data: { personas: [{ id: 'p-1', name: 'John Doe', jobTitle: 'CEO' }, { id: 'p-2', name: 'Jane Roe', jobTitle: 'CFO' }] } }),
@@ -225,13 +230,25 @@ describe('OutreachWorkspacePage capability brief', () => {
 describe('OutreachWorkspacePage with a chosen contact', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    useContactSelectionStore.setState({ byEngagement: {} })
+    engagement.current = { ...BASE_ENGAGEMENT }
   })
 
+  const chosen = (personaId: string, name: string, jobTitle: string) => {
+    engagement.current = {
+      ...BASE_ENGAGEMENT, contactPersonaId: personaId, contactName: name, contactJobTitle: jobTitle, outreachRound: 1,
+    }
+  }
+
   it('writes to the chosen contact and counts emails for that contact only', () => {
-    // Jane was chosen after two emails to someone else.
-    useContactSelectionStore.getState().choose('eng-1', { id: 'p-2', name: 'Jane Roe', jobTitle: 'CFO' }, 2)
-    setup({ attempts: [attempt(1), attempt(2), attempt(3)] })
+    // Two emails went to John before Jane was chosen; one has gone to Jane.
+    chosen('p-2', 'Jane Roe', 'CFO')
+    setup({
+      attempts: [
+        attempt(1, { personaId: 'p-1', outreachRound: 1 }),
+        attempt(2, { personaId: 'p-1', outreachRound: 1 }),
+        attempt(3, { personaId: 'p-2', outreachRound: 1 }),
+      ],
+    })
     renderPage()
 
     expect(screen.getAllByText(/Jane Roe/).length).toBeGreaterThan(0)
@@ -239,8 +256,10 @@ describe('OutreachWorkspacePage with a chosen contact', () => {
   })
 
   it('offers another contact after three emails to one person', () => {
-    useContactSelectionStore.getState().choose('eng-1', { id: 'p-1', name: 'John Doe', jobTitle: 'CEO' }, 0)
-    setup({ attempts: [attempt(1), attempt(2), attempt(3)] })
+    chosen('p-1', 'John Doe', 'CEO')
+    setup({
+      attempts: [1, 2, 3].map((n) => attempt(n, { personaId: 'p-1', outreachRound: 1 })),
+    })
     renderPage()
 
     expect(screen.getByText('No more emails to John Doe')).toBeInTheDocument()

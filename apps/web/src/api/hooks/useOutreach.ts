@@ -32,6 +32,9 @@ export function useSendOutreach(engagementId: string) {
       ])
       void qc.invalidateQueries({ queryKey: ['outreach', engagementId] })
       void qc.invalidateQueries({ queryKey: ['engagements', engagementId] })
+      // Emails left per contact, and a possible new round, come from the backend.
+      void qc.invalidateQueries({ queryKey: ['contacts', engagementId] })
+      void qc.invalidateQueries({ queryKey: ['engagements'] })
     },
   })
 }

@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight } from '@carbon/icons-react'
 import type { Engagement } from '@/api/types'
-import { useChosenContact } from '@/store/contactSelectionStore'
 import { isResearchDone } from '@/lifecycle/contactSelection'
 import { useOnContactPage } from './useOnContactPage'
 import styles from './shell.module.scss'
@@ -13,10 +12,9 @@ import styles from './shell.module.scss'
 export default function ContactRoomRow({ engagement, onOpen }: { engagement: Engagement; onOpen?: () => void }) {
   const navigate = useNavigate()
   const onContactPage = useOnContactPage()
-  const choice = useChosenContact(engagement.id)
   if (!isResearchDone(engagement)) return null
 
-  const state = onContactPage ? 'You are here' : choice ? choice.name : 'Continue'
+  const state = onContactPage ? 'You are here' : engagement.contactName ? engagement.contactName : 'Continue'
 
   return (
     <button

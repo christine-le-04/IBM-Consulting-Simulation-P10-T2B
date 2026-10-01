@@ -1,27 +1,22 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { useEngagement } from '@/api/hooks/useEngagements'
-import { useScenario } from '@/api/hooks/useScenarios'
-import { useOutreach } from '@/api/hooks/useOutreach'
+import { InlineNotification } from '@carbon/react'
+import { useContacts, useChooseContact } from '@/api/hooks/useContacts'
 import { useMentor } from '@/components/shell/useMentor'
 import LoadingState from '@/components/shared/LoadingState'
 import ErrorState from '@/components/shared/ErrorState'
-import { useChosenContact, useContactSelectionStore } from '@/store/contactSelectionStore'
-import { contactStatus, firstName } from '@/lifecycle/contactSelection'
+import { firstName, statusFromContacts } from '@/lifecycle/contactSelection'
 import { ChooseContactView } from './ChooseContactView'
 
 /** Route: /dashboard/engagements/:engagementId/contact */
 export default function ChooseContactPage() {
   const { engagementId } = useParams<{ engagementId: string }>()
   const navigate = useNavigate()
-  const { data: engagement, isLoading } = useEngagement(engagementId!)
-  const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
-  const { data: attempts = [] } = useOutreach(engagementId!)
-  const choice = useChosenContact(engagementId!)
-  const choose = useContactSelectionStore((s) => s.choose)
+  const { data, isLoading, isError } = useContacts(engagementId!)
+  const choose = useChooseContact(engagementId!)
 
   const base = `/dashboard/engagements/${engagementId}`
-  const status = contactStatus(attempts, choice)
-  const chosen = scenario?.personas.find((p) => p.id === choice?.personaId)
+  const status = statusFromContacts(data)
+  const chosen = data?.contacts.find((c) => c.current)
 
   // Dana's line for this step. Without it the shell shows the backend's
   // nextAction, which after research is the outreach tip.
@@ -36,21 +31,24 @@ export default function ChooseContactPage() {
       : null,
   )
 
-  if (isLoading || (engagement && !scenario)) return <LoadingState />
-  if (!engagement || !scenario) return <ErrorState />
+  if (isLoading) return <LoadingState />
+  if (isError || !data) return <ErrorState />
 
   return (
-    <ChooseContactView
-      company={scenario.personas[0]?.organisation ?? scenario.title}
-      contacts={scenario.personas}
-      chosenId={choice?.personaId ?? null}
-      status={status}
-      onChoose={(personaId) => {
-        const contact = scenario.personas.find((p) => p.id === personaId)
-        if (contact) choose(engagementId!, contact, attempts.length)
-      }}
-      onContinue={() => navigate(`${base}/outreach`)}
-      onBackToResearch={() => navigate(`${base}/intelligence`)}
-    />
+    <>
+      {choose.isError && (
+        <InlineNotification kind="error" title="Could not choose this contact" subtitle="Please try again." hideCloseButton />
+      )}
+      <ChooseContactView
+        company={data.contacts[0]?.organisation ?? 'the company'}
+        contacts={data.contacts}
+        chosenId={chosen?.id ?? null}
+        status={status}
+        pending={choose.isPending}
+        onChoose={(personaId) => choose.mutate(personaId)}
+        onContinue={() => navigate(`${base}/outreach`)}
+        onBackToResearch={() => navigate(`${base}/intelligence`)}
+      />
+    </>
   )
 }

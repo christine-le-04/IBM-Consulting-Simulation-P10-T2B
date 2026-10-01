@@ -1,8 +1,7 @@
 import { Button } from '@carbon/react'
 import { useNavigate } from 'react-router-dom'
 import type { OutreachAttempt } from '@/api/types'
-import { useChosenContact } from '@/store/contactSelectionStore'
-import { contactStatus } from '@/lifecycle/contactSelection'
+import { contactStatus, type CurrentContact } from '@/lifecycle/contactSelection'
 import styles from './ChooseContactPage.module.scss'
 
 /**
@@ -10,15 +9,22 @@ import styles from './ChooseContactPage.module.scss'
  * of Make contact. The Change link appears only while changing is allowed:
  * before the first email, or after 3 emails without a meeting.
  */
-export default function ContactLine({ engagementId, attempts }: { engagementId: string; attempts: OutreachAttempt[] }) {
+export default function ContactLine({
+  engagementId,
+  contact,
+  attempts,
+}: {
+  engagementId: string
+  contact: CurrentContact | undefined
+  attempts: OutreachAttempt[]
+}) {
   const navigate = useNavigate()
-  const choice = useChosenContact(engagementId)
-  if (!choice) return null
-  const status = contactStatus(attempts, choice)
+  if (!contact) return null
+  const status = contactStatus(attempts, contact)
 
   return (
     <p className={styles.contactLine}>
-      <span>To: <strong>{choice.name}</strong>, {choice.jobTitle}</span>
+      <span>To: <strong>{contact.name}</strong>, {contact.jobTitle}</span>
       {status !== 'LOCKED' && (
         <Button kind="ghost" size="sm" onClick={() => navigate(`/dashboard/engagements/${engagementId}/contact`)}>
           Change contact

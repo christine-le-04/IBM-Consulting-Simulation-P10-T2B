@@ -26,11 +26,10 @@ import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import { useMentor } from '@/components/shell/useMentor'
 import { keywordsFrom, stakeholderNameFrom } from '@/lifecycle/coaching/outreachRubric'
-import { contactStatus, MAX_EMAILS_PER_CONTACT } from '@/lifecycle/contactSelection'
+import { contactStatus, currentContactOf, emailsToContact, MAX_EMAILS_PER_CONTACT } from '@/lifecycle/contactSelection'
 import { PHASE_LABEL } from '@/lifecycle/phases'
 import ContactLine from '@/pages/ChooseContact/ContactLine'
 import { useAuthStore } from '@/store/authStore'
-import { useChosenContact } from '@/store/contactSelectionStore'
 import BriefComposer from './BriefComposer'
 import MailComposer from './MailComposer'
 import styles from './OutreachWorkspacePage.module.scss'
@@ -147,7 +146,7 @@ export default function OutreachWorkspacePage() {
   const [selected, setSelected] = useState<string | null>(null)
   const [writing, setWriting] = useState(false)
   const [sendTimedOut, setSendTimedOut] = useState(false)
-  const choice = useChosenContact(engagementId)
+  const choice = currentContactOf(engagement)
 
   const thread = useMemo(() => [...(attempts ?? [])].sort((a, b) => a.attemptNumber - b.attemptNumber), [attempts])
   const latest = thread.at(-1)
@@ -171,7 +170,8 @@ export default function OutreachWorkspacePage() {
   const meetingSecured = latest?.outcome === 'ACCEPTED' || brief?.outcome === 'ACCEPTED'
   const briefRequested = latest?.nextAction === 'SUBMIT_CAPABILITY_BRIEF' && brief?.outcome !== 'ACCEPTED'
   // Three emails per contact: after that the learner chooses someone else.
-  const toContact = thread.slice(choice?.emailsBefore ?? 0)
+  // Without a chosen contact (an older engagement), every email counts, as before.
+  const toContact = choice ? emailsToContact(thread, choice) : thread
   // Without a chosen contact (an engagement from before Choose contact), the
   // three emails count across the whole engagement, as they did before.
   const exhausted = !meetingSecured && !briefRequested && (choice
@@ -275,7 +275,7 @@ export default function OutreachWorkspacePage() {
 
         <section className={styles.reader} aria-label="Reading pane">
           {/* Who this is going to, and "Change contact" while changing is allowed. */}
-          <ContactLine engagementId={engagementId} attempts={thread} />
+          <ContactLine engagementId={engagementId} contact={choice} attempts={thread} />
           {sendTimedOut && (
             <p className={styles.sending} role="status">The send is taking longer than usual. Checking whether it reached the client…</p>
           )}
