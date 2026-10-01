@@ -67,6 +67,19 @@ public class Persona extends BaseEntity {
         return p;
     }
 
+    /**
+     * A contact without authority. It never talks to the AI, so it only needs what
+     * learners see plus its pre-written replies.
+     */
+    public static Persona createDistractor(Scenario scenario, String name, String jobTitle, String organisation,
+                                           String visibleConcerns, String declineReply, String hintReply) {
+        Persona p = create(scenario, name, jobTitle, organisation, null, visibleConcerns, null, null);
+        p.contactRole = ContactRole.DISTRACTOR;
+        p.declineReply = declineReply;
+        p.hintReply = hintReply;
+        return p;
+    }
+
     public Scenario getScenario() { return scenario; }
     public String getName() { return name; }
     public String getJobTitle() { return jobTitle; }

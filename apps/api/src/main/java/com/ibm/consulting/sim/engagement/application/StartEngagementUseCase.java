@@ -2,6 +2,7 @@ package com.ibm.consulting.sim.engagement.application;
 
 import com.ibm.consulting.sim.engagement.domain.Engagement;
 import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
+import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.lead.domain.EvidenceOrigin;
 import com.ibm.consulting.sim.lead.domain.EvidenceType;
 import com.ibm.consulting.sim.lead.domain.Lead;
@@ -19,6 +20,7 @@ import com.ibm.consulting.sim.shared.domain.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,6 +68,12 @@ public class StartEngagementUseCase {
             throw new ScenarioUnavailableException(scenarioId);
         }
 
+        // Starting a scenario you're already playing continues it instead of starting over.
+        Optional<Engagement> inProgress = inProgressEngagement(userId, scenarioId);
+        if (inProgress.isPresent()) {
+            return EngagementResponse.from(inProgress.get());
+        }
+
         Persona persona = resolveClient(scenario, personaId);
 
         Engagement engagement = Engagement.start(userId, scenarioId, persona.getId(),
@@ -76,6 +84,20 @@ public class StartEngagementUseCase {
         engagementRepository.save(engagement);
         companyProfile.ifPresent(lead -> addStartingEvidence(engagement.getId(), lead));
         return EngagementResponse.from(engagement);
+    }
+
+    /**
+     * The learner's unfinished engagement on this scenario, if any. Completed runs
+     * can be replayed, and a failed meeting has its own retry flow, so neither blocks
+     * a new start.
+     */
+    private Optional<Engagement> inProgressEngagement(UUID userId, UUID scenarioId) {
+        return engagementRepository.findByUserId(userId).stream()
+                .filter(e -> e.getScenarioId().equals(scenarioId))
+                .filter(e -> e.getState() != EngagementState.COMPLETED
+                        && e.getState() != EngagementState.MEETING_FAILED)
+                .max(Comparator.comparing(Engagement::getCreatedAt,
+                        Comparator.nullsFirst(Comparator.naturalOrder())));
     }
 
     /** The decision maker, unless an older client asked for a specific persona. */
@@ -126,6 +148,11 @@ public class StartEngagementUseCase {
                 .orElseThrow(() -> new NotFoundException("Scenario", lead.getScenarioId()));
         if (scenario.getStatus() != ScenarioStatus.ACTIVE) {
             throw new ScenarioUnavailableException(scenario.getId());
+        }
+
+        Optional<Engagement> inProgress = inProgressEngagement(userId, scenario.getId());
+        if (inProgress.isPresent()) {
+            return EngagementResponse.from(inProgress.get());
         }
 
         Persona persona = resolveClient(scenario, personaId);

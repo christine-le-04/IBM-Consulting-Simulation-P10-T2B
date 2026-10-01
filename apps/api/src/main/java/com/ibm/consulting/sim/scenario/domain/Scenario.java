@@ -220,6 +220,16 @@ public class Scenario extends BaseEntity {
         return persona;
     }
 
+    /** Adds a contact without authority, who declines with a pre-written reply. */
+    public Persona addDistractor(String name, String jobTitle, String organisation, String visibleConcerns,
+                                 String declineReply, String hintReply) {
+        assertDraftEditable();
+        Persona persona = Persona.createDistractor(this, name, jobTitle, organisation,
+                visibleConcerns, declineReply, hintReply);
+        this.personas.add(persona);
+        return persona;
+    }
+
     /**
      * Replaces the scenario's competency weighting used by {@code AssessmentEngine}
      * when computing the overall score. Weights must sum to 100; an empty map
