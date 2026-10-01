@@ -38,6 +38,16 @@ public class Engagement extends BaseEntity {
     @Column(name = "retry_of_engagement_id")
     private UUID retryOfEngagementId;
 
+    @Column(nullable = false)
+    private int meetingRetryBaseline;
+
+    public int getMeetingRetryBaseline() { return meetingRetryBaseline; }
+
+    public void returnToMeetingPreparation(int attemptsSoFar) {
+        transitionTo(EngagementState.MEETING_SECURED, "Meeting retries exhausted; revise preparation before trying again");
+        meetingRetryBaseline = attemptsSoFar;
+    }
+
     @OneToMany(mappedBy = "engagement", cascade = CascadeType.ALL, orphanRemoval = true,
             fetch = FetchType.LAZY)
     @OrderBy("occurredAt ASC")
