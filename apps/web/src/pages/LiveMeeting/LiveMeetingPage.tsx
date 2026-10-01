@@ -2,7 +2,7 @@
  * The meeting, as a Teams-style chat with the client.
  *
  * All of the live behaviour is unchanged — the streamed replies over
- * useMeetingSocket, guided options or free text, the automatic close once the
+ * useMeetingSocket, free text, the automatic close once the
  * client is ready, the debrief, retries and the termination dialog.
  *
  * The trust / interest / patience meters are gone (SRS FR-14: no numbers
@@ -11,10 +11,10 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, InlineLoading, InlineNotification, Modal, Tag } from '@carbon/react'
+import { Button, InlineNotification, Modal, Tag } from '@carbon/react'
 import { ArrowRight, Idea, Information, Send } from '@carbon/icons-react'
 import { useEngagement, useRetryEngagement } from '@/api/hooks/useEngagements'
-import { useMeeting, useMeetingPreparation, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting, useReturnToPreparation } from '@/api/hooks/useMeeting'
+import { useMeeting, useMeetingPreparation, useMeetingTranscript, usePersonaState, useRetryMeeting, useReturnToPreparation } from '@/api/hooks/useMeeting'
 import { useMeetingSocket } from '@/api/hooks/useMeetingSocket'
 import { useScenario } from '@/api/hooks/useScenarios'
 import type { ConversationTurn, MeetingBehaviourFeedback, MeetingTermination, PersonaState } from '@/api/types'
@@ -30,7 +30,7 @@ const LIVE_MEETING_OBJECTIVES = [
   {
     id: 'meeting-options',
     objective: 'The conversation',
-    description: 'This is the meeting. Depending on the difficulty you pick a suggested reply or write your own, and the client answers in real time.',
+    description: 'This is the meeting. Write your own response, and the client answers in real time.',
     targets: ['.objective-meeting-view'],
   },
   {
@@ -96,15 +96,11 @@ export default function LiveMeetingPage() {
   const { data: meeting, isLoading: meetingLoading, isError: meetingError } = useMeeting(meetingId)
   const { data: transcript, isLoading: transcriptLoading } = useMeetingTranscript(meetingId)
   const { data: persistedPersonaState, isLoading: personaStateLoading } = usePersonaState(meetingId)
-  const { data: responseOptions, isLoading: responseOptionsLoading, isError: responseOptionsError, refetch: refetchResponseOptions } = useMeetingResponseOptions(
-    meetingId,
-    meeting?.status === 'IN_PROGRESS' && meeting.interactionMode !== 'FREEFORM',
-  )
   const { data: preparation } = useMeetingPreparation(engagementId)
   const { data: engagement } = useEngagement(engagementId)
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
   const retryMeeting = useRetryMeeting(meetingId, engagementId)
-  const { streamingText, isStreaming, error, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
+  const { streamingText, isStreaming, error, personaState, latestSignals, termination, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
   const retryEngagement = useRetryEngagement(engagementId)
   const returnToPreparation = useReturnToPreparation(meetingId, engagementId)
   const [message, setMessage] = useState('')
@@ -167,7 +163,6 @@ export default function LiveMeetingPage() {
   if (meetingError || !meeting) return <ErrorState />
   if (!currentState) return <ErrorState />
 
-  const isFreeformMeeting = meeting.interactionMode === 'FREEFORM'
   const debriefTips = meeting.debriefTips ?? []
   const automaticTermination = termination ?? toTermination(
     meeting.terminationReason,
@@ -226,8 +221,6 @@ export default function LiveMeetingPage() {
     </div>
   )
 
-  const guidedChoicesShown = !isFreeformMeeting && (responseOptionsLoading || responseOptionsError || responseOptions?.interactionMode === 'GUIDED')
-
   return (
     <ObjectiveTourProvider tourId="live-meeting" objectives={LIVE_MEETING_OBJECTIVES}>
       <div className={styles.teams}>
@@ -240,9 +233,8 @@ export default function LiveMeetingPage() {
               <strong>{clientName}</strong>
               <span>{[persona?.jobTitle, persona?.organisation ?? engagement?.leadCompanyName].filter(Boolean).join(' · ')}</span>
             </div>
-            {/* Hard mode is free text; every other difficulty picks from suggested replies. */}
-            <Tag type={isFreeformMeeting ? 'purple' : 'blue'} size="sm" title={isFreeformMeeting ? 'Hard mode · respond in your own words' : 'Pick from suggested replies'}>
-              {isFreeformMeeting ? 'Free text' : 'Guided'}
+            <Tag type="purple" size="sm" title="Respond in your own words">
+              Free text
             </Tag>
             {!isCompleted && hint.length > 0 && (
               <div className={`${styles.hintWrap} objective-hints`}>
@@ -312,53 +304,26 @@ export default function LiveMeetingPage() {
                 <p className={styles.closeBanner}><strong>{clientName} is ready to wrap up.</strong> Confirm one concrete next step — the meeting closes after their reply.</p>
               )}
 
-              {guidedChoicesShown && (
-                <div className={styles.suggestions} aria-label="Suggested replies">
-                  <p>Suggested replies · not every professional-sounding answer moves things forward</p>
-                  {responseOptionsLoading && <InlineLoading description="Preparing response options…" />}
-                  {guidedOptionsPending && !isStreaming && <InlineLoading description="Preparing next response options…" />}
-                  {!isStreaming && !guidedOptionsPending && !responseOptionsLoading && responseOptions?.available && responseOptions.options.map((option, index) => (
-                    <button key={`${responseOptions.sourceSequence}-${index}`} type="button" disabled={isStreaming} onClick={() => void sendResponse(option)}>{option}</button>
-                  ))}
-                  {!isStreaming && !guidedOptionsPending && !responseOptionsLoading && (!responseOptions?.available || responseOptionsError) && (
-                    <div className={styles.unavailable}>
-                      <InlineNotification
-                        kind="warning"
-                        lowContrast
-                        hideCloseButton
-                        title="Response choices couldn't be generated"
-                        subtitle={guidedOptionsError ?? responseOptions?.unavailableReason ?? 'Your previous response is saved. Try again to generate the response choices.'}
-                      />
-                      <Button kind="tertiary" size="sm" onClick={() => void refetchResponseOptions()}>Try again</Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {isFreeformMeeting && (
-                <>
-                  <div className={styles.composeBox}>
-                    <textarea
-                      value={message}
-                      disabled={isStreaming}
-                      rows={2}
-                      onChange={(event) => setMessage(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                          event.preventDefault()
-                          void sendResponse(message.trim())
-                        }
-                      }}
-                      placeholder={readyToClose ? 'Confirm the next step, owner and timing…' : 'Type a message'}
-                      aria-label={`Message ${clientName}`}
-                    />
-                    <button type="button" className={styles.send} disabled={isStreaming || !message.trim()} onClick={() => void sendResponse(message.trim())} aria-label="Send">
-                      <Send size={20} />
-                    </button>
-                  </div>
-                  <p className={styles.composeHelp}>Enter to send · Shift + Enter for a new line</p>
-                </>
-              )}
+              <div className={styles.composeBox}>
+                <textarea
+                  value={message}
+                  disabled={isStreaming}
+                  rows={2}
+                  onChange={(event) => setMessage(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault()
+                      void sendResponse(message.trim())
+                    }
+                  }}
+                  placeholder={readyToClose ? 'Confirm the next step, owner and timing…' : 'Type a message'}
+                  aria-label={`Message ${clientName}`}
+                />
+                <button type="button" className={styles.send} disabled={isStreaming || !message.trim()} onClick={() => void sendResponse(message.trim())} aria-label="Send">
+                  <Send size={20} />
+                </button>
+              </div>
+              <p className={styles.composeHelp}>Enter to send · Shift + Enter for a new line</p>
             </footer>
           )}
         </div>
