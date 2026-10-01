@@ -16,6 +16,9 @@ import com.ibm.consulting.sim.outreach.domain.OutreachOutcome;
 import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
+import com.ibm.consulting.sim.scenario.domain.Persona;
+import com.ibm.consulting.sim.scenario.domain.Scenario;
+import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -120,13 +123,138 @@ class OutreachServiceTest {
         verifyNoInteractions(fixture.ai());
     }
 
+    // ─── Choose contact ────────────────────────────────────────────────────────
+
+    /** Scores low enough that the decision maker asks for a follow-up rather than meeting. */
+    private static final OutreachEvaluationResult WEAK_EMAIL =
+            new OutreachEvaluationResult("Not right now, thanks.", "FOLLOW_UP_REQUIRED", 0, 0, 0, 0, 0, 0);
+    private static final OutreachEvaluationResult PERFECT_EMAIL =
+            new OutreachEvaluationResult("Happy to meet next week.", "ACCEPTED", 100, 100, 100, 100, 0, 0);
+
+    private OutreachResponse send(Fixture fixture) {
+        return fixture.service().send(fixture.engagement().getId(), fixture.userId(), VALID_SUBJECT, VALID_BODY);
+    }
+
+    @Test
+    void sendingWithoutAChosenContactIsRejectedBeforeAnyScoring() {
+        Fixture fixture = fixture(PERFECT_EMAIL, false);
+
+        assertThatThrownBy(() -> send(fixture)).isInstanceOf(OutreachService.ContactNotChosenException.class);
+
+        assertThat(fixture.attempts().findByEngagementId(fixture.engagement().getId())).isEmpty();
+        verifyNoInteractions(fixture.ai());
+    }
+
+    @Test
+    void aDistractorAlwaysDeclinesWithItsPreWrittenReplyEvenForAPerfectEmail() {
+        Fixture fixture = fixture(PERFECT_EMAIL);
+        fixture.engagement().chooseContact(fixture.distractor().getId());
+
+        OutreachResponse response = send(fixture);
+
+        assertThat(response.outcome()).isEqualTo("REJECTED");
+        assertThat(response.clientReply()).isEqualTo(DISTRACTOR_HINT);
+        assertThat(response.personaId()).isEqualTo(fixture.distractor().getId());
+        assertThat(fixture.engagement().getState()).isEqualTo(EngagementState.OUTREACHING);
+    }
+
+    @Test
+    void emailsToADistractorAreStillScoredSoScoresNeverRevealTheDecisionMaker() {
+        Fixture fixture = fixture(PERFECT_EMAIL);
+        fixture.engagement().chooseContact(fixture.distractor().getId());
+
+        OutreachResponse response = send(fixture);
+
+        verify(fixture.ai(), times(1)).execute(eq("outreach_evaluation"),
+                eq(fixture.engagement().getId()), anyString(), anyInt(), any(), any());
+        assertThat(response.scorePersonalisation()).isNotNull();
+        assertThat(response.scoreClarity()).isNotNull();
+    }
+
+    @Test
+    void theEmailLimitIsPerContact() {
+        Fixture fixture = fixture(WEAK_EMAIL);
+        fixture.engagement().chooseContact(fixture.distractor().getId());
+        send(fixture);
+        send(fixture);
+        send(fixture);
+
+        assertThatThrownBy(() -> send(fixture)).isInstanceOf(OutreachService.MaxOutreachAttemptsException.class);
+
+        fixture.engagement().chooseContact(fixture.decisionMaker().getId());
+        OutreachResponse fourth = send(fixture);
+        assertThat(fourth.attemptNumber()).isEqualTo(4);
+        assertThat(fourth.personaId()).isEqualTo(fixture.decisionMaker().getId());
+    }
+
+    @Test
+    void theContactWhoAcceptsBecomesTheMeetingClient() {
+        Fixture fixture = fixture(PERFECT_EMAIL);
+
+        send(fixture);
+
+        assertThat(fixture.engagement().getState()).isEqualTo(EngagementState.MEETING_SECURED);
+        assertThat(fixture.engagement().getPersonaId()).isEqualTo(fixture.decisionMaker().getId());
+    }
+
+    @Test
+    void whenEveryContactHasFailedTheLearnerGoesBackToResearchForANewRound() {
+        Fixture fixture = fixture(WEAK_EMAIL);
+        fixture.engagement().chooseContact(fixture.distractor().getId());
+        send(fixture);
+        send(fixture);
+        send(fixture);
+        assertThat(fixture.engagement().getState()).isEqualTo(EngagementState.OUTREACHING);
+
+        fixture.engagement().chooseContact(fixture.decisionMaker().getId());
+        send(fixture);
+        send(fixture);
+        send(fixture);
+
+        assertThat(fixture.engagement().getState()).isEqualTo(EngagementState.HYPOTHESIS_READY);
+        assertThat(fixture.engagement().getOutreachRound()).isEqualTo(2);
+        assertThat(fixture.engagement().getContactPersonaId()).isNull();
+    }
+
+    @Test
+    void aNewRoundGivesEveryContactFreshEmails() {
+        Fixture fixture = fixture(WEAK_EMAIL);
+        for (var contact : List.of(fixture.distractor(), fixture.decisionMaker())) {
+            fixture.engagement().chooseContact(contact.getId());
+            send(fixture);
+            send(fixture);
+            send(fixture);
+        }
+
+        fixture.engagement().chooseContact(fixture.distractor().getId());
+        OutreachResponse firstOfRoundTwo = send(fixture);
+
+        assertThat(firstOfRoundTwo.outreachRound()).isEqualTo(2);
+        assertThat(firstOfRoundTwo.attemptNumber()).isEqualTo(7);
+    }
+
     private Fixture fixture(OutreachEvaluationResult evaluation) {
+        return fixture(evaluation, true);
+    }
+
+    private Fixture fixture(OutreachEvaluationResult evaluation, boolean chooseDecisionMaker) {
         UUID userId = UUID.randomUUID();
         Lead lead = Lead.create(UUID.randomUUID(), "Example Co", "Technology",
                 "Distribution modernisation", LeadDifficulty.MEDIUM);
         Engagement engagement = Engagement.start(userId, lead.getScenarioId(), UUID.randomUUID());
         engagement.selectLead(lead.getId());
         engagement.transitionTo(EngagementState.HYPOTHESIS_READY, "Research ready");
+        Persona decisionMaker = Persona.create(null, "John Doe", "CEO", "Example Co",
+                "Direct", "Distribution modernisation", "Hidden", "Goals");
+        Persona distractor = Persona.createDistractor(null, "Jane Roe", "Office Manager", "Example Co",
+                "Office supplies", "Not my area, sorry.", DISTRACTOR_HINT);
+        if (chooseDecisionMaker) {
+            engagement.chooseContact(decisionMaker.getId());
+        }
+        Scenario scenario = mock(Scenario.class);
+        when(scenario.getPersonas()).thenReturn(List.of(distractor, decisionMaker));
+        ScenarioRepository scenarios = mock(ScenarioRepository.class);
+        when(scenarios.findById(engagement.getScenarioId())).thenReturn(Optional.of(scenario));
         EngagementRepository engagements = mock(EngagementRepository.class);
         when(engagements.findByIdAndUserIdForUpdate(engagement.getId(), userId))
                 .thenReturn(Optional.of(engagement));
@@ -143,8 +271,8 @@ class OutreachServiceTest {
                 .thenReturn(evaluation);
         InMemoryOutreachRepository attempts = new InMemoryOutreachRepository();
         OutreachService service = new OutreachService(attempts, engagements, ai, new ObjectMapper(),
-                difficulty, leads, evidence);
-        return new Fixture(userId, engagement, service, attempts, engagements, ai);
+                difficulty, leads, evidence, scenarios);
+        return new Fixture(userId, engagement, service, attempts, engagements, ai, decisionMaker, distractor);
     }
 
     private ResearchEvidence mockEvidence(String note) {
@@ -153,9 +281,11 @@ class OutreachServiceTest {
         return evidence;
     }
 
+    private static final String DISTRACTOR_HINT = "Thanks, but John Doe makes these decisions.";
+
     private record Fixture(UUID userId, Engagement engagement, OutreachService service,
                            InMemoryOutreachRepository attempts, EngagementRepository engagements,
-                           AiOrchestrationService ai) {}
+                           AiOrchestrationService ai, Persona decisionMaker, Persona distractor) {}
 
     private static final class InMemoryOutreachRepository implements OutreachRepository {
         private final List<OutreachAttempt> attempts = new ArrayList<>();
