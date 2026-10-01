@@ -238,7 +238,7 @@ export default function CommandCentrePage() {
   const beginEngagement = (scenario: ScenarioSummary, personaId?: string) => {
     startEngagement.mutate(
       { scenarioId: scenario.id, personaId, scenario },
-      { onSuccess: ({ engagement }) => navigate(`/dashboard/engagements/${engagement.id}/leads`) },
+      { onSuccess: ({ engagement }) => navigate(`/dashboard/engagements/${engagement.id}/intelligence`) },
     )
   }
 

@@ -14,13 +14,13 @@ import { getChosenContact } from '@/store/contactSelectionStore'
 export function resolveEngagementRoute(engagement: Engagement): string {
   const base = `/dashboard/engagements/${engagement.id}`
   if (engagement.state === 'MEETING_FAILED') {
-    return engagement.meetingId ? `${base}/meetings/${engagement.meetingId}` : `${base}/leads`
+    return engagement.meetingId ? `${base}/meetings/${engagement.meetingId}` : `${base}/intelligence`
   }
 
 
   switch (engagement.phase) {
     case 'LEAD':
-      return `${base}/leads`
+      return `${base}/intelligence`
     case 'CLIENT_INTELLIGENCE':
       // Research finished (HYPOTHESIS_READY): choose a contact, then write.
       if (engagement.state === 'HYPOTHESIS_READY') {
@@ -48,7 +48,7 @@ export function resolveEngagementRoute(engagement: Engagement): string {
     case 'COMPLETED':
       return `${base}/assessment`
     default:
-      return `${base}/leads`
+      return `${base}/intelligence`
   }
 }
 
@@ -63,7 +63,7 @@ export function phaseRoute(engagement: Engagement, phase: EngagementPhase): stri
   const base = `/dashboard/engagements/${engagement.id}`
   switch (phase) {
     case 'LEAD':
-      return `${base}/leads`
+      return `${base}/intelligence`
     case 'CLIENT_INTELLIGENCE':
       return `${base}/intelligence`
     case 'OUTREACH':

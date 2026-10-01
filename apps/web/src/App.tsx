@@ -13,7 +13,6 @@ const VerifyEmailPage = lazy(() => import('@/pages/Auth/VerifyEmailPage'))
 const ForgotPasswordPage = lazy(() => import('@/pages/Auth/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/pages/Auth/ResetPasswordPage'))
 const CommandCentrePage = lazy(() => import('@/pages/CommandCentre/CommandCentrePage'))
-const LeadPipelinePage = lazy(() => import('@/pages/LeadPipeline/LeadPipelinePage'))
 const ChooseContactPage = lazy(() => import('@/pages/ChooseContact/ChooseContactPage'))
 const ClientIntelligencePage = lazy(() => import('@/pages/ClientIntelligence/ClientIntelligencePage'))
 const OutreachWorkspacePage = lazy(() => import('@/pages/OutreachWorkspace/OutreachWorkspacePage'))
@@ -97,7 +96,6 @@ export default function App() {
           }
         >
           <Route index element={<CommandCentrePage />} />
-          <Route path="engagements/:engagementId/leads" element={<LeadPipelinePage />} />
           <Route path="engagements/:engagementId/intelligence" element={<ClientIntelligencePage />} />
           <Route path="engagements/:engagementId/contact" element={<ChooseContactPage />} />
           <Route path="engagements/:engagementId/outreach"element={<RequireContact><OutreachWorkspacePage /></RequireContact>}/>

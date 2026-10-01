@@ -298,6 +298,10 @@ public class ScenarioService {
     public LeadSummary createLead(UUID scenarioId, LeadAuthoringRequest request) {
         Scenario scenario = findScenario(scenarioId);
         assertDraft(scenario);
+        // One company profile per scenario: edit the existing one instead of adding another.
+        if (!leadRepository.findByScenarioId(scenarioId).isEmpty()) {
+            throw new CompanyProfileExistsException(scenarioId);
+        }
         Lead lead = Lead.create(scenarioId, request.companyName(), request.industry(), request.publicDescription(), request.difficulty());
         configureLead(lead, request);
         return LeadSummary.from(leadRepository.save(lead));
@@ -364,7 +368,7 @@ public class ScenarioService {
         List<Lead> authoredLeads = leadRepository.findByScenarioId(scenario.getId());
         int leads = authoredLeads.size();
         if (personas == 0) blockers.add("Add at least one client persona.");
-        if (leads == 0) blockers.add("Add at least one lead definition.");
+        if (leads == 0) blockers.add("Add the company profile.");
         else if (authoredLeads.stream().anyMatch(ScenarioService::isLeadIncomplete)) {
             blockers.add("Complete every lead's description, intelligence fields, and visible signals.");
         }
@@ -414,5 +418,11 @@ public class ScenarioService {
 
     private String firstProvided(String candidate, String fallback) {
         return candidate == null || candidate.isBlank() ? fallback : candidate;
+    }
+
+    public static class CompanyProfileExistsException extends com.ibm.consulting.sim.shared.domain.DomainException {
+        public CompanyProfileExistsException(UUID scenarioId) {
+            super("Scenario " + scenarioId + " already has a company profile. Edit it instead of adding another.");
+        }
     }
 }

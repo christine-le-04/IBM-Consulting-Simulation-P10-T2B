@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/api/client'
-import type { Engagement, LeadSummary, ScenarioSummary } from '@/api/types'
+import type { Engagement, ScenarioSummary } from '@/api/types'
 
 export const engagementKeys = {
   all: ['engagements'] as const,
@@ -42,13 +42,6 @@ export function useStartEngagement() {
     },
     onSuccess: ({ engagement, scenario }) => {
       cacheStartedEngagement(qc, engagement, scenario)
-      if (scenario) {
-        void qc.prefetchQuery({
-          queryKey: ['leads', scenario.id],
-          queryFn: async () => (await apiClient.get<LeadSummary[]>(`/api/v1/scenarios/${scenario.id}/leads`)).data,
-          staleTime: 10 * 60_000,
-        })
-      }
     },
   })
 }

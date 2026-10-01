@@ -2,11 +2,7 @@ package com.ibm.consulting.sim.lead.api;
 
 import com.ibm.consulting.sim.identity.domain.User;
 import com.ibm.consulting.sim.lead.application.LeadIntelligenceSummary;
-import com.ibm.consulting.sim.lead.application.LeadCatalogResponse;
 import com.ibm.consulting.sim.lead.application.LeadService;
-import com.ibm.consulting.sim.lead.application.LeadSummary;
-import com.ibm.consulting.sim.lead.domain.LeadCatalogQuery;
-import com.ibm.consulting.sim.lead.domain.LeadDifficulty;
 import com.ibm.consulting.sim.lead.application.ResearchArtifactResponse;
 import com.ibm.consulting.sim.lead.application.ResearchEvidenceSummary;
 import com.ibm.consulting.sim.lead.application.ResearchGateStatus;
@@ -45,7 +41,6 @@ public class LeadController {
         this.researchIntelligenceService = researchIntelligenceService;
     }
 
-    record SelectLeadRequest(@NotNull UUID leadId) {}
 
     record SaveResearchRequest(
             @NotBlank String note,
@@ -74,34 +69,9 @@ public class LeadController {
 
     record AnalyzeUserContextRequest(@NotBlank @Size(max = 4000) String context) {}
 
-    @GetMapping("/scenarios/{scenarioId}/leads")
-    List<LeadSummary> listLeads(@PathVariable UUID scenarioId) {
-        return leadService.listForScenario(scenarioId);
-    }
-
-    /** Additive catalogue endpoint. The legacy per-scenario list remains for the existing lead pipeline. */
-    @GetMapping("/lead-catalog")
-    LeadCatalogResponse listCatalog(@RequestParam(name = "scenarioId", required = false) UUID scenarioId,
-                                    @RequestParam(name = "search", required = false) String search,
-                                    @RequestParam(name = "industry", required = false) String industry,
-                                    @RequestParam(name = "difficulty", required = false) LeadDifficulty difficulty,
-                                    @RequestParam(name = "page", defaultValue = "0") int page,
-                                    @RequestParam(name = "size", defaultValue = "12") int size) {
-        return leadService.listCatalog(new LeadCatalogQuery(scenarioId, search, industry, difficulty, page, size));
-    }
-
-    @GetMapping("/lead-catalog/industries")
-    List<String> listCatalogIndustries() {
-        return leadService.catalogIndustries();
-    }
-
-    @PostMapping("/engagements/{engagementId}/lead-selection")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    void selectLead(@PathVariable UUID engagementId,
-                    @Valid @RequestBody SelectLeadRequest req,
-                    @AuthenticationPrincipal User user) {
-        leadService.selectLead(engagementId, req.leadId(), user.getId());
-    }
+    // "Choose a lead" was removed: each scenario has one company profile, opened
+    // automatically when the engagement starts. The lead list, lead catalogue and
+    // lead selection endpoints no longer exist.
 
     @PostMapping("/engagements/{engagementId}/research")
     @ResponseStatus(HttpStatus.CREATED)
