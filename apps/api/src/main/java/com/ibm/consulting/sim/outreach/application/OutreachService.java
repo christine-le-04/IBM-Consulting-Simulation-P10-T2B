@@ -1,7 +1,19 @@
 package com.ibm.consulting.sim.outreach.application;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.ai.application.AiOrchestrationService;
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
 import com.ibm.consulting.sim.ai.domain.OutreachEvaluationResult;
 import com.ibm.consulting.sim.ai.infrastructure.OutreachEvaluationParser;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
@@ -12,12 +24,12 @@ import com.ibm.consulting.sim.lead.domain.LeadRepository;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.outreach.domain.ContactAttemptPolicy;
 import com.ibm.consulting.sim.outreach.domain.OutreachAttempt;
-import com.ibm.consulting.sim.outreach.domain.OutreachOutcome;
-import com.ibm.consulting.sim.outreach.domain.OutreachNextAction;
-import com.ibm.consulting.sim.outreach.domain.OutreachRequestPolicy;
-import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
-import com.ibm.consulting.sim.outreach.domain.OutreachOutcomePolicy;
 import com.ibm.consulting.sim.outreach.domain.OutreachContentPolicy;
+import com.ibm.consulting.sim.outreach.domain.OutreachNextAction;
+import com.ibm.consulting.sim.outreach.domain.OutreachOutcome;
+import com.ibm.consulting.sim.outreach.domain.OutreachOutcomePolicy;
+import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
+import com.ibm.consulting.sim.outreach.domain.OutreachRequestPolicy;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.scenario.domain.Persona;
@@ -25,16 +37,6 @@ import com.ibm.consulting.sim.scenario.domain.Scenario;
 import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
 import com.ibm.consulting.sim.shared.domain.DomainException;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 public class OutreachService {
@@ -152,7 +154,7 @@ public class OutreachService {
                 buildPrompt(subject, body, profile, lead, evidenceNotes),
                 PROMPT_VERSION,
                 parser,
-                OutreachEvaluationResult::safeFallback);
+                () -> { throw new AiProviderException("Client reply unavailable; no attempt was consumed"); });
         evaluation = OutreachContentPolicy.apply(evaluation, subject, body, lead.getCompanyName(),
                 lead.getDecisionMaker(), evidenceNotes);
 

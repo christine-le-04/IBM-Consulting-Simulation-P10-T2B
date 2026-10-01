@@ -33,7 +33,7 @@ export const meetingSocketContract = {
 } as const
 
 export function toWebSocketUrl(baseUrl: string, origin = window.location.origin): string {
-  const url = new URL(meetingSocketContract.endpointPath, baseUrl || origin)
+  const url = new URL(meetingSocketContract.endpointPath, new URL(baseUrl || origin, origin))
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   return url.toString()
 }
@@ -101,7 +101,9 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     })
 
     client.onConnect = () => {
+      if (disposed) return
       connectedRef.current = true
+      setError(null)
       client.subscribe(meetingSocketContract.topic(meetingId), (frame: IMessage) => {
         if (disposed) return
         const event = JSON.parse(frame.body) as SocketEvent
@@ -181,6 +183,18 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     }
     client.onWebSocketClose = () => {
       connectedRef.current = false
+      if (disposed) return
+      const message = 'The live meeting connection was lost. Reconnecting automatically; wait for the connection before sending again.'
+      setError(message)
+      setIsStreaming(false)
+      sendingRef.current = false
+      pendingResolversRef.current?.reject(new Error(message))
+      pendingResolversRef.current = null
+    }
+
+    client.onWebSocketError = () => {
+      if (disposed) return
+      setError('Unable to connect to the live meeting channel. Check that the API is running and /ws is routed to it. Reconnecting automatically.')
     }
 
     client.activate()

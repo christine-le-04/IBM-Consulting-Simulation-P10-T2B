@@ -334,6 +334,12 @@
   gap: 1rem;
 }
 
+.hypothesisNotification {
+  :global(.cds--inline-notification__subtitle) {
+    white-space: pre-line;
+  }
+}
+
 .readinessBox {
   border: 1px solid var(--sim-line);
   background: #f4f4f4;

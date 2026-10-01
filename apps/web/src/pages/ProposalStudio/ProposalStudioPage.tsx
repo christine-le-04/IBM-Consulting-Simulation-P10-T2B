@@ -149,7 +149,6 @@ export default function ProposalStudioPage() {
   const visibleSources = sources.slice(sourcePage * SOURCES_PER_PAGE, (sourcePage + 1) * SOURCES_PER_PAGE)
   const activeLabel = proposalSections.find((section) => section.id === activeSection)?.label
   const sectionLinks = draft.evidenceLinks.filter((link) => link.section === activeSection).map((link) => link.sourceId)
-  const grounded = new Set(draft.evidenceLinks.map((link) => link.section)).size
   const contact = scenario?.personas.find((persona) => persona.id === engagement?.personaId)
 
   const isReviewing = studio.reviewProposal.isPending
@@ -163,15 +162,16 @@ export default function ProposalStudioPage() {
     setSourcePage((current) => Math.min(current, sourcePageCount - 1))
   }, [sourcePageCount])
 
-  const written = filled(draft.problemStatement) && filled(draft.solutionStrategy)
-    && draft.businessOutcomes.every((row) => filled(row.outcome) && filled(row.metric)) && draft.budget > 0
-    && draft.timelineWeeks > 0 && draft.milestones.every((row) => filled(row.phase))
-    && draft.risks.every((row) => filled(row.risk)) && draft.assumptions.some(filled)
+  const problemReady = draft.problemStatement.trim().length >= 20
+  const solutionReady = draft.solutionStrategy.trim().length >= 20 && draft.components.some((component) => filled(component))
+  const outcomeReady = draft.businessOutcomes.some((outcome) => filled(outcome.outcome) || filled(outcome.metric) || filled(outcome.target),)
+  const evidenceReady = draft.evidenceLinks.length > 0
   const checklist = [
-    { label: 'Every section is written', done: written },
-    { label: 'Every section cites evidence', done: grounded === proposalSections.length },
-    { label: 'Every risk has a mitigation', done: draft.risks.every((row) => filled(row.mitigation)) },
-    { label: 'You have run a proposal review', done: Boolean(studio.review) },
+    { label: 'Problem statement is at least 20 characters', done: problemReady },
+    { label: 'Solution is at least 20 characters with a component', done: solutionReady },
+    { label: 'At least one business outcome or KPI is added', done: outcomeReady },
+    { label: 'At least one evidence source is attached', done: evidenceReady },
+    { label: studio.reviewIsStale ? 'Review needs to be rerun after changes' : 'You have run a proposal review', done: Boolean(studio.review) && !studio.reviewIsStale },
   ]
 
   const readOnly = studio.submitted
@@ -263,9 +263,21 @@ export default function ProposalStudioPage() {
             <InlineNotification kind="error" lowContrast title="Proposal could not be saved or submitted" subtitle={proposalProblem.detail} hideCloseButton />
             {proposalProblem.violations && (
               <ul aria-label="Proposal validation errors">
-                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{field}</strong>: {message}</li>)}
+                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{field.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}</strong>: {message}</li>)}
               </ul>
             )}
+          </div>
+        )}
+
+        {studio.reviewProposal.isError && (
+          <div className={styles.problem}>
+            <InlineNotification kind="error" lowContrast title="Review failed" subtitle="Your draft is saved. Retry the review." hideCloseButton />
+          </div>
+        )}
+
+        {studio.challengeProposal.isError && (
+          <div className={styles.problem}>
+            <InlineNotification kind="error" lowContrast title="Challenge failed" subtitle="Your draft is saved. Retry the challenge." hideCloseButton />
           </div>
         )}
 
@@ -285,7 +297,7 @@ export default function ProposalStudioPage() {
               <p className={styles.outlineTitle}>{readOnly ? 'What you submitted' : 'Before you submit'}</p>
               {/* Whether a review was run is not stored with the proposal, so
                   once it is submitted that line cannot be answered honestly. */}
-              <ReadinessList items={readOnly ? checklist.slice(0, 3) : checklist} />
+              <ReadinessList items={readOnly ? checklist.slice(0, 4) : checklist} />
             </section>
           </nav>
 
@@ -302,10 +314,10 @@ export default function ProposalStudioPage() {
                   <h1>1. Proposal foundation</h1>
                   <p className={styles.guide}>State the client problem, then make the recommendation logic clear.</p>
                   <h2>Problem framing</h2>
-                  <p className={styles.fieldHelp}>Describe the observed operational, commercial or risk impact.</p>
+                  <p className={styles.fieldHelp}>Describe the observed operational, commercial or risk impact. Minimum 20 characters.</p>
                   <textarea className={styles.prose} aria-label="Problem statement" readOnly={readOnly} value={draft.problemStatement} onChange={(event) => updateDraft((current) => ({ ...current, problemStatement: event.target.value }))} />
                   <h2>Recommended solution</h2>
-                  <p className={styles.fieldHelp}>Explain how the recommendation addresses the client problem.</p>
+                  <p className={styles.fieldHelp}>Explain how the recommendation addresses the client problem. Minimum 20 characters, plus at least one solution component.</p>
                   <textarea className={styles.prose} aria-label="Recommended solution" readOnly={readOnly} value={draft.solutionStrategy} onChange={(event) => updateDraft((current) => ({ ...current, solutionStrategy: event.target.value }))} />
                   <h2>Solution components</h2>
                   <Bullets readOnly={readOnly} items={draft.components} label="Solution component" placeholder="e.g. Integration pilot and workflow redesign" onChange={(components) => updateDraft((current) => ({ ...current, components }))} />
@@ -317,6 +329,7 @@ export default function ProposalStudioPage() {
                   <h1>2. Value and commercial logic</h1>
                   <p className={styles.guide}>Make the outcome measurable and distinguish consultant estimates from confirmed client facts.</p>
                   <h2>Expected business outcomes and KPIs</h2>
+                  <p className={styles.fieldHelp}>Add at least one measurable business outcome or KPI.</p>
                   <Table
                     readOnly={readOnly}
                     columns={[['outcome', 'Business outcome'], ['metric', 'Metric'], ['target', 'Target']]}
@@ -383,7 +396,7 @@ export default function ProposalStudioPage() {
                         </li>
                       ))}
                     </ul>
-                  ) : <p className={styles.fieldHelp}>No sources attached yet. Select a source from the evidence library for each section.</p>}
+                  ) : <p className={styles.fieldHelp}>No sources attached yet. Attach at least one source to the proposal. Additional evidence coverage may be required by scenario difficulty.</p>}
                 </>
               )}
 
@@ -460,7 +473,13 @@ export default function ProposalStudioPage() {
                     <p>{studio.challengeProposal.data.concerns[0]}</p>
                   </div>
                 )}
-                {studio.review && <ReviewComment review={studio.review} />}
+                {studio.reviewIsStale && studio.review && (
+                  <div className={styles.comment}>
+                    <p className={styles.commentWho}>Review needs to be rerun</p>
+                    <p>This review describes an earlier draft. Run it again to review your changes.</p>
+                  </div>
+                )}
+                {studio.review && !studio.reviewIsStale && <ReviewComment review={studio.review} />}
                 {!studio.review && !isReviewing && !studio.challengeProposal.data && (
                   <div className={styles.comment}>
                     <p className={styles.commentWho}>Next best action</p>
