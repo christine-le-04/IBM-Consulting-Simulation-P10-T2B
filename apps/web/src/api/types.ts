@@ -182,6 +182,17 @@ export interface LeadIntelligence {
   technologyStack: IntelligenceField
   budgetSignal: IntelligenceField
   painSeverity: IntelligenceField
+  /** Company size and financial summary, shown from the start. Research explains the why. */
+  companyFacts?: CompanyFact[]
+}
+
+/** One line of the company profile, e.g. "Operating margin · 2.1% (was 4.4%)". */
+export interface CompanyFact {
+  section: 'SIZE' | 'FINANCIAL'
+  label: string
+  value: string
+  /** WARNING shows amber, ALERT shows red. */
+  tone: 'NORMAL' | 'WARNING' | 'ALERT'
 }
 
 // ─── Research Evidence ────────────────────────────────────────────────────────
