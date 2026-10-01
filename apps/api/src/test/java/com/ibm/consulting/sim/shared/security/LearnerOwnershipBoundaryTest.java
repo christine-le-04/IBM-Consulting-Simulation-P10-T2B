@@ -31,6 +31,7 @@ import com.ibm.consulting.sim.shared.domain.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.ApplicationEventPublisher;
+import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -96,7 +97,7 @@ class LearnerOwnershipBoundaryTest {
         LeadRepository leads = mock(LeadRepository.class);
         ResearchEvidenceRepository evidence = mock(ResearchEvidenceRepository.class);
         OutreachService service = new OutreachService(outreach, engagements, ai, new ObjectMapper(),
-                mock(DifficultyProfileService.class), leads, evidence);
+                mock(DifficultyProfileService.class), leads, evidence, mock(ScenarioRepository.class));
         UUID engagementId = UUID.randomUUID();
         UUID otherUserId = UUID.randomUUID();
 

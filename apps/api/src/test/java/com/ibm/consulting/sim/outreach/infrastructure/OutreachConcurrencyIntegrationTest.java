@@ -23,6 +23,8 @@ import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.scenario.domain.Persona;
 import com.ibm.consulting.sim.scenario.domain.Scenario;
+import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.Test;
@@ -157,8 +159,16 @@ class OutreachConcurrencyIntegrationTest {
         when(leads.findById(data.lead().getId())).thenReturn(Optional.of(data.lead()));
         ResearchEvidenceRepository evidence = mock(ResearchEvidenceRepository.class);
         when(evidence.findByEngagementId(data.engagementId())).thenReturn(List.of());
+
+        // Choose contact: OutreachService looks the chosen contact up in the scenario's personas.
+        // The engagement's only persona is the contact, and it is the decision maker.
+        Scenario scenario = mock(Scenario.class);
+        when(scenario.getPersonas()).thenReturn(List.of(data.contact()));
+        ScenarioRepository scenarios = mock(ScenarioRepository.class);
+        when(scenarios.findById(any())).thenReturn(Optional.of(scenario));
+
         return new OutreachService(attempts, new EntityManagerEngagementRepository(entityManager), ai,
-                new ObjectMapper(), difficulty, leads, evidence);
+                new ObjectMapper(), difficulty, leads, evidence, scenarios);
     }
 
     private AiOrchestrationService aiService() {
@@ -228,19 +238,23 @@ class OutreachConcurrencyIntegrationTest {
         engagement.selectLead(lead.getId());
         engagement.transitionTo(EngagementState.HYPOTHESIS_READY, "ready");
         engagement.transitionTo(EngagementState.OUTREACHING, "outreach");
+        engagement.chooseContact(persona.getId());
         entityManager.persist(engagement);
         for (int sequence = 1; sequence <= 2; sequence++) {
             OutreachAttempt attempt = OutreachAttempt.create(engagement.getId(), sequence, "Subject", "Body");
+            // Both earlier emails went to the chosen contact, so the next one is their last allowed.
+            attempt.assignContact(persona.getId(), 1);
             attempt.resolve("No", OutreachOutcome.REJECTED, OutreachNextAction.NONE, 10, 10, 10, 10);
             entityManager.persist(attempt);
         }
         entityManager.flush();
-        return new TestData(user.getId(), engagement.getId(), lead);
+        return new TestData(user.getId(), engagement.getId(), lead, persona);
     }
 
     private TestData persistEngagementWithCapabilityRequest() {
         TestData data = persistBaseOutreachEngagement();
         OutreachAttempt attempt = OutreachAttempt.create(data.engagementId(), 1, "Capabilities", "Introduction");
+        attempt.assignContact(data.contact().getId(), 1);
         attempt.resolve("Please send a one-page capability brief for review.", OutreachOutcome.FOLLOW_UP_REQUIRED,
                 OutreachNextAction.SUBMIT_CAPABILITY_BRIEF, 70, 70, 70, 70);
         entityManager.persist(attempt);
@@ -262,9 +276,10 @@ class OutreachConcurrencyIntegrationTest {
         engagement.selectLead(lead.getId());
         engagement.transitionTo(EngagementState.HYPOTHESIS_READY, "ready");
         engagement.transitionTo(EngagementState.OUTREACHING, "outreach");
+        engagement.chooseContact(persona.getId());
         entityManager.persist(engagement);
         entityManager.flush();
-        return new TestData(user.getId(), engagement.getId(), lead);
+        return new TestData(user.getId(), engagement.getId(), lead, persona);
     }
 
     private <T> T inTransaction(Callable<T> work) {
@@ -292,7 +307,8 @@ class OutreachConcurrencyIntegrationTest {
         }
     }
 
-    private record TestData(UUID userId, UUID engagementId, Lead lead) {}
+    /** contact: the persona the engagement emails (the scenario's only persona, a decision maker). */
+    private record TestData(UUID userId, UUID engagementId, Lead lead, Persona contact) {}
     private record Outcome(Object response, RuntimeException failure) {
         boolean succeeded() { return response != null; }
     }
