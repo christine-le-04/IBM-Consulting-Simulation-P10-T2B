@@ -136,7 +136,7 @@ public class LeadService {
      * learner input can never claim the same weight as scenario-controlled evidence. */
     private int normalizeRelevance(EvidenceOrigin origin, Integer requestedScore) {
         int defaultScore = switch (origin == null ? EvidenceOrigin.USER_SUPPLIED : origin) {
-            case SCENARIO_CURATED -> 85;
+            case SCENARIO_CURATED, SCENARIO_GIVEN -> 85;
             case AI_SYNTHESIZED -> 80;
             case MEETING_DISCOVERY -> 90;
             case USER_SUPPLIED -> 35;
@@ -225,8 +225,12 @@ public class LeadService {
         }
         Lead lead = leadRepository.findById(leadId)
                 .orElseThrow(() -> new NotFoundException("Lead", leadId));
-        List<ResearchEvidence> evidence = evidenceRepository.findByEngagementId(engagementId);
-        var authoringConfig = scenarioRepository.findById(engagement.getScenarioId())
+        // Starting evidence from the briefing is citable, but it doesn't reveal anything.
+        List<ResearchEvidence> evidence = evidenceRepository.findByEngagementId(engagementId).stream()
+                .filter(item -> item.getOrigin() != EvidenceOrigin.SCENARIO_GIVEN)
+                .toList();
+        var scenario = scenarioRepository.findById(engagement.getScenarioId());
+        var authoringConfig = scenario
                 .map(authoringConfigService::forScenario)
                 .orElseGet(com.ibm.consulting.sim.scenario.domain.ScenarioAuthoringConfig::defaults);
         return LeadIntelligenceSummary.from(lead, evidence, authoringConfig);
