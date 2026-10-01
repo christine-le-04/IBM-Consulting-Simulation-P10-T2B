@@ -127,28 +127,12 @@ final class PersonaPromptAssembler {
                 + "meetingSignals may only use: client_concern_raised, client_concern_resolved, client_validated_value, client_committed_next_step, client_ready_to_close. "
                 + "Use client_committed_next_step or client_ready_to_close only when the client explicitly accepts a concrete scope, success measure, ownership, commercial next step, or proposal request in this conversation. "
                 + "When those elements are agreed, stop inventing new objections: confirm the agreement, state the next step in character, and let the consultant close the meeting. ";
-        if (profile == null) return "Use the scenario's normal level of specificity and challenge. " + scoringInstruction;
-        String guidedResponseInstruction = profile.level() == com.ibm.consulting.sim.scenario.domain.DifficultyLevel.HARD
-                ? "Return guidedResponseOptions as an empty array."
-                : "Also create exactly three distinct guidedResponseOptions the learner could realistically say after your spokenResponse. "
-                + "Do not label or rank them, do not invent facts, and do not include unprofessional language. "
-                + guidedChoiceMix(profile)
-                + " They must reflect the latest client concern and remain grounded in the available evidence.";
+        if (profile == null) return "Use the scenario's normal level of specificity and challenge. Return guidedResponseOptions as an empty array. " + scoringInstruction;
+        String guidedResponseInstruction = "Return guidedResponseOptions as an empty array.";
         return ("Resistance %d/100. The client needs a credible next step within %d simulated days. %s "
                 + "Ask for more precise evidence when resistance is high. "
                 + "Do not disclose hidden or unvalidated facts, and never decide simulation outcomes. %s")
                 .formatted(profile.personaResistance(), profile.timelinePressureDays(), guidedResponseInstruction, scoringInstruction);
     }
 
-    private static String guidedChoiceMix(DifficultyProfile profile) {
-        if (profile.level() == com.ibm.consulting.sim.scenario.domain.DifficultyLevel.MEDIUM) {
-            return "Include exactly one response that directly advances the client's latest concern and two professional "
-                    + "near-misses. Each near-miss must use a different failure mode: premature scope commitment, focus on "
-                    + "an adjacent issue, or treating an unvalidated assumption as fact. Never make a near-miss visibly "
-                    + "unprepared, evasive, rude, or generic.";
-        }
-        return "Include exactly two responses that advance the client's latest concern and one professional near-miss. "
-                + "Make the near-miss subtly premature, misaligned, or assumption-led; never make it visibly evasive, "
-                + "unprepared, rude, or generic.";
-    }
 }

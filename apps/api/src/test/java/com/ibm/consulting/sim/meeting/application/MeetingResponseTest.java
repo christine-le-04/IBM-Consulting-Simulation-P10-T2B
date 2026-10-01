@@ -52,7 +52,7 @@ class MeetingResponseTest {
     }
 
     @Test
-    void exposesGuidedChoicesForEasyAndMediumMeetings() {
+    void exposesFreeformForEasyAndMediumMeetings() {
         Meeting meeting = org.mockito.Mockito.mock(Meeting.class);
         when(meeting.getId()).thenReturn(UUID.randomUUID());
         when(meeting.getEngagementId()).thenReturn(UUID.randomUUID());
@@ -61,7 +61,7 @@ class MeetingResponseTest {
         when(meeting.getDebriefTips()).thenReturn(List.of());
         when(meeting.getBehaviourLedger()).thenReturn(List.of());
 
-        assertEquals("GUIDED", MeetingResponse.from(meeting, DifficultyProfile.defaults(1, 1, 1, 1), false, 0).interactionMode());
-        assertEquals("GUIDED", MeetingResponse.from(meeting, DifficultyProfile.defaults(3, 3, 3, 3), false, 0).interactionMode());
+        assertEquals("FREEFORM", MeetingResponse.from(meeting, DifficultyProfile.defaults(1, 1, 1, 1), false, 0).interactionMode());
+        assertEquals("FREEFORM", MeetingResponse.from(meeting, DifficultyProfile.defaults(3, 3, 3, 3), false, 0).interactionMode());
     }
 }

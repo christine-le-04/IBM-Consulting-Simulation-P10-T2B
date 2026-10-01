@@ -7,6 +7,7 @@ import {
   useProposalWorkspace,
   useSaveProposalDraft,
   useSubmitProposal,
+  useReviseProposal,
 } from '@/api/hooks/useProposal'
 import {
   attachSource,
@@ -29,6 +30,7 @@ export function useProposalStudio(engagementId: string) {
   const reviewProposal = useProposalReview(engagementId)
   const challengeProposal = useProposalChallenge(engagementId)
   const submitProposal = useSubmitProposal(engagementId)
+  const reviseProposal = useReviseProposal(engagementId)
   const [draft, setDraft] = useState<ProposalDraftRequest>(createEmptyProposalDraft)
   const [activeSection, setActiveSection] = useState<ProposalSection>('PROBLEM')
   const [review, setReview] = useState<ProposalReview | null>(null)
@@ -61,6 +63,7 @@ export function useProposalStudio(engagementId: string) {
     storeProposalDraft(engagementId, nextDraft)
     if (saveInFlight.current) saveQueued.current = true
     setDraft(nextDraft)
+    setReview(null)
     setSaveState('idle')
   }, [engagementId])
 
@@ -151,10 +154,23 @@ export function useProposalStudio(engagementId: string) {
     draft.evidenceLinks.filter((link) => link.section === activeSection).map((link) => link.sourceId),
   ), [activeSection, draft.evidenceLinks])
 
+  const revise = useCallback(async () => {
+    try {
+      const reopened = await reviseProposal.mutateAsync()
+      const next = proposalToDraft(reopened)
+      draftRef.current = next
+      setDraft(next)
+      setReview(null)
+      setSaveState('saved')
+    } catch {
+      // Mutation error is displayed on the outcome page; the submission remains intact.
+    }
+  }, [reviseProposal])
+
   return {
     workspace, proposal, submitted, draft, activeSection, review, reviewIsStale, saveState,
     updateDraft, setActiveSection, attach, detach, attachedSourceIds,
     retrySave: persist, reviewCurrentDraft, challengeCurrentDraft, submit,
-    saveDraft, reviewProposal, challengeProposal, submitProposal,
+    saveDraft, reviewProposal, challengeProposal, submitProposal, reviseProposal, revise,
   }
 }

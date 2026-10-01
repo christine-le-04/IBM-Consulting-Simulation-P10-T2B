@@ -40,12 +40,15 @@ const SUPPORT: { level: Support; label: string; tone: 'countGreen' | 'countGray'
   { level: 'UNSUPPORTED', label: 'Unsupported', tone: 'countRed', tag: 'red' },
 ]
 
-export function ProposalOutcomeView({ proposal, engagementId, client = {}, onReadProposal }: {
+export function ProposalOutcomeView({ proposal, engagementId, client = {}, onReadProposal, onRevise, revising, revisionError }: {
   proposal: Proposal
   engagementId: string
   client?: OutcomeClient
   /** Opens the proposal that was sent, read-only. */
   onReadProposal?: () => void
+  onRevise?: () => void
+  revising?: boolean
+  revisionError?: boolean
 }) {
   const navigate = useNavigate()
   const explain = useProposalDecisionExplanation(engagementId)
@@ -85,7 +88,7 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
           )}
           <p className={styles.re}>Re: Proposal{client.subject ? ` — ${client.subject}` : ''}</p>
           <div className={styles.outcomeLine}>
-            <Tag type={presentation.tagType}>{presentation.label}</Tag>
+            <Tag type={proposal.decision === 'LOST' ? 'red' : presentation.tagType}>{proposal.decision === 'LOST' ? proposal.revisionAvailable ? 'Proposal not accepted' : 'Deal lost' : presentation.label}</Tag>
             <span>{presentation.subtitle}</span>
           </div>
           <p className={styles.letterBody}>{letter}</p>
@@ -97,8 +100,12 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
         <aside className={styles.side}>
           <section className={styles.nextStep}>
             <p className={styles.eyebrow}>Recommended next step</p>
-            <h2>{presentation.nextAction}</h2>
-            <Button renderIcon={ArrowRight} onClick={() => navigate(`/dashboard/engagements/${engagementId}/assessment`)}>View full assessment</Button>
+            <p>Submission {proposal.submissionCount ?? 1} of 3</p>
+            <h2>{proposal.revisionAvailable ? 'The client was not convinced by your proposal. Use the feedback to retry your proposal.' : proposal.decision === 'LOST' ? 'Deal lost. All proposal submissions have been used.' : presentation.nextAction}</h2>
+            {proposal.revisionAvailable
+              ? <Button disabled={revising} onClick={onRevise}>Retry proposal ({proposal.submissionsRemaining} attempts remaining)</Button>
+              : <Button renderIcon={ArrowRight} onClick={() => navigate(`/dashboard/engagements/${engagementId}/assessment`)}>View full assessment</Button>}
+            {revisionError && <p role="alert">The proposal could not be reopened. Your submitted proposal is saved; try again.</p>}
             {onReadProposal && <Button kind="ghost" renderIcon={Document} onClick={onReadProposal}>Read the proposal you sent</Button>}
           </section>
           <section className={styles.coach}>

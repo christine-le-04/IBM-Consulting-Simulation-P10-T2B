@@ -8,9 +8,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MeetingInteractionModeTest {
 
     @Test
-    void guidesEasyAndMediumMeetingsButKeepsHardFreeform() {
-        assertThat(MeetingInteractionMode.forDifficulty(DifficultyLevel.EASY)).isEqualTo(MeetingInteractionMode.GUIDED);
-        assertThat(MeetingInteractionMode.forDifficulty(DifficultyLevel.MEDIUM)).isEqualTo(MeetingInteractionMode.GUIDED);
+    void usesFreeformForEveryDifficulty() {
+        assertThat(MeetingInteractionMode.forDifficulty(DifficultyLevel.EASY)).isEqualTo(MeetingInteractionMode.FREEFORM);
+        assertThat(MeetingInteractionMode.forDifficulty(DifficultyLevel.MEDIUM)).isEqualTo(MeetingInteractionMode.FREEFORM);
         assertThat(MeetingInteractionMode.forDifficulty(DifficultyLevel.HARD)).isEqualTo(MeetingInteractionMode.FREEFORM);
     }
 }

@@ -31,7 +31,7 @@ import com.ibm.consulting.sim.scenario.application.PersonaProfile;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
 
-/** Generates and durably caches AI-guided responses for Easy and Medium meetings. */
+/** Legacy response-options API; all current difficulties return freeform without generating choices. */
 @Service
 public class GuidedMeetingResponseService {
 

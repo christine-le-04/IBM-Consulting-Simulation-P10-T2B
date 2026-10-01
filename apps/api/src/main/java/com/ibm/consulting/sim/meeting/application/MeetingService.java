@@ -146,7 +146,11 @@ public class MeetingService {
         if (!latestAttempt.getId().equals(failedMeeting.getId())) {
             throw new InvalidMeetingStateException("Only the latest meeting attempt can be retried.");
         }
-        MeetingRetryEligibility eligibility = MeetingRetryPolicy.eligibilityFor(failedMeeting, attempts);
+        if (engagement.getState() != EngagementState.IN_MEETING) {
+            throw new InvalidMeetingStateException("Revise and save the meeting preparation before starting a new cycle.");
+        }
+        MeetingRetryEligibility eligibility = MeetingRetryPolicy.eligibilityFor(failedMeeting,
+                attempts.stream().skip(engagement.getMeetingRetryBaseline()).toList());
         if (!eligibility.available()) {
             throw new MeetingRetryNotAvailableException();
         }
@@ -417,7 +421,7 @@ public class MeetingService {
                         .formatted(eligibility.retriesRemaining()));
             } else {
                 engagement.transitionTo(EngagementState.MEETING_FAILED,
-                        "Meeting retry limit reached; restart the lead to try again.");
+                        "Meeting retry limit reached; return to preparation to try again.");
             }
         }
         engagementRepository.save(engagement);
@@ -509,8 +513,39 @@ public class MeetingService {
     }
 
     private MeetingRetryEligibility retryEligibilityFor(Meeting meeting) {
-        return MeetingRetryPolicy.eligibilityFor(meeting,
-                meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(meeting.getEngagementId()));
+        int baseline = engagementRepository.findById(meeting.getEngagementId())
+                .map(Engagement::getMeetingRetryBaseline).orElse(0);
+        List<Meeting> cycle = meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(meeting.getEngagementId())
+                .stream().skip(baseline).toList();
+        if (baseline > 0 && cycle.stream().noneMatch(attempt -> attempt.getId().equals(meeting.getId()))) {
+            return MeetingRetryEligibility.unavailable();
+        }
+        return MeetingRetryPolicy.eligibilityFor(meeting, cycle);
+    }
+
+    @Transactional
+    public void returnToPreparation(UUID meetingId, UUID userId) {
+        Meeting failed = loadOwnedMeeting(meetingId, userId);
+        Engagement engagement = engagementRepository.findByIdAndUserIdForUpdate(failed.getEngagementId(), userId)
+                .orElseThrow(() -> new NotFoundException("Engagement", failed.getEngagementId()));
+        List<Meeting> attempts = meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(engagement.getId());
+        if (attempts.isEmpty() || !attempts.get(attempts.size() - 1).getId().equals(meetingId)
+                || !MeetingRetryPolicy.isPerformanceFailure(failed)) {
+            throw new InvalidMeetingStateException("Only the latest performance-failed meeting can return to preparation.");
+        }
+        if (engagement.getState() == EngagementState.MEETING_SECURED
+                || engagement.getState() == EngagementState.PREPARING) return;
+        if (engagement.getState() != EngagementState.MEETING_FAILED
+                || MeetingRetryPolicy.eligibilityFor(failed,
+                attempts.stream().skip(engagement.getMeetingRetryBaseline()).toList()).available()) {
+            throw new InvalidMeetingStateException("Use the remaining live meeting retries first.");
+        }
+        engagement.returnToMeetingPreparation(attempts.size());
+        personaStateRepository.findByEngagementId(engagement.getId()).ifPresent(state -> {
+            state.reset(difficultyProfileService.forEngagement(engagement));
+            personaStateRepository.save(state);
+        });
+        engagementRepository.save(engagement);
     }
 
     private String buildDebriefPrompt(PersonaState state, DifficultyProfile profile, MeetingCompletionDecision decision,

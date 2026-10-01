@@ -51,12 +51,13 @@ class ProposalDecisionNarrativeEnricher {
         if (message == null) {
             message = aiOrchestrationService.execute("proposal_client_decision", event.engagementId(),
                     prompt(event), PROMPT_VERSION, new ProposalClientDecisionParser(objectMapper),
-                    () -> ProposalClientDecision.fromDecision(event.decision())).message();
+                    () -> new ProposalClientDecision(fallbackMessage(event))).message();
             cacheMessage(key, message);
         }
         String resolvedMessage = message;
         proposalRepository.findByEngagementId(event.engagementId())
                 .filter(proposal -> proposal.getStatus() == ProposalStatus.SUBMITTED)
+                .filter(proposal -> proposal.getSubmissionCount() == event.submissionNumber())
                 .ifPresent(proposal -> {
                     proposal.updateClientResponse(resolvedMessage);
                     proposalRepository.save(proposal);
@@ -71,17 +72,27 @@ class ProposalDecisionNarrativeEnricher {
                 The backend has already decided the proposal outcome. Write a concise client response grounded only in the decision,
                 proposal and evidence. Do not change, soften, or challenge the supplied outcome. Return ONLY JSON: {"message": string}.
                 Decision: %s
+                Submission: %d of 3. %s
                 Rationale: %s
                 Proposal: %s
                 Client evidence: %s
                 """.formatted(event.persona().getName(), event.persona().getJobTitle(), event.persona().getOrganisation(),
-                event.persona().getCommunicationStyle(), event.decision().outcome(), event.decision().rationale(),
+                event.persona().getCommunicationStyle(), event.decision().outcome(), event.submissionNumber(),
+                event.submissionNumber() >= 3 && !event.decision().accepted()
+                        ? "The deal is lost. Explain the gaps, but do not invite another submission."
+                        : "A non-winning result may be revised while submissions remain.", event.decision().rationale(),
                 event.content().problemStatement() + "\n" + event.content().solutionStrategy(), context);
     }
 
     private String cacheKey(ProposalDecisionSubmittedEvent event) {
-        return event.engagementId() + ":" + sha256("v=" + PROMPT_VERSION + "|" + event.decision()
+        return event.engagementId() + ":" + sha256("v=" + PROMPT_VERSION + "|submission=" + event.submissionNumber() + "|" + event.decision()
                 + "|" + event.content() + "|" + event.sources() + "|" + event.persona());
+    }
+
+    private String fallbackMessage(ProposalDecisionSubmittedEvent event) {
+        String message = ProposalClientDecision.fromDecision(event.decision()).message();
+        return event.submissionNumber() >= 3 && !event.decision().accepted()
+                ? "We will not proceed after three submissions. " + message : message;
     }
 
     private String cachedMessage(String key) {

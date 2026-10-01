@@ -101,6 +101,19 @@ export function useSubmitProposal(engagementId: string) {
   })
 }
 
+export function useReviseProposal(engagementId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => (await apiClient.post<Proposal>(`/api/v1/engagements/${engagementId}/proposal/revise`)).data,
+    onSuccess: (proposal) => {
+      qc.setQueryData(proposalKeys.detail(engagementId), proposal)
+      qc.setQueryData<ProposalWorkspace | undefined>(proposalKeys.workspace(engagementId), (current) =>
+        current ? { ...current, proposal } : current)
+      void qc.invalidateQueries({ queryKey: ['engagements'] })
+    },
+  })
+}
+
 function useDecisionNarrative(engagementId: string, endpoint: 'explanation' | 'counterfactual') {
   return useMutation({
     mutationFn: async () =>
