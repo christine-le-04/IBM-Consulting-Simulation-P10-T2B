@@ -19,6 +19,7 @@ vi.mock('@/api/hooks/useMeeting', () => ({
   usePersonaState: vi.fn(),
   useMeetingResponseOptions: vi.fn(),
   useRetryMeeting: vi.fn(),
+  useReturnToPreparation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useMeetingPreparation: () => ({ data: { objective: 'Validate the problem', agenda: ['Confirm objectives'], discoveryQuestions: ['Which site hurts most?'] } }),
 }))
 vi.mock('@/api/hooks/useEngagements', () => ({

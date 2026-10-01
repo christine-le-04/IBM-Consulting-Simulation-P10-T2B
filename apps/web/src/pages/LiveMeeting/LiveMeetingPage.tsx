@@ -14,7 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button, InlineLoading, InlineNotification, Modal, Tag } from '@carbon/react'
 import { ArrowRight, Idea, Information, Send } from '@carbon/icons-react'
 import { useEngagement, useRetryEngagement } from '@/api/hooks/useEngagements'
-import { useMeeting, useMeetingPreparation, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting } from '@/api/hooks/useMeeting'
+import { useMeeting, useMeetingPreparation, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting, useReturnToPreparation } from '@/api/hooks/useMeeting'
 import { useMeetingSocket } from '@/api/hooks/useMeetingSocket'
 import { useScenario } from '@/api/hooks/useScenarios'
 import type { ConversationTurn, MeetingBehaviourFeedback, MeetingTermination, PersonaState } from '@/api/types'
@@ -106,6 +106,7 @@ export default function LiveMeetingPage() {
   const retryMeeting = useRetryMeeting(meetingId, engagementId)
   const { streamingText, isStreaming, error, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
   const retryEngagement = useRetryEngagement(engagementId)
+  const returnToPreparation = useReturnToPreparation(meetingId, engagementId)
   const [message, setMessage] = useState('')
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const [terminationDismissed, setTerminationDismissed] = useState(false)
@@ -193,6 +194,12 @@ export default function LiveMeetingPage() {
   }
 
   const handleRetryLead = () => {
+    if (automaticTermination?.reason !== 'UNPROFESSIONAL_CONDUCT') {
+      returnToPreparation.mutate(undefined, {
+        onSuccess: () => navigate(`/dashboard/engagements/${engagementId}/preparation`),
+      })
+      return
+    }
     retryEngagement.mutate(undefined, {
       onSuccess: (retry) => navigate(`/dashboard/engagements/${retry.id}/intelligence`),
     })
@@ -281,8 +288,8 @@ export default function LiveMeetingPage() {
                     {retryMeeting.isPending ? 'Starting live meeting…' : `Retry live meeting (${meetingRetriesRemaining} remaining)`}
                   </Button>
                 ) : (
-                  <Button kind="secondary" disabled={retryEngagement.isPending} onClick={handleRetryLead}>
-                    {retryEngagement.isPending ? 'Starting lead retry…' : 'Retry this lead from the start'}
+                  <Button kind="secondary" disabled={retryEngagement.isPending || returnToPreparation.isPending} onClick={handleRetryLead}>
+                    {automaticTermination?.reason === 'UNPROFESSIONAL_CONDUCT' ? 'Retry this lead from the start' : 'Return to meeting preparation'}
                   </Button>
                 )}
               </section>
@@ -293,6 +300,9 @@ export default function LiveMeetingPage() {
             <div className={styles.errors}>
               <InlineNotification kind="error" lowContrast hideCloseButton title="Message failed" subtitle={error} />
             </div>
+          )}
+          {returnToPreparation.isError && !automaticTermination && (
+            <InlineNotification kind="error" hideCloseButton title="Could not return to preparation" subtitle="Your meeting is saved. Try again." />
           )}
 
           {!isCompleted && (
@@ -419,9 +429,9 @@ export default function LiveMeetingPage() {
           : 'Meeting failed: relationship threshold breached'}
         primaryButtonText={automaticTermination?.meetingRetryAvailable
           ? (retryMeeting.isPending ? 'Starting live meeting…' : `Retry live meeting (${automaticTermination.meetingRetriesRemaining} remaining)`)
-          : (retryEngagement.isPending ? 'Starting lead retry…' : 'Retry this lead from the start')}
+          : (automaticTermination?.reason === 'UNPROFESSIONAL_CONDUCT' ? 'Retry this lead from the start' : 'Return to meeting preparation')}
         secondaryButtonText="Return to the Office"
-        primaryButtonDisabled={retryMeeting.isPending || retryEngagement.isPending}
+        primaryButtonDisabled={retryMeeting.isPending || retryEngagement.isPending || returnToPreparation.isPending}
         onRequestSubmit={() => automaticTermination?.meetingRetryAvailable ? handleRetryMeeting() : handleRetryLead()}
         onSecondarySubmit={() => navigate('/dashboard')}
         onRequestClose={() => setTerminationDismissed(true)}
@@ -429,11 +439,13 @@ export default function LiveMeetingPage() {
         <p>{automaticTermination?.message}</p>
         <p className={styles.retryNote}>{automaticTermination?.meetingRetryAvailable
           ? 'This attempt is preserved for review. Your evidence and preparation remain available; the live conversation restarts with a clean relationship state.'
-          : 'This attempt is preserved for review. Retrying creates a new engagement from the same lead with a clean learner state.'}</p>
+          : automaticTermination?.reason === 'UNPROFESSIONAL_CONDUCT'
+            ? 'This attempt is preserved for review. Retrying creates a new engagement from the same lead with a clean learner state.'
+            : 'Your research, preparation and transcripts are kept. Revise your meeting plan to start a fresh meeting cycle with three retries.'}</p>
         {automaticTermination?.retryGuidance.length ? (
           <ul className={styles.guidance}>{automaticTermination.retryGuidance.map((tip) => <li key={tip}>{tip}</li>)}</ul>
         ) : null}
-        {(retryMeeting.isError || retryEngagement.isError) && (
+        {(retryMeeting.isError || retryEngagement.isError || returnToPreparation.isError) && (
           <InlineNotification kind="error" lowContrast hideCloseButton title="Retry could not be started" subtitle="Please try again. Your failed attempt has not been changed." />
         )}
       </Modal>
