@@ -250,6 +250,30 @@ class ProposalSubmissionServiceTest {
         assertThat(proposalRepository.proposal.orElseThrow().getClientResponse()).isEqualTo(currentReply);
     }
 
+    @Test
+    void revisionsPreserveTheOriginalContentAndScoresInSubmissionHistory() throws Exception {
+        stubDecisionInputs();
+        ProposalDraftContent first = new ProposalDraftContent("First unrelated problem", "First unrelated strategy",
+                List.of(), BigDecimal.ZERO, 1, "LOW", "", List.of(), List.of(), List.of(), List.of(), List.of());
+        ProposalResponse firstResult = service.submit(data.engagement().getId(), data.userId(), first, false);
+        Proposal proposal = proposalRepository.proposal.orElseThrow();
+        String firstSnapshot = proposal.getSubmissionHistory().getFirst();
+        service.revise(data.engagement().getId(), data.userId());
+        ProposalDraftContent second = validDraft(List.of(new ProposalEvidenceLink("PROBLEM", "evidence:" + data.evidence().getId())));
+
+        service.submit(data.engagement().getId(), data.userId(), second, false);
+
+        assertThat(proposal.getSubmissionHistory()).hasSize(2);
+        assertThat(proposal.getSubmissionHistory().getFirst()).isEqualTo(firstSnapshot);
+        var recorded = new ObjectMapper().readTree(firstSnapshot);
+        assertThat(recorded.path("submission").asInt()).isEqualTo(1);
+        assertThat(recorded.path("content").path("problemStatement").asText()).isEqualTo(first.problemStatement());
+        assertThat(recorded.path("decision").path("decisionScore").asInt()).isEqualTo(firstResult.alignmentScore());
+        assertThat(proposal.getProblemStatement()).isEqualTo(second.problemStatement());
+        assertThat(proposal.getSubmissionCount()).isEqualTo(2);
+        assertThatThrownBy(() -> proposal.getSubmissionHistory().clear()).isInstanceOf(UnsupportedOperationException.class);
+    }
+
     private ProposalDraftContent validDraft(List<ProposalEvidenceLink> evidenceLinks) {
         return new ProposalDraftContent(
                 "Manual reconciliation is causing audit delays and operational risk across the network.",
