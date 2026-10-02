@@ -108,7 +108,7 @@ export default function BriefComposer({ previous, requirements, clientName, comp
           <small className={valid(active) ? styles.minMet : undefined}>
             {values[active].trim().length} / {MIN} characters minimum
           </small>
-          {touched && !valid(active) && <p className={styles.error}>Write at least {MIN} characters for {section.label.toLowerCase()}.</p>}
+          {touched && !valid(active) && <p className={styles.error} role="alert">Write at least {MIN} characters for {section.label.toLowerCase()}.</p>}
         </div>
 
         {errorMessage && (

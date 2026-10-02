@@ -7,7 +7,7 @@
  * learner performance, the rationale and the dimension scores are one click
  * away under "Show the numbers" — words first (SRS FR-14), nothing lost.
  */
-import { Button, InlineLoading, Tag } from '@carbon/react'
+import { Button, InlineLoading, InlineNotification, Tag } from '@carbon/react'
 import { ArrowRight, Chat, Document, Renew, WarningFilled } from '@carbon/icons-react'
 import { useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
@@ -71,6 +71,7 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
   const company = client.company ?? 'The client'
   const submitted = new Date(proposal.submittedAt)
   const coachBusy = explain.isPending || counterfactual.isPending
+  const coachError = coachView === 'explain' ? explain.isError : coachView === 'counterfactual' ? counterfactual.isError : false
 
   return (
     <div className={styles.page}>
@@ -105,7 +106,7 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
             {proposal.revisionAvailable
               ? <Button disabled={revising} onClick={onRevise}>Retry proposal ({proposal.submissionsRemaining} attempts remaining)</Button>
               : <Button renderIcon={ArrowRight} onClick={() => navigate(`/dashboard/engagements/${engagementId}/assessment`)}>View full assessment</Button>}
-            {revisionError && <p role="alert">The proposal could not be reopened. Your submitted proposal is saved; try again.</p>}
+            {revisionError && <InlineNotification kind="error" lowContrast hideCloseButton title="Proposal could not be reopened" subtitle="Your submitted proposal is saved; try again." />}
             {onReadProposal && <Button kind="ghost" renderIcon={Document} onClick={onReadProposal}>Read the proposal you sent</Button>}
           </section>
           <section className={styles.coach}>
@@ -114,6 +115,9 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
             {coachBusy
               ? <InlineLoading description="Preparing decision coaching" />
               : <p>{(coachView === 'explain' ? explain.data?.message : coachView === 'counterfactual' ? counterfactual.data?.message : null) ?? 'Read the reasons below, then open a focused coaching view when you need it.'}</p>}
+            {!coachBusy && coachError && (
+              <InlineNotification kind="error" lowContrast hideCloseButton title="Coaching unavailable" subtitle="The decision coach could not answer just now. Your outcome is unchanged; try again." />
+            )}
             <div className={styles.coachActions}>
               <Button kind="tertiary" size="sm" renderIcon={Chat} onClick={() => { setCoachView('explain'); explain.mutate() }} disabled={coachBusy}>Explain decision</Button>
               <Button kind="ghost" size="sm" renderIcon={Renew} onClick={() => { setCoachView('counterfactual'); counterfactual.mutate() }} disabled={coachBusy}>What could change?</Button>

@@ -37,7 +37,7 @@
   background: #fffefa;
   padding: 2.5rem 3rem 3rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 20px 40px -24px rgba(0, 0, 0, 0.4);
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--sim-reading);
   color: #1c1c1c;
 
   @media (max-width: 672px) {
@@ -54,13 +54,13 @@
 
   strong {
     display: block;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 1.125rem;
     color: #005eb8;
   }
 
   span {
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 0.75rem;
     color: #555;
   }
@@ -73,7 +73,7 @@
   color: #fff;
   display: grid;
   place-items: center;
-  font-family: 'Playfair Display', serif;
+  font-family: var(--sim-display);
   font-size: 1.5rem;
   font-weight: 700;
   flex: none;
@@ -97,7 +97,7 @@
   flex-wrap: wrap;
   padding: 0.6rem 0.75rem;
   background: #f4f2ec;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.875rem;
   margin-bottom: 1.25rem;
 }
@@ -110,11 +110,11 @@
 
 .signoff {
   margin: 2rem 0 0;
-  font-family: 'Caveat', 'Bradley Hand', cursive;
+  font-family: var(--sim-hand);
   font-size: 1.75rem;
 
   span {
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 0.8125rem;
     color: #555;
   }
@@ -155,6 +155,11 @@
 
 .nextStep {
   border-top: 4px solid var(--sim-blue);
+
+  // Carbon sizes a button to its label; a long label must wrap inside the card.
+  :global(.cds--btn) {
+    max-inline-size: 100%;
+  }
 }
 
 .coachActions {
@@ -306,7 +311,7 @@
 
   h3 {
     margin: 0.6rem 0 0.35rem;
-    font-family: 'Source Serif 4', serif;
+    font-family: var(--sim-reading);
     font-size: 1.125rem;
     font-weight: 600;
   }
