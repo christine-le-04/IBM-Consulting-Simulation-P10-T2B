@@ -25,9 +25,9 @@
   place-items: center;
 }
 .locked .avatar { background: #6f6f6f; }
-.name { font-family: 'IBM Plex Serif', serif; font-size: 1.25rem; margin: 0; }
+.name { font-family: var(--sim-serif); font-size: 1.25rem; margin: 0; }
 .role { margin: 0.25rem 0 0; }
-.org { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: #6f6f6f; margin: 0.25rem 0 0; }
+.org { font-family: var(--sim-mono); font-size: 0.75rem; color: #6f6f6f; margin: 0.25rem 0 0; }
 
 .cardBody { padding: 1.25rem; flex: 1; }
 .cardBody p { margin: 0 0 1rem; }

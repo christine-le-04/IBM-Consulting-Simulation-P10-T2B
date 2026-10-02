@@ -4,7 +4,7 @@ $chip-bg: #e8e8f7;
 $chip-ink: #3d3fa0;
 $note-red: #9f1853;
 $note-ink: #1d3a6e;
-$mono: 'IBM Plex Mono', Menlo, monospace;
+$mono: var(--sim-mono);
 
 $line: var(--cds-border-subtle-01, #e0e0e0);
 $line-strong: var(--cds-border-strong-01, #c6c6c6);

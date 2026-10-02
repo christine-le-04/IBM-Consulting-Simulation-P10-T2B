@@ -182,7 +182,7 @@
 }
 
 .newsMast {
-  font-family: 'UnifrakturMaguntia', serif;
+  font-family: var(--sim-masthead);
   font-size: 1.5rem;
   text-align: center;
   border-bottom: 3px double #161616;
@@ -192,7 +192,7 @@
 
 .newsHead {
   margin: 0;
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--sim-display);
   font-weight: 900;
   font-size: 1.25rem;
   line-height: 1.15;
@@ -200,14 +200,14 @@
 
 .newsSaved {
   margin: 0.75rem 0 0;
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: var(--sim-reading);
   font-size: 0.875rem;
   background: #fde68a;
   padding: 0.3rem 0.4rem;
 
   span {
     display: block;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 0.6875rem;
     font-weight: 600;
     color: #0e6027;
