@@ -182,7 +182,8 @@ export default function LiveMeetingPage() {
     setMessage('')
     setPendingMessage(outgoing)
     try {
-      await sendMessage(outgoing)
+      // An undelivered message goes back in the box instead of being lost.
+      if (await sendMessage(outgoing) === false) setMessage((current) => current || outgoing)
     } finally {
       setPendingMessage(null)
     }

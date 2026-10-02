@@ -15,6 +15,7 @@ import { Add, ChevronLeft, OpenPanelFilledRight, Search } from '@carbon/icons-re
 import { useEngagement } from '@/api/hooks/useEngagements'
 import { useCompleteResearch, useResearch, useResearchGateStatus, useResearchSourceDeck, useSaveResearch } from '@/api/hooks/useLeads'
 import type { EvidenceType, ResearchSourceBlock, SaveResearchPayload } from '@/api/types'
+import { getApiProblem } from '@/api/problemDetails'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
@@ -97,7 +98,10 @@ export default function ClientIntelligencePage() {
   // Dana speaks the gate's own coaching; the way on sits beside her.
   useMentor(
     completeResearch.isError
-      ? 'The engagement could not move on yet. Tick off what is missing, then try again.'
+      // 422 is the gate refusing; anything else never reached it.
+      ? getApiProblem(completeResearch.error, '').status === 422
+        ? 'The engagement could not move on yet. Tick off what is missing, then try again.'
+        : 'The engagement could not move on just now. Your research is saved; check your connection, then try again.'
       : isBackFromFailedOutreach(engagement)
         ? 'Nobody agreed to meet. Your research is still here: look again at who can actually say yes.'
         : gate?.coaching?.[0] ?? (gate?.ready ? 'You have enough to go on. Now decide who can actually say yes.' : null),

@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { AxiosError, type AxiosResponse } from 'axios'
 import ClientIntelligencePage from './ClientIntelligencePage'
 import { useCompleteResearch, useResearch, useResearchGateStatus, useResearchSourceDeck, useSaveResearch } from '@/api/hooks/useLeads'
 import { useEngagement } from '@/api/hooks/useEngagements'
 import type { ResearchArtifact, ResearchEvidence } from '@/api/types'
+import { useShellStore } from '@/components/shell/shellStore'
 
 // mock hooks and shared components for tests
 vi.mock('@/api/hooks/useLeads', () => ({
@@ -170,5 +172,25 @@ describe('ClientIntelligencePage research desk', () => {
 
     await user.click(screen.getByRole('button', { name: /Add hypothesis/i }))
     expect(screen.getByText('Saving hypothesis')).toBeInTheDocument()
+  })
+
+  it('has Dana point at the checklist only when the gate itself refused', () => {
+    setup([])
+    const refused = new AxiosError('Unprocessable', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 422,
+      data: { status: 422, detail: 'Research is not yet complete (evidence=1/2)' },
+    } as AxiosResponse)
+    mockedCompleteResearch.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: true, error: refused } as unknown as ReturnType<typeof useCompleteResearch>)
+    renderPage()
+
+    expect(useShellStore.getState().mentorLine).toBe('The engagement could not move on yet. Tick off what is missing, then try again.')
+  })
+
+  it('has Dana blame the connection, not the research, when the request never arrived', () => {
+    setup([])
+    mockedCompleteResearch.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: true, error: new AxiosError('Network Error', 'ERR_NETWORK') } as unknown as ReturnType<typeof useCompleteResearch>)
+    renderPage()
+
+    expect(useShellStore.getState().mentorLine).toBe('The engagement could not move on just now. Your research is saved; check your connection, then try again.')
   })
 })

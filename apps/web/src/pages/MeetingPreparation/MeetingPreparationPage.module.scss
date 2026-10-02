@@ -35,6 +35,18 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
   border-bottom: 1px solid $line;
 }
 
+// Save and join failures sit directly under the buttons that caused them.
+.eventErrors {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 0;
+
+  :global(.cds--inline-notification) {
+    max-inline-size: none;
+    margin: 0;
+  }
+}
+
 .eventTitle {
   display: flex;
   align-items: flex-start;

@@ -15,6 +15,7 @@ import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
 import { useScenarioCatalog } from '@/api/hooks/useScenarios'
 import { resolveEngagementRoute } from '@/api/engagementRouting'
+import { getApiProblem } from '@/api/problemDetails'
 import type { CompletedEngagementView, Engagement, ScenarioSummary } from '@/api/types'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
@@ -276,6 +277,17 @@ export default function CommandCentrePage() {
       <main className={styles.page}>
         {deniedReason && (
           <InlineNotification kind="warning" title="Access restricted" subtitle={deniedReason} onCloseButtonClick={() => setDeniedReason(undefined)} />
+        )}
+        {startEngagement.isError && (
+          <InlineNotification
+            kind="error"
+            lowContrast
+            title="Engagement could not be started"
+            subtitle={getApiProblem(startEngagement.error, '').status === 422
+              ? 'This scenario is not available to start right now. Choose another one.'
+              : 'Check your connection, then try starting it again.'}
+            onCloseButtonClick={() => startEngagement.reset()}
+          />
         )}
 
         <header className={`${styles.lobby} objective-command-centre`}>

@@ -162,6 +162,21 @@ describe('LiveMeetingPage states', () => {
     expect(mockedMeetingSocket.mock.results.at(-1)?.value.sendMessage).toHaveBeenCalledWith('Which constraint matters most?')
   })
 
+  it('keeps the learner’s text in the box when the message was not delivered', async () => {
+    setup(makeMeeting({ status: 'IN_PROGRESS' }))
+    const socket = mockedMeetingSocket('meeting-1')
+    mockedMeetingSocket.mockReturnValue({ ...socket, sendMessage: vi.fn().mockResolvedValue(false) })
+    renderPage()
+
+    const input = screen.getByRole('textbox', { name: 'Message Sarah Chen' })
+    fireEvent.change(input, { target: { value: 'Which constraint matters most?' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    })
+
+    expect(input).toHaveValue('Which constraint matters most?')
+  })
+
   // empty state when user has not 
   it('shows the empty-transcript placeholder when there are no turns yet', () => {
     setup(makeMeeting({ status: 'IN_PROGRESS' }), [])
