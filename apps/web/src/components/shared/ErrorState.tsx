@@ -15,7 +15,7 @@ export default function ErrorState({
 }: Props) {
   return (
     <Stack gap={3} style={{ maxWidth: '640px', margin: '2rem auto' }}>
-      <InlineNotification kind="error" title={title} subtitle={message} hideCloseButton />
+      <InlineNotification kind="error" lowContrast title={title} subtitle={message} hideCloseButton />
       {actionLabel && onAction && <Button onClick={onAction}>{actionLabel}</Button>}
     </Stack>
   )

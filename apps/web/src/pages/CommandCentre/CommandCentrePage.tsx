@@ -177,10 +177,10 @@ export default function CommandCentrePage() {
   const { displayName } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const { data: engagements, isLoading: engLoading, isError: engError } = useMyEngagements()
+  const { data: engagements, isLoading: engLoading, isError: engError, refetch: refetchEngagements } = useMyEngagements()
   const { data: portfolio } = usePortfolioSummary()
   const startEngagement = useStartEngagement()
-  const { data: starterPage, isLoading: scenLoading, isError: scenarioError } = useScenarioCatalog({ page: 0, size: 8 })
+  const { data: starterPage, isLoading: scenLoading, isError: scenarioError, refetch: refetchScenarios } = useScenarioCatalog({ page: 0, size: 8 })
   const { stage } = useExperience()
   const firstVisit = stage === 'FIRST_VISIT'
 
@@ -270,7 +270,7 @@ export default function CommandCentrePage() {
 
 
   if (engLoading || scenLoading) return <LoadingState />
-  if (engError || scenarioError) return <ErrorState />
+  if (engError || scenarioError) return <ErrorState title="The Office could not be opened" message="Your engagements are saved. Check your connection, then try again." actionLabel="Try again" onAction={() => { void refetchEngagements(); void refetchScenarios() }} />
 
   return (
     <ObjectiveTourProvider tourId="command-centre" objectives={COMMAND_CENTRE_OBJECTIVES}>

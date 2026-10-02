@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import AppShell from '@/components/layout/AppShell'
+import ErrorBoundary from '@/components/shared/ErrorBoundary'
 import LoadingState from '@/components/shared/LoadingState'
 import RequireContact from '@/pages/ChooseContact/RequireContact'
 
@@ -58,6 +59,7 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 export default function App() {
   return (
     <BrowserRouter>
+      <ErrorBoundary>
       <Suspense fallback={<LoadingState />}>
         <Routes>
         <Route
@@ -137,6 +139,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

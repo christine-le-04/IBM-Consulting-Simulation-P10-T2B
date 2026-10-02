@@ -18,7 +18,7 @@ import { useMeeting, useMeetingPreparation, useMeetingTranscript, usePersonaStat
 import { useMeetingSocket } from '@/api/hooks/useMeetingSocket'
 import { useScenario } from '@/api/hooks/useScenarios'
 import type { ConversationTurn, MeetingBehaviourFeedback, MeetingTermination, PersonaState } from '@/api/types'
-import ErrorState from '@/components/shared/ErrorState'
+import LoadError from '@/components/shared/LoadError'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import { useMentor } from '@/components/shell/useMentor'
@@ -93,9 +93,9 @@ function clock(createdAt: string) {
 export default function LiveMeetingPage() {
   const { engagementId = '', meetingId = '' } = useParams<{ engagementId: string; meetingId: string }>()
   const navigate = useNavigate()
-  const { data: meeting, isLoading: meetingLoading, isError: meetingError } = useMeeting(meetingId)
+  const { data: meeting, isLoading: meetingLoading, isError: meetingError, error: meetingLoadError, refetch: refetchMeeting } = useMeeting(meetingId)
   const { data: transcript, isLoading: transcriptLoading } = useMeetingTranscript(meetingId)
-  const { data: persistedPersonaState, isLoading: personaStateLoading } = usePersonaState(meetingId)
+  const { data: persistedPersonaState, isLoading: personaStateLoading, error: personaStateError, refetch: refetchPersonaState } = usePersonaState(meetingId)
   const { data: preparation } = useMeetingPreparation(engagementId)
   const { data: engagement } = useEngagement(engagementId)
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
@@ -160,8 +160,8 @@ export default function LiveMeetingPage() {
   )
 
   if (meetingLoading || transcriptLoading || personaStateLoading) return <LoadingState />
-  if (meetingError || !meeting) return <ErrorState />
-  if (!currentState) return <ErrorState />
+  if (meetingError || !meeting) return <LoadError title="Meeting could not be opened" error={meetingLoadError} reassurance="Your conversation is saved." onRetry={() => void refetchMeeting()} />
+  if (!currentState) return <LoadError title="Meeting could not be opened" error={personaStateError} reassurance="Your conversation is saved." onRetry={() => void refetchPersonaState()} />
 
   const debriefTips = meeting.debriefTips ?? []
   const automaticTermination = termination ?? toTermination(
@@ -298,7 +298,7 @@ export default function LiveMeetingPage() {
             </div>
           )}
           {returnToPreparation.isError && !automaticTermination && (
-            <InlineNotification kind="error" hideCloseButton title="Could not return to preparation" subtitle="Your meeting is saved. Try again." />
+            <InlineNotification kind="error" lowContrast hideCloseButton title="Could not return to preparation" subtitle="Your meeting is saved. Try again." />
           )}
 
           {!isCompleted && (

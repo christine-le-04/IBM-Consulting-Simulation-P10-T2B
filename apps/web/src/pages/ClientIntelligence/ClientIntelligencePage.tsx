@@ -16,7 +16,7 @@ import { useEngagement } from '@/api/hooks/useEngagements'
 import { useCompleteResearch, useResearch, useResearchGateStatus, useResearchSourceDeck, useSaveResearch } from '@/api/hooks/useLeads'
 import type { EvidenceType, ResearchSourceBlock, SaveResearchPayload } from '@/api/types'
 import { getApiProblem } from '@/api/problemDetails'
-import ErrorState from '@/components/shared/ErrorState'
+import LoadError from '@/components/shared/LoadError'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import CompanyFile from '@/components/shell/CompanyFile'
@@ -64,7 +64,7 @@ export default function ClientIntelligencePage() {
   const { engagementId = '' } = useParams<{ engagementId: string }>()
   const navigate = useNavigate()
   const { data: engagement } = useEngagement(engagementId)
-  const { data: evidence, isLoading, isError } = useResearch(engagementId)
+  const { data: evidence, isLoading, isError, error, refetch } = useResearch(engagementId)
   const saveResearch = useSaveResearch(engagementId)
   const { data: gate } = useResearchGateStatus(engagementId)
   const completeResearch = useCompleteResearch(engagementId)
@@ -159,7 +159,7 @@ export default function ClientIntelligencePage() {
   }
 
   if (isLoading) return <LoadingState />
-  if (isError) return <ErrorState />
+  if (isError) return <LoadError title="Research could not be opened" error={error} reassurance="Your saved evidence is safe." onRetry={() => void refetch()} />
 
   const areaSources = sources.filter((item) => item.evidenceType === area)
 

@@ -10,7 +10,7 @@ import {
 import { useScenario } from '@/api/hooks/useScenarios'
 import LoadingState from '@/components/shared/LoadingState'
 import { getApiProblem } from '@/api/problemDetails'
-import ErrorState from '@/components/shared/ErrorState'
+import LoadError from '@/components/shared/LoadError'
 import styles from './MeetingPreparationPage.module.scss'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import { useShellEngagement } from '@/components/shell/useShellEngagement'
@@ -151,7 +151,7 @@ export default function MeetingPreparationPage() {
   const navigate = useNavigate()
   const { engagement } = useShellEngagement()
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
-  const { data: preparation, isLoading, isError } = useMeetingPreparation(engagementId!)
+  const { data: preparation, isLoading, isError, error, refetch } = useMeetingPreparation(engagementId!)
   const updatePreparation = useUpdateMeetingPreparation(engagementId!)
   const startMeeting = useStartMeeting(engagementId!)
 
@@ -193,7 +193,7 @@ export default function MeetingPreparationPage() {
   }, [agenda, discoveryQuestions, engagementId, objective])
 
   if (isLoading) return <LoadingState />
-  if (isError) return <ErrorState />
+  if (isError) return <LoadError title="Meeting plan could not be opened" error={error} reassurance="Your draft is kept in this browser." onRetry={() => void refetch()} />
 
   const savePreparation = (onSuccess?: () => void) => {
     updatePreparation.mutate({

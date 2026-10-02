@@ -106,7 +106,7 @@ export function ProposalOutcomeView({ proposal, engagementId, client = {}, onRea
             {proposal.revisionAvailable
               ? <Button disabled={revising} onClick={onRevise}>Retry proposal ({proposal.submissionsRemaining} attempts remaining)</Button>
               : <Button renderIcon={ArrowRight} onClick={() => navigate(`/dashboard/engagements/${engagementId}/assessment`)}>View full assessment</Button>}
-            {revisionError && <p role="alert">The proposal could not be reopened. Your submitted proposal is saved; try again.</p>}
+            {revisionError && <InlineNotification kind="error" lowContrast hideCloseButton title="Proposal could not be reopened" subtitle="Your submitted proposal is saved; try again." />}
             {onReadProposal && <Button kind="ghost" renderIcon={Document} onClick={onReadProposal}>Read the proposal you sent</Button>}
           </section>
           <section className={styles.coach}>
