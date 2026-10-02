@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Carbon's @font-face rules point at IBM Plex with a webpack-style "~" path.
+      '~@ibm/plex': path.resolve(__dirname, './node_modules/@ibm/plex'),
     },
   },
   server: {
