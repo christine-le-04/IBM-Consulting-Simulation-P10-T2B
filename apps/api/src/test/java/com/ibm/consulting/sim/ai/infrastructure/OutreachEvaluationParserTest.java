@@ -35,6 +35,29 @@ class OutreachEvaluationParserTest {
     }
 
     @Test
+    void rejectsMarkdownWrappedJsonInsteadOfResolvingAnAttempt() {
+        assertThatThrownBy(() -> parser.parse("```json\n" + validEvaluation("ACCEPTED") + "\n```"))
+                .isInstanceOf(AiValidationException.class)
+                .hasMessageContaining("not valid JSON");
+    }
+
+    @Test
+    void rejectsJsonValuesThatAreNotStructuredEvaluations() {
+        for (String response : new String[]{"[]", "true", "42", "\"Accepted\"", "null"}) {
+            assertThatThrownBy(() -> parser.parse(response))
+                    .isInstanceOf(AiValidationException.class)
+                    .hasMessageContaining("clientReply/outcome");
+        }
+    }
+
+    @Test
+    void rejectsAnOutcomeThatDoesNotMatchTheSupportedCase() {
+        assertThatThrownBy(() -> parser.parse(validEvaluation("accepted")))
+                .isInstanceOf(AiValidationException.class)
+                .hasMessageContaining("Unknown outcome value: accepted");
+    }
+
+    @Test
     void rejectsMissingAndBlankRequiredFields() {
         for (String response : new String[]{"{}", "{\"clientReply\":\"Reply\"}",
                 "{\"outcome\":\"ACCEPTED\"}", "{\"clientReply\":\" \",\"outcome\":\"ACCEPTED\"}"}) {

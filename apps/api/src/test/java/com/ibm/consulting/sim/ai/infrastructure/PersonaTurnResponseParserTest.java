@@ -38,6 +38,30 @@ class PersonaTurnResponseParserTest {
     }
 
     @Test
+    void rejectsMarkdownWrappedJsonInsteadOfTreatingItAsAClientReply() {
+        assertThatThrownBy(() -> parser.parse("```json\n" + validTurn() + "\n```"))
+                .isInstanceOf(AiValidationException.class)
+                .hasMessageContaining("not valid JSON");
+    }
+
+    @Test
+    void rejectsJsonValuesThatAreNotStructuredTurns() {
+        for (String response : new String[]{"[]", "true", "42", "\"A plain reply\"", "null"}) {
+            assertThatThrownBy(() -> parser.parse(response))
+                    .isInstanceOf(AiValidationException.class)
+                    .hasMessageContaining("spokenResponse");
+        }
+    }
+
+    @Test
+    void rejectsAMixedDisclosureListWhenAnyFactIsNotAllowed() {
+        assertThatThrownBy(() -> parser.parse(validTurn().replace("[\"budget_signal\"]",
+                "[\"budget_signal\",\"unearned_hidden_fact\"]")))
+                .isInstanceOf(AiValidationException.class)
+                .hasMessageContaining("Unknown fact identifier disclosed: unearned_hidden_fact");
+    }
+
+    @Test
     void rejectsMissingBlankAndNonTextualReply() {
         for (String reply : new String[]{"{}", "{\"spokenResponse\":\" \"}", "{\"spokenResponse\":42}"}) {
             assertThatThrownBy(() -> parser.parse(reply))

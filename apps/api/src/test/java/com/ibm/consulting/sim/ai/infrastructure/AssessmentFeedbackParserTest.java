@@ -32,6 +32,22 @@ class AssessmentFeedbackParserTest {
     }
 
     @Test
+    void rejectsMarkdownWrappedFeedback() {
+        assertThatThrownBy(() -> parser.parse("```json\n{\"feedbackSummary\":\"Useful feedback\"}\n```"))
+                .isInstanceOf(AiValidationException.class)
+                .hasMessageContaining("not valid JSON");
+    }
+
+    @Test
+    void rejectsJsonValuesThatAreNotStructuredFeedback() {
+        for (String response : new String[]{"[]", "true", "42", "\"Useful feedback\"", "null"}) {
+            assertThatThrownBy(() -> parser.parse(response))
+                    .isInstanceOf(AiValidationException.class)
+                    .hasMessageContaining("feedbackSummary");
+        }
+    }
+
+    @Test
     void rejectsMissingNullAndBlankSummary() {
         for (String response : new String[]{"{}", "{\"feedbackSummary\":null}", "{\"feedbackSummary\":\" \"}"}) {
             assertThatThrownBy(() -> parser.parse(response))
