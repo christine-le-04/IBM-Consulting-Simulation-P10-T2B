@@ -100,7 +100,7 @@ export default function LiveMeetingPage() {
   const { data: engagement } = useEngagement(engagementId)
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
   const retryMeeting = useRetryMeeting(meetingId, engagementId)
-  const { streamingText, isStreaming, error, personaState, latestSignals, termination, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
+  const { streamingText, isStreaming, error, connected, personaState, latestSignals, termination, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
   const retryEngagement = useRetryEngagement(engagementId)
   const returnToPreparation = useReturnToPreparation(meetingId, engagementId)
   const [message, setMessage] = useState('')
@@ -177,8 +177,11 @@ export default function LiveMeetingPage() {
     && turns.some((turn) => turn.actor === 'LEARNER' && turn.content === pendingMessage)
   const now = new Date().toISOString()
 
+  // Until the live channel is up a message cannot be delivered, so it stays in the box.
+  const connecting = connected === false
+
   const sendResponse = async (outgoing: string) => {
-    if (!outgoing || isStreaming) return
+    if (!outgoing || isStreaming || connecting) return
     setMessage('')
     setPendingMessage(outgoing)
     try {
@@ -291,7 +294,7 @@ export default function LiveMeetingPage() {
 
           {error && (
             <div className={styles.errors}>
-              <InlineNotification kind="error" lowContrast hideCloseButton title="Message failed" subtitle={error} />
+              <InlineNotification kind="error" lowContrast hideCloseButton title={connecting ? 'Meeting connection' : 'Message failed'} subtitle={error} />
             </div>
           )}
           {returnToPreparation.isError && !automaticTermination && (
@@ -320,11 +323,11 @@ export default function LiveMeetingPage() {
                   placeholder={readyToClose ? 'Confirm the next step, owner and timing…' : 'Type a message'}
                   aria-label={`Message ${clientName}`}
                 />
-                <button type="button" className={styles.send} disabled={isStreaming || !message.trim()} onClick={() => void sendResponse(message.trim())} aria-label="Send">
+                <button type="button" className={styles.send} disabled={isStreaming || connecting || !message.trim()} onClick={() => void sendResponse(message.trim())} aria-label="Send">
                   <Send size={20} />
                 </button>
               </div>
-              <p className={styles.composeHelp}>Enter to send · Shift + Enter for a new line</p>
+              <p className={styles.composeHelp} role="status">{connecting ? 'Connecting to the meeting… you can send as soon as it is ready.' : 'Enter to send · Shift + Enter for a new line'}</p>
             </footer>
           )}
         </div>

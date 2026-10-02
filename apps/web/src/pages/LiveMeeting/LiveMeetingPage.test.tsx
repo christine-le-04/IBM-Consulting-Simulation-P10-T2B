@@ -162,6 +162,23 @@ describe('LiveMeetingPage states', () => {
     expect(mockedMeetingSocket.mock.results.at(-1)?.value.sendMessage).toHaveBeenCalledWith('Which constraint matters most?')
   })
 
+  it('holds the message until the live channel is connected', async () => {
+    setup(makeMeeting({ status: 'IN_PROGRESS' }))
+    const socket = mockedMeetingSocket('meeting-1')
+    const sendMessage = vi.fn()
+    mockedMeetingSocket.mockReturnValue({ ...socket, connected: false, sendMessage })
+    renderPage()
+
+    const input = screen.getByRole('textbox', { name: 'Message Sarah Chen' })
+    fireEvent.change(input, { target: { value: 'Which constraint matters most?' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+    expect(screen.getByText(/Connecting to the meeting/)).toBeInTheDocument()
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(input).toHaveValue('Which constraint matters most?')
+  })
+
   it('keeps the learner’s text in the box when the message was not delivered', async () => {
     setup(makeMeeting({ status: 'IN_PROGRESS' }))
     const socket = mockedMeetingSocket('meeting-1')

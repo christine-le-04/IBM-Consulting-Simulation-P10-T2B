@@ -70,4 +70,36 @@ describe('live meeting connection errors', () => {
 
     expect(result.current.error).toBe('The live meeting connection was lost. Reconnecting automatically; wait for the connection before sending again.')
   })
+
+  it('ignores a previous meeting’s socket closing after the next one connected', async () => {
+    const queryClient = new QueryClient()
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    const { result, rerender } = renderHook(({ id }) => useMeetingSocket(id), { wrapper, initialProps: { id: 'meeting-1' } })
+    const previous = stomp.clients[stomp.clients.length - 1]
+    rerender({ id: 'meeting-2' })
+    const current = stomp.clients[stomp.clients.length - 1]
+    act(() => current.onConnect())
+    act(() => previous.onWebSocketClose())
+
+    expect(result.current.connected).toBe(true)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('reports whether the live channel is up', () => {
+    const { result, client } = renderSocket()
+    expect(result.current.connected).toBe(false)
+    act(() => client.onConnect())
+    expect(result.current.connected).toBe(true)
+    act(() => client.onWebSocketClose())
+    expect(result.current.connected).toBe(false)
+  })
+
+  it('replaces the server’s turn failure wording with what to do next', () => {
+    const { result, client } = renderSocket()
+    act(() => client.onConnect())
+    const onFrame = (client.subscribe as unknown as { mock: { calls: [string, (frame: { body: string }) => void][] } }).mock.calls[0][1]
+    act(() => onFrame({ body: JSON.stringify({ type: 'turn.error', payload: { message: 'Failed to process message' } }) }))
+
+    expect(result.current.error).toBe('The client could not reply just now. Send your message again.')
+  })
 })

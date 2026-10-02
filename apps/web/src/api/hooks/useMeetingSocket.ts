@@ -9,6 +9,8 @@ interface UsePersonaTurnStreamResult {
   streamingText: string
   isStreaming: boolean
   error: string | null
+  /** False until the live channel is up, and again whenever it drops. */
+  connected: boolean
   personaState: PersonaState | null
   latestSignals: string[]
   termination: MeetingTermination | null
@@ -59,6 +61,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
   const [streamingText, setStreamingText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [connected, setConnected] = useState(false)
   const [personaState, setPersonaState] = useState<PersonaState | null>(null)
   const [latestSignals, setLatestSignals] = useState<string[]>([])
   const [termination, setTermination] = useState<MeetingTermination | null>(null)
@@ -83,6 +86,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     setStreamingText('')
     setIsStreaming(false)
     setError(null)
+    setConnected(false)
     setPersonaState(null)
     setLatestSignals([])
     setTermination(null)
@@ -104,6 +108,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     client.onConnect = () => {
       if (disposed) return
       connectedRef.current = true
+      setConnected(true)
       setError(null)
       client.subscribe(meetingSocketContract.topic(meetingId), (frame: IMessage) => {
         if (disposed) return
@@ -168,10 +173,13 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
           setGuidedOptionsPending(false)
           setGuidedOptionsError(event.payload.message)
         } else if (event.type === 'turn.error') {
-          setError(event.payload.message)
+          // The server's wording is for its log; the learner needs what to do next.
+          console.warn('Live meeting turn failed', event.payload.message)
+          const message = 'The client could not reply just now. Send your message again.'
+          setError(message)
           setIsStreaming(false)
           sendingRef.current = false
-          pendingResolversRef.current?.reject(new Error(event.payload.message))
+          pendingResolversRef.current?.reject(new Error(message))
           pendingResolversRef.current = null
         }
       })
@@ -186,9 +194,13 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
       pendingResolversRef.current = null
     }
     client.onWebSocketClose = () => {
+      // A previous meeting's socket can close after the next one has connected
+      // (retry, or React's development double mount); it must not mark the
+      // live connection as down.
+      if (disposed) return
       const wasConnected = connectedRef.current
       connectedRef.current = false
-      if (disposed) return
+      setConnected(false)
       const message = 'The live meeting connection was lost. Reconnecting automatically; wait for the connection before sending again.'
       // Each failed reconnect also closes a socket; only a drop from a live
       // connection replaces what the learner was last told.
@@ -254,5 +266,5 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     [meetingId]
   )
 
-  return { streamingText, isStreaming, error, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage }
+  return { streamingText, isStreaming, error, connected, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage }
 }
