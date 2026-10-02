@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import LiveMeetingPage from './LiveMeetingPage'
-import { useMeeting, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting, } from '@/api/hooks/useMeeting'
+import { useMeeting, useMeetingResponseOptions, useMeetingTranscript, usePersonaState, useRetryMeeting, useReturnToPreparation } from '@/api/hooks/useMeeting'
 import { useRetryEngagement } from '@/api/hooks/useEngagements'
 import { useMeetingSocket } from '@/api/hooks/useMeetingSocket'
 import type { ConversationTurn, Meeting, PersonaState } from '@/api/types'
@@ -19,7 +19,7 @@ vi.mock('@/api/hooks/useMeeting', () => ({
   usePersonaState: vi.fn(),
   useMeetingResponseOptions: vi.fn(),
   useRetryMeeting: vi.fn(),
-  useReturnToPreparation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+  useReturnToPreparation: vi.fn(),
   useMeetingPreparation: () => ({ data: { objective: 'Validate the problem', agenda: ['Confirm objectives'], discoveryQuestions: ['Which site hurts most?'] } }),
 }))
 vi.mock('@/api/hooks/useEngagements', () => ({
@@ -42,6 +42,7 @@ const mockedTranscript = vi.mocked(useMeetingTranscript)
 const mockedPersonaState = vi.mocked(usePersonaState)
 const mockedResponseOptions = vi.mocked(useMeetingResponseOptions)
 const mockedRetryMeeting = vi.mocked(useRetryMeeting)
+const mockedReturnToPreparation = vi.mocked(useReturnToPreparation)
 const mockedRetryEngagement = vi.mocked(useRetryEngagement)
 const mockedMeetingSocket = vi.mocked(useMeetingSocket)
 
@@ -79,6 +80,9 @@ function makeMeeting(overrides: Partial<Meeting>): Meeting {
 
 // helper function to set up the mocked live meeting data for tests
 function setup(meeting: Meeting, transcript: ConversationTurn[] = []) {
+  mockedReturnToPreparation.mockReturnValue({
+    mutate: vi.fn(), isPending: false, isError: false,
+  } as unknown as ReturnType<typeof useReturnToPreparation>)
   mockedMeeting.mockReturnValue({
     data: meeting,
     isLoading: false,
@@ -131,6 +135,9 @@ function renderPage() {
     <MemoryRouter initialEntries={['/dashboard/engagements/eng-1/meetings/meeting-1']}>
       <Routes>
         <Route path="/dashboard/engagements/:engagementId/meetings/:meetingId" element={<LiveMeetingPage />} />
+        <Route path="/dashboard/engagements/:engagementId/preparation" element={<div>Meeting preparation page</div>} />
+        <Route path="/dashboard/engagements/:engagementId/proposal" element={<div>Proposal page</div>} />
+        <Route path="/dashboard/engagements/:engagementId/intelligence" element={<div>Client intelligence page</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -203,6 +210,64 @@ describe('LiveMeetingPage status', () => {
     expect(screen.getByText('Meeting not passed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Retry live meeting \(2 remaining\)/ })).toBeInTheDocument()
     expect(screen.getByText('Begin with a focused discovery question.')).toBeInTheDocument()
+  })
+})
+
+describe('LiveMeetingPage retry actions', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('starts the live retry in the same engagement', async () => {
+    setup(makeMeeting({ status: 'COMPLETED', completionOutcome: 'FAILED', meetingRetryAvailable: true, meetingRetriesRemaining: 2 }))
+    const mutate = vi.fn()
+    mockedRetryMeeting.mockReturnValue({ mutate, isPending: false } as unknown as ReturnType<typeof useRetryMeeting>)
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry live meeting (2 remaining)' }))
+
+    expect(mutate).toHaveBeenCalledWith(undefined, expect.objectContaining({ onSuccess: expect.any(Function) }))
+    expect(mockedRetryMeeting).toHaveBeenCalledWith('meeting-1', 'eng-1')
+    expect(mockedRetryEngagement.mock.results.at(-1)?.value.mutate).not.toHaveBeenCalled()
+  })
+
+  it('returns to preparation after performance retries are exhausted', async () => {
+    setup(makeMeeting({ status: 'COMPLETED', completionOutcome: 'FAILED', terminationReason: 'RELATIONSHIP_THRESHOLD_BREACH', terminationMessage: 'The client ended the meeting.' }))
+    const mutate = vi.fn((_variables, options) => options.onSuccess())
+    mockedReturnToPreparation.mockReturnValue({ mutate, isPending: false, isError: false } as unknown as ReturnType<typeof useReturnToPreparation>)
+    renderPage()
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: 'Return to meeting preparation' }).at(-1)!)
+    })
+
+    expect(screen.getByText('Meeting preparation page')).toBeInTheDocument()
+    expect(mutate).toHaveBeenCalledOnce()
+    expect(mockedRetryEngagement.mock.results.at(-1)?.value.mutate).not.toHaveBeenCalled()
+  })
+
+  it('starts a new engagement after an unprofessional-conduct termination', async () => {
+    setup(makeMeeting({ status: 'COMPLETED', completionOutcome: 'FAILED', terminationReason: 'UNPROFESSIONAL_CONDUCT', terminationMessage: 'The client ended the meeting.' }))
+    const mutate = vi.fn((_variables, options) => options.onSuccess({ id: 'eng-2' }))
+    mockedRetryEngagement.mockReturnValue({ mutate, isPending: false } as unknown as ReturnType<typeof useRetryEngagement>)
+    renderPage()
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: 'Retry this lead from the start' }).at(-1)!)
+    })
+
+    expect(screen.getByText('Client intelligence page')).toBeInTheDocument()
+    expect(mutate).toHaveBeenCalledOnce()
+    expect(mockedReturnToPreparation.mock.results.at(-1)?.value.mutate).not.toHaveBeenCalled()
+  })
+
+  it('continues to the proposal after passing the meeting', async () => {
+    setup(makeMeeting({ status: 'COMPLETED', completionOutcome: 'PASSED' }))
+    renderPage()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Continue to the proposal' }))
+    })
+
+    expect(screen.getByText('Proposal page')).toBeInTheDocument()
   })
 })
 

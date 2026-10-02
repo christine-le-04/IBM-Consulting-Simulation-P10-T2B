@@ -9,6 +9,11 @@ import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.meeting.domain.PersonaStateRepository;
 import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
+import com.ibm.consulting.sim.outreach.domain.OutreachAttempt;
+import com.ibm.consulting.sim.outreach.domain.OutreachOutcome;
+import com.ibm.consulting.sim.outreach.domain.OutreachNextAction;
+import com.ibm.consulting.sim.proposal.domain.Proposal;
+import com.ibm.consulting.sim.proposal.domain.ProposalDecision;
 import com.ibm.consulting.sim.proposal.domain.ProposalRepository;
 import com.ibm.consulting.sim.scenario.domain.Scenario;
 import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
@@ -28,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -154,6 +160,120 @@ class AssessmentServiceTest {
         assertThat(assessmentRepository.assessment).isEmpty();
         assertThat(data.engagement().getState()).isEqualTo(EngagementState.CLIENT_DECISION);
         verify(achievementEvaluationService, never()).evaluateForUser(any());
+    }
+
+    @Test
+    void outreachScoreAveragesResolvedAttemptsAcrossContactsAndCheckpointRounds() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        stubScoringInputs(data);
+        OutreachAttempt first = resolvedOutreach(data, 1, 80);
+        first.assignContact(UUID.randomUUID(), 1);
+        OutreachAttempt second = resolvedOutreach(data, 2, 40);
+        second.assignContact(UUID.randomUUID(), 2);
+        when(outreachRepository.findByEngagementId(data.engagement().getId())).thenReturn(List.of(first, second));
+
+        AssessmentResponse response = service.generate(data.engagement().getId(), data.userId());
+
+        // This locks the current average-based calculation; best-attempt scoring is separate work.
+        assertThat(score(response, "Outreach Effectiveness")).isEqualTo(60);
+        assertThat(first.getScorePersonalisation()).isEqualTo(80);
+        assertThat(second.getScorePersonalisation()).isEqualTo(40);
+    }
+
+    @Test
+    void unresolvedOutreachDoesNotDiluteTheResolvedAttemptScore() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        stubScoringInputs(data);
+        OutreachAttempt pending = OutreachAttempt.create(data.engagement().getId(), 2, "Follow-up", "Pending email");
+        when(outreachRepository.findByEngagementId(data.engagement().getId()))
+                .thenReturn(List.of(resolvedOutreach(data, 1, 80), pending));
+
+        AssessmentResponse response = service.generate(data.engagement().getId(), data.userId());
+
+        assertThat(score(response, "Outreach Effectiveness")).isEqualTo(80);
+        assertThat(pending.getScorePersonalisation()).isNull();
+    }
+
+    @Test
+    void finalProposalUsesTheLearnerPerformanceScoreWhenAvailable() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        stubScoringInputs(data);
+        Proposal proposal = mock(Proposal.class);
+        when(proposal.getDecision()).thenReturn(ProposalDecision.WON);
+        when(proposal.getLearnerPerformanceScore()).thenReturn(72);
+        when(proposalRepository.findByEngagementId(data.engagement().getId())).thenReturn(Optional.of(proposal));
+
+        AssessmentResponse response = service.generate(data.engagement().getId(), data.userId());
+
+        assertThat(score(response, "Solution Alignment")).isEqualTo(72);
+    }
+
+    @Test
+    void historicProposalFallsBackToItsPersistedAlignmentScore() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        stubScoringInputs(data);
+        Proposal proposal = mock(Proposal.class);
+        when(proposal.getDecision()).thenReturn(ProposalDecision.WON);
+        when(proposal.getLearnerPerformanceScore()).thenReturn(null);
+        when(proposal.getAlignmentScore()).thenReturn(64);
+        when(proposalRepository.findByEngagementId(data.engagement().getId())).thenReturn(Optional.of(proposal));
+
+        AssessmentResponse response = service.generate(data.engagement().getId(), data.userId());
+
+        assertThat(score(response, "Solution Alignment")).isEqualTo(64);
+    }
+
+    @Test
+    void aPendingClientDecisionCannotCreateScoresOrCompleteTheEngagement() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        Proposal proposal = mock(Proposal.class);
+        when(proposal.getDecision()).thenReturn(ProposalDecision.PENDING);
+        when(proposalRepository.findByEngagementId(data.engagement().getId())).thenReturn(Optional.of(proposal));
+
+        assertThatThrownBy(() -> service.generate(data.engagement().getId(), data.userId()))
+                .isInstanceOf(AssessmentService.AssessmentNotAvailableException.class);
+
+        assertThat(assessmentRepository.saveCount).isZero();
+        assertThat(data.engagement().getState()).isEqualTo(EngagementState.CLIENT_DECISION);
+        verify(outreachRepository, never()).findByEngagementId(any());
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void aStoredAssessmentIsNotRecomputedWhenLaterScoringInputsChange() {
+        TestData data = engagementIn(EngagementState.CLIENT_DECISION);
+        stubOwnedForUpdate(data);
+        stubScoringInputs(data);
+        java.util.ArrayList<OutreachAttempt> attempts = new java.util.ArrayList<>();
+        attempts.add(resolvedOutreach(data, 1, 80));
+        when(outreachRepository.findByEngagementId(data.engagement().getId())).thenReturn(attempts);
+        AssessmentResponse first = service.generate(data.engagement().getId(), data.userId());
+        attempts.add(resolvedOutreach(data, 2, 20));
+
+        AssessmentResponse replay = service.generate(data.engagement().getId(), data.userId());
+
+        assertThat(score(replay, "Outreach Effectiveness")).isEqualTo(80);
+        assertThat(replay.competencyScores()).isEqualTo(first.competencyScores());
+        assertThat(replay.generatedAt()).isEqualTo(first.generatedAt());
+        verify(outreachRepository, times(1)).findByEngagementId(data.engagement().getId());
+        assertThat(assessmentRepository.saveCount).isEqualTo(1);
+    }
+
+    private OutreachAttempt resolvedOutreach(TestData data, int attemptNumber, int score) {
+        OutreachAttempt attempt = OutreachAttempt.create(data.engagement().getId(), attemptNumber, "Subject", "Email body");
+        attempt.resolve("Please revise", OutreachOutcome.REJECTED, OutreachNextAction.SEND_FOLLOW_UP,
+                score, score, score, score);
+        return attempt;
+    }
+
+    private int score(AssessmentResponse response, String competencyName) {
+        return response.competencyScores().stream().filter(score -> score.name().equals(competencyName))
+                .findFirst().orElseThrow().score();
     }
 
     private void stubOwnedForUpdate(TestData data) {
