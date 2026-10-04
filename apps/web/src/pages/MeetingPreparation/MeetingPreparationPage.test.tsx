@@ -161,4 +161,22 @@ describe('MeetingPreparationPage readiness labels', () => {
     expect(screen.getByText('Opening meeting')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Opening meeting/i })).toBeDisabled()
   })
+
+  it('tells the learner when the meeting could not be started', () => {
+    setup({
+      objective: 'Confirm client priorities',
+      agenda: ['Opening', 'Discovery', 'Next steps'],
+      discoveryQuestions: ['Question one', 'Question two', 'Question three'],
+    })
+    mockedStartMeeting.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      isError: true,
+      error: new Error('Network Error'),
+    } as unknown as ReturnType<typeof useStartMeeting>)
+    renderPage()
+
+    expect(screen.getByText('Meeting could not be started')).toBeInTheDocument()
+    expect(screen.getByText('Your preparation is saved. Try joining the meeting again.')).toBeInTheDocument()
+  })
 })

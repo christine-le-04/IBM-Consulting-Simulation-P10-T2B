@@ -15,7 +15,8 @@ import { Add, ChevronLeft, OpenPanelFilledRight, Search } from '@carbon/icons-re
 import { useEngagement } from '@/api/hooks/useEngagements'
 import { useCompleteResearch, useResearch, useResearchGateStatus, useResearchSourceDeck, useSaveResearch } from '@/api/hooks/useLeads'
 import type { EvidenceType, ResearchSourceBlock, SaveResearchPayload } from '@/api/types'
-import ErrorState from '@/components/shared/ErrorState'
+import { getApiProblem } from '@/api/problemDetails'
+import LoadError from '@/components/shared/LoadError'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import CompanyFile from '@/components/shell/CompanyFile'
@@ -63,7 +64,7 @@ export default function ClientIntelligencePage() {
   const { engagementId = '' } = useParams<{ engagementId: string }>()
   const navigate = useNavigate()
   const { data: engagement } = useEngagement(engagementId)
-  const { data: evidence, isLoading, isError } = useResearch(engagementId)
+  const { data: evidence, isLoading, isError, error, refetch } = useResearch(engagementId)
   const saveResearch = useSaveResearch(engagementId)
   const { data: gate } = useResearchGateStatus(engagementId)
   const completeResearch = useCompleteResearch(engagementId)
@@ -97,7 +98,10 @@ export default function ClientIntelligencePage() {
   // Dana speaks the gate's own coaching; the way on sits beside her.
   useMentor(
     completeResearch.isError
-      ? 'The engagement could not move on yet. Tick off what is missing, then try again.'
+      // 422 is the gate refusing; anything else never reached it.
+      ? getApiProblem(completeResearch.error, '').status === 422
+        ? 'The engagement could not move on yet. Tick off what is missing, then try again.'
+        : 'The engagement could not move on just now. Your research is saved; check your connection, then try again.'
       : isBackFromFailedOutreach(engagement)
         ? 'Nobody agreed to meet. Your research is still here: look again at who can actually say yes.'
         : gate?.coaching?.[0] ?? (gate?.ready ? 'You have enough to go on. Now decide who can actually say yes.' : null),
@@ -155,7 +159,7 @@ export default function ClientIntelligencePage() {
   }
 
   if (isLoading) return <LoadingState />
-  if (isError) return <ErrorState />
+  if (isError) return <LoadError title="Research could not be opened" error={error} reassurance="Your saved evidence is safe." onRetry={() => void refetch()} />
 
   const areaSources = sources.filter((item) => item.evidenceType === area)
 

@@ -563,7 +563,7 @@
   resize: vertical;
   padding: 0.9rem;
   font: inherit;
-  font-family: Calibri, 'IBM Plex Sans', sans-serif;
+  font-family: Calibri, var(--sim-sans);
   font-size: 0.9375rem;
   line-height: 1.55;
 }
@@ -702,7 +702,7 @@
   border: 1px solid #d8dde6;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   padding: 1.5rem 2rem;
-  font-family: 'IBM Plex Serif', Georgia, serif;
+  font-family: var(--sim-serif);
 }
 
 .letterhead {
@@ -712,7 +712,7 @@
   border-bottom: 2px solid #0f62fe;
   padding-bottom: 0.4rem;
   margin-bottom: 1rem;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.75rem;
   color: var(--sim-ink-2);
   gap: 1rem;
@@ -726,7 +726,7 @@
 }
 
 .include {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.8125rem;
   background: #f4f4f4;
   padding: 0.6rem 0.75rem;
@@ -752,7 +752,7 @@
   display: flex;
   gap: 0.25rem;
   flex-wrap: wrap;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   border-bottom: 1px solid var(--sim-line);
 
   button {
@@ -821,7 +821,7 @@
 
 .guidance {
   margin: 0.2rem 0 0;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.8125rem;
   color: var(--sim-ink-2);
 }

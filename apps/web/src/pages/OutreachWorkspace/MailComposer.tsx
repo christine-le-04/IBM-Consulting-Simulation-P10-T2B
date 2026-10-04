@@ -101,7 +101,7 @@ export default function MailComposer({
           <input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Add a subject" aria-label="Subject" />
           <small>{subject.length} characters</small>
         </label>
-        {subjectError && <p className={styles.error}>{subjectError}</p>}
+        {subjectError && <p className={styles.error} role="alert">{subjectError}</p>}
 
         <div className={styles.toolbar}>
           <span className={styles.toolbarSpacer} />
@@ -138,7 +138,7 @@ export default function MailComposer({
           placeholder={reply ? 'Write your reply…' : `Dear ${to},\n\n…`}
           aria-label="Message"
         />
-        {bodyError && <p className={styles.error}>{bodyError}</p>}
+        {bodyError && <p className={styles.error} role="alert">{bodyError}</p>}
 
         {safety.message && (
           <p className={`${styles.safety} ${safety.risk === 'blocking' ? styles.safetyBlocking : ''}`} role="status">{safety.message}</p>

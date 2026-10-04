@@ -124,7 +124,7 @@
 
 .summary p:last-child {
   margin: 0;
-  font-family: 'IBM Plex Serif', serif;
+  font-family: var(--sim-serif);
   font-size: 1.0625rem;
   line-height: 1.65;
 }

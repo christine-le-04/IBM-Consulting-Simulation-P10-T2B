@@ -12,7 +12,7 @@ import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfol
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import LoadingState from '@/components/shared/LoadingState'
-import ErrorState from '@/components/shared/ErrorState'
+import LoadError from '@/components/shared/LoadError'
 import type { AchievementSummary, CompetencyTrend, CompletedEngagementView } from '@/api/types'
 import Choice from '@/components/shell/Choice'
 import IndustryArt from '@/components/shell/IndustryArt'
@@ -277,7 +277,7 @@ function AchievementsSection() {
 }
 
 export default function PortfolioPage() {
-  const { data: portfolio, isLoading, isError } = usePortfolioSummary()
+  const { data: portfolio, isLoading, isError, error, refetch } = usePortfolioSummary()
   const { displayName } = useAuthStore()
   const [showCompetencyHistory, setShowCompetencyHistory] = useState(false)
   const sortedHistory = useMemo(
@@ -286,7 +286,7 @@ export default function PortfolioPage() {
   )
 
   if (isLoading) return <LoadingState />
-  if (isError || !portfolio) return <ErrorState />
+  if (isError || !portfolio) return <LoadError title="Portfolio could not be opened" error={error} onRetry={() => void refetch()} />
 
   const initials = (displayName ?? '').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
 

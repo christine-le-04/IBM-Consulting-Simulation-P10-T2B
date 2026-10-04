@@ -15,6 +15,7 @@ import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
 import { useScenarioCatalog } from '@/api/hooks/useScenarios'
 import { resolveEngagementRoute } from '@/api/engagementRouting'
+import { getApiProblem } from '@/api/problemDetails'
 import type { CompletedEngagementView, Engagement, ScenarioSummary } from '@/api/types'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
@@ -176,10 +177,10 @@ export default function CommandCentrePage() {
   const { displayName } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const { data: engagements, isLoading: engLoading, isError: engError } = useMyEngagements()
+  const { data: engagements, isLoading: engLoading, isError: engError, refetch: refetchEngagements } = useMyEngagements()
   const { data: portfolio } = usePortfolioSummary()
   const startEngagement = useStartEngagement()
-  const { data: starterPage, isLoading: scenLoading, isError: scenarioError } = useScenarioCatalog({ page: 0, size: 8 })
+  const { data: starterPage, isLoading: scenLoading, isError: scenarioError, refetch: refetchScenarios } = useScenarioCatalog({ page: 0, size: 8 })
   const { stage } = useExperience()
   const firstVisit = stage === 'FIRST_VISIT'
 
@@ -269,13 +270,24 @@ export default function CommandCentrePage() {
 
 
   if (engLoading || scenLoading) return <LoadingState />
-  if (engError || scenarioError) return <ErrorState />
+  if (engError || scenarioError) return <ErrorState title="The Office could not be opened" message="Your engagements are saved. Check your connection, then try again." actionLabel="Try again" onAction={() => { void refetchEngagements(); void refetchScenarios() }} />
 
   return (
     <ObjectiveTourProvider tourId="command-centre" objectives={COMMAND_CENTRE_OBJECTIVES}>
       <main className={styles.page}>
         {deniedReason && (
           <InlineNotification kind="warning" title="Access restricted" subtitle={deniedReason} onCloseButtonClick={() => setDeniedReason(undefined)} />
+        )}
+        {startEngagement.isError && (
+          <InlineNotification
+            kind="error"
+            lowContrast
+            title="Engagement could not be started"
+            subtitle={getApiProblem(startEngagement.error, '').status === 422
+              ? 'This scenario is not available to start right now. Choose another one.'
+              : 'Check your connection, then try starting it again.'}
+            onCloseButtonClick={() => startEngagement.reset()}
+          />
         )}
 
         <header className={`${styles.lobby} objective-command-centre`}>

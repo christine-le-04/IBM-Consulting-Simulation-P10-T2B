@@ -18,7 +18,7 @@ import { useMeeting, useMeetingPreparation, useMeetingTranscript, usePersonaStat
 import { useMeetingSocket } from '@/api/hooks/useMeetingSocket'
 import { useScenario } from '@/api/hooks/useScenarios'
 import type { ConversationTurn, MeetingBehaviourFeedback, MeetingTermination, PersonaState } from '@/api/types'
-import ErrorState from '@/components/shared/ErrorState'
+import LoadError from '@/components/shared/LoadError'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import { useMentor } from '@/components/shell/useMentor'
@@ -93,14 +93,14 @@ function clock(createdAt: string) {
 export default function LiveMeetingPage() {
   const { engagementId = '', meetingId = '' } = useParams<{ engagementId: string; meetingId: string }>()
   const navigate = useNavigate()
-  const { data: meeting, isLoading: meetingLoading, isError: meetingError } = useMeeting(meetingId)
+  const { data: meeting, isLoading: meetingLoading, isError: meetingError, error: meetingLoadError, refetch: refetchMeeting } = useMeeting(meetingId)
   const { data: transcript, isLoading: transcriptLoading } = useMeetingTranscript(meetingId)
-  const { data: persistedPersonaState, isLoading: personaStateLoading } = usePersonaState(meetingId)
+  const { data: persistedPersonaState, isLoading: personaStateLoading, error: personaStateError, refetch: refetchPersonaState } = usePersonaState(meetingId)
   const { data: preparation } = useMeetingPreparation(engagementId)
   const { data: engagement } = useEngagement(engagementId)
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
   const retryMeeting = useRetryMeeting(meetingId, engagementId)
-  const { streamingText, isStreaming, error, personaState, latestSignals, termination, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
+  const { streamingText, isStreaming, error, connected, personaState, latestSignals, termination, behaviourFeedback, sendMessage } = useMeetingSocket(meetingId)
   const retryEngagement = useRetryEngagement(engagementId)
   const returnToPreparation = useReturnToPreparation(meetingId, engagementId)
   const [message, setMessage] = useState('')
@@ -160,8 +160,8 @@ export default function LiveMeetingPage() {
   )
 
   if (meetingLoading || transcriptLoading || personaStateLoading) return <LoadingState />
-  if (meetingError || !meeting) return <ErrorState />
-  if (!currentState) return <ErrorState />
+  if (meetingError || !meeting) return <LoadError title="Meeting could not be opened" error={meetingLoadError} reassurance="Your conversation is saved." onRetry={() => void refetchMeeting()} />
+  if (!currentState) return <LoadError title="Meeting could not be opened" error={personaStateError} reassurance="Your conversation is saved." onRetry={() => void refetchPersonaState()} />
 
   const debriefTips = meeting.debriefTips ?? []
   const automaticTermination = termination ?? toTermination(
@@ -177,12 +177,16 @@ export default function LiveMeetingPage() {
     && turns.some((turn) => turn.actor === 'LEARNER' && turn.content === pendingMessage)
   const now = new Date().toISOString()
 
+  // Until the live channel is up a message cannot be delivered, so it stays in the box.
+  const connecting = connected === false
+
   const sendResponse = async (outgoing: string) => {
-    if (!outgoing || isStreaming) return
+    if (!outgoing || isStreaming || connecting) return
     setMessage('')
     setPendingMessage(outgoing)
     try {
-      await sendMessage(outgoing)
+      // An undelivered message goes back in the box instead of being lost.
+      if (await sendMessage(outgoing) === false) setMessage((current) => current || outgoing)
     } finally {
       setPendingMessage(null)
     }
@@ -290,11 +294,11 @@ export default function LiveMeetingPage() {
 
           {error && (
             <div className={styles.errors}>
-              <InlineNotification kind="error" lowContrast hideCloseButton title="Message failed" subtitle={error} />
+              <InlineNotification kind="error" lowContrast hideCloseButton title={connecting ? 'Meeting connection' : 'Message failed'} subtitle={error} />
             </div>
           )}
           {returnToPreparation.isError && !automaticTermination && (
-            <InlineNotification kind="error" hideCloseButton title="Could not return to preparation" subtitle="Your meeting is saved. Try again." />
+            <InlineNotification kind="error" lowContrast hideCloseButton title="Could not return to preparation" subtitle="Your meeting is saved. Try again." />
           )}
 
           {!isCompleted && (
@@ -319,11 +323,11 @@ export default function LiveMeetingPage() {
                   placeholder={readyToClose ? 'Confirm the next step, owner and timing…' : 'Type a message'}
                   aria-label={`Message ${clientName}`}
                 />
-                <button type="button" className={styles.send} disabled={isStreaming || !message.trim()} onClick={() => void sendResponse(message.trim())} aria-label="Send">
+                <button type="button" className={styles.send} disabled={isStreaming || connecting || !message.trim()} onClick={() => void sendResponse(message.trim())} aria-label="Send">
                   <Send size={20} />
                 </button>
               </div>
-              <p className={styles.composeHelp}>Enter to send · Shift + Enter for a new line</p>
+              <p className={styles.composeHelp} role="status">{connecting ? 'Connecting to the meeting… you can send as soon as it is ready.' : 'Enter to send · Shift + Enter for a new line'}</p>
             </footer>
           )}
         </div>

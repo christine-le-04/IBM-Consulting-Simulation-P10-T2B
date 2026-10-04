@@ -21,6 +21,7 @@ import { useEngagement } from '@/api/hooks/useEngagements'
 import { useScenario } from '@/api/hooks/useScenarios'
 import { getApiProblem } from '@/api/problemDetails'
 import type { ProposalReview } from '@/api/types'
+import LoadError from '@/components/shared/LoadError'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import Choice from '@/components/shell/Choice'
@@ -197,7 +198,7 @@ export default function ProposalStudioPage() {
 
   if (studio.workspace.isLoading) return <LoadingState />
   if (studio.workspace.isError) {
-    return <InlineNotification kind="error" title="Proposal workspace unavailable" subtitle="Please return to the Office and reopen this engagement." hideCloseButton />
+    return <LoadError title="Proposal workspace could not be opened" error={studio.workspace.error} reassurance="Your draft is saved." onRetry={() => void studio.workspace.refetch()} />
   }
   if (finalResult && !readingSent) return <LoadingState description="Opening feedback and review…" />
   if (studio.submitted && studio.proposal && !readingSent) {

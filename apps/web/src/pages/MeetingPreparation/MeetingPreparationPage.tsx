@@ -9,7 +9,8 @@ import {
 } from '@/api/hooks/useMeeting'
 import { useScenario } from '@/api/hooks/useScenarios'
 import LoadingState from '@/components/shared/LoadingState'
-import ErrorState from '@/components/shared/ErrorState'
+import { getApiProblem } from '@/api/problemDetails'
+import LoadError from '@/components/shared/LoadError'
 import styles from './MeetingPreparationPage.module.scss'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import { useShellEngagement } from '@/components/shell/useShellEngagement'
@@ -150,7 +151,7 @@ export default function MeetingPreparationPage() {
   const navigate = useNavigate()
   const { engagement } = useShellEngagement()
   const { data: scenario } = useScenario(engagement?.scenarioId ?? '')
-  const { data: preparation, isLoading, isError } = useMeetingPreparation(engagementId!)
+  const { data: preparation, isLoading, isError, error, refetch } = useMeetingPreparation(engagementId!)
   const updatePreparation = useUpdateMeetingPreparation(engagementId!)
   const startMeeting = useStartMeeting(engagementId!)
 
@@ -192,7 +193,7 @@ export default function MeetingPreparationPage() {
   }, [agenda, discoveryQuestions, engagementId, objective])
 
   if (isLoading) return <LoadingState />
-  if (isError) return <ErrorState />
+  if (isError) return <LoadError title="Meeting plan could not be opened" error={error} reassurance="Your draft is kept in this browser." onRetry={() => void refetch()} />
 
   const savePreparation = (onSuccess?: () => void) => {
     updatePreparation.mutate({
@@ -271,6 +272,31 @@ export default function MeetingPreparationPage() {
             </div>
           </header>
 
+          {(updatePreparation.isError || startMeeting.isError) && (
+            <div className={styles.eventErrors}>
+              {updatePreparation.isError && (
+                <InlineNotification
+                  kind="error"
+                  lowContrast
+                  hideCloseButton
+                  title="Failed to save preparation"
+                  subtitle="Your local draft is still available. Try saving again."
+                />
+              )}
+              {startMeeting.isError && (
+                <InlineNotification
+                  kind="error"
+                  lowContrast
+                  hideCloseButton
+                  title="Meeting could not be started"
+                  subtitle={getApiProblem(startMeeting.error, '').status === 422
+                    ? 'Your preparation is saved, but the meeting cannot be opened yet. Check the readiness panel, then try again.'
+                    : 'Your preparation is saved. Try joining the meeting again.'}
+                />
+              )}
+            </div>
+          )}
+
           <div className={styles.columns}>
             <section className={styles.invite} aria-label="Meeting plan">
               <label className={`${styles.objective} objective-meeting-obj`}>
@@ -316,15 +342,6 @@ export default function MeetingPreparationPage() {
                 )}
               </section>
 
-              {updatePreparation.isError && (
-                <InlineNotification
-                  kind="error"
-                  lowContrast
-                  hideCloseButton
-                  title="Failed to save preparation"
-                  subtitle="Your local draft is still available. Try saving again."
-                />
-              )}
             </section>
 
             <section className={styles.notepad} aria-label="Discovery questions">

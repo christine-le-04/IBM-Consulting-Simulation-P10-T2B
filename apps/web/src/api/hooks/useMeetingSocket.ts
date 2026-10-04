@@ -9,13 +9,16 @@ interface UsePersonaTurnStreamResult {
   streamingText: string
   isStreaming: boolean
   error: string | null
+  /** False until the live channel is up, and again whenever it drops. */
+  connected: boolean
   personaState: PersonaState | null
   latestSignals: string[]
   termination: MeetingTermination | null
   guidedOptionsPending: boolean
   guidedOptionsError: string | null
   behaviourFeedback: MeetingBehaviourFeedback | null
-  sendMessage: (message: string) => Promise<void>
+  /** Resolves false when the message never reached the client, so the caller can keep the learner's text. */
+  sendMessage: (message: string) => Promise<boolean>
 }
 
 type SocketEvent =
@@ -58,6 +61,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
   const [streamingText, setStreamingText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [connected, setConnected] = useState(false)
   const [personaState, setPersonaState] = useState<PersonaState | null>(null)
   const [latestSignals, setLatestSignals] = useState<string[]>([])
   const [termination, setTermination] = useState<MeetingTermination | null>(null)
@@ -82,6 +86,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     setStreamingText('')
     setIsStreaming(false)
     setError(null)
+    setConnected(false)
     setPersonaState(null)
     setLatestSignals([])
     setTermination(null)
@@ -103,6 +108,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     client.onConnect = () => {
       if (disposed) return
       connectedRef.current = true
+      setConnected(true)
       setError(null)
       client.subscribe(meetingSocketContract.topic(meetingId), (frame: IMessage) => {
         if (disposed) return
@@ -167,25 +173,38 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
           setGuidedOptionsPending(false)
           setGuidedOptionsError(event.payload.message)
         } else if (event.type === 'turn.error') {
-          setError(event.payload.message)
+          // The server's wording is for its log; the learner needs what to do next.
+          console.warn('Live meeting turn failed', event.payload.message)
+          const message = 'The client could not reply just now. Send your message again.'
+          setError(message)
           setIsStreaming(false)
           sendingRef.current = false
-          pendingResolversRef.current?.reject(new Error(event.payload.message))
+          pendingResolversRef.current?.reject(new Error(message))
           pendingResolversRef.current = null
         }
       })
     }
 
     client.onStompError = (frame) => {
-      setError(frame.headers.message ?? 'WebSocket connection error')
-      pendingResolversRef.current?.reject(new Error(frame.headers.message ?? 'WebSocket connection error'))
+      // The broker's own frame message is for the console, not the learner.
+      console.warn('Live meeting STOMP error', frame.headers.message)
+      const message = 'The live meeting hit a connection problem. Wait a moment, then send your message again.'
+      setError(message)
+      pendingResolversRef.current?.reject(new Error(message))
       pendingResolversRef.current = null
     }
     client.onWebSocketClose = () => {
-      connectedRef.current = false
+      // A previous meeting's socket can close after the next one has connected
+      // (retry, or React's development double mount); it must not mark the
+      // live connection as down.
       if (disposed) return
+      const wasConnected = connectedRef.current
+      connectedRef.current = false
+      setConnected(false)
       const message = 'The live meeting connection was lost. Reconnecting automatically; wait for the connection before sending again.'
-      setError(message)
+      // Each failed reconnect also closes a socket; only a drop from a live
+      // connection replaces what the learner was last told.
+      setError((current) => (wasConnected ? message : current ?? message))
       setIsStreaming(false)
       sendingRef.current = false
       pendingResolversRef.current?.reject(new Error(message))
@@ -194,7 +213,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
 
     client.onWebSocketError = () => {
       if (disposed) return
-      setError('Unable to connect to the live meeting channel. Check that the API is running and /ws is routed to it. Reconnecting automatically.')
+      setError('Unable to connect to the live meeting. Check your connection; reconnecting automatically.')
     }
 
     client.activate()
@@ -210,11 +229,11 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
 
   const sendMessage = useCallback(
     async (message: string) => {
-      if (sendingRef.current) return
+      if (sendingRef.current) return true
       const client = clientRef.current
       if (!client || !connectedRef.current) {
-        setError('Not connected to the live meeting channel yet — please retry in a moment')
-        return
+        setError('The live meeting is still connecting. Try again in a moment.')
+        return false
       }
 
       sendingRef.current = true
@@ -235,8 +254,10 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
             body: JSON.stringify(payload),
           })
         })
+        return true
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to send message')
+        setError(err instanceof Error ? err.message : 'Your message could not be sent. Try again.')
+        return false
       } finally {
         setIsStreaming(false)
         sendingRef.current = false
@@ -245,5 +266,5 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
     [meetingId]
   )
 
-  return { streamingText, isStreaming, error, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage }
+  return { streamingText, isStreaming, error, connected, personaState, latestSignals, termination, guidedOptionsPending, guidedOptionsError, behaviourFeedback, sendMessage }
 }

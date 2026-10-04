@@ -202,18 +202,18 @@
   max-width: 816px;
   width: 100%;
   margin: 0 auto;
-  font-family: 'IBM Plex Serif', Georgia, serif;
+  font-family: var(--sim-serif);
 
   h1 {
     margin: 0 0 0.3rem;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 1.5rem;
     font-weight: 500;
   }
 
   h2 {
     margin: 1.5rem 0 0.2rem;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 1rem;
     font-weight: 600;
   }
@@ -231,7 +231,7 @@
   border-bottom: 2px solid #0f62fe;
   padding-bottom: 0.4rem;
   margin-bottom: 2rem;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.75rem;
   color: #5f6368;
 }
@@ -244,7 +244,7 @@
 
 .guide {
   margin: 0;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.875rem;
   color: #5f6368;
   font-style: italic;
@@ -252,7 +252,7 @@
 
 .fieldHelp {
   margin: 0 0 0.35rem;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.75rem;
   color: #80868b;
 }
@@ -313,7 +313,7 @@
   border: 0;
   background: none;
   color: #0b57d0 !important;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.8125rem;
   cursor: pointer;
   padding: 0.35rem 0;
@@ -323,7 +323,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 0.875rem;
   }
 
@@ -371,14 +371,14 @@
 }
 
 .choiceCell {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
 }
 
 .commercial {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--sim-sans);
   font-size: 0.75rem;
   color: #5f6368;
   margin-top: 0.5rem;
@@ -410,7 +410,7 @@
   line-height: 1.6;
 
   span {
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 0.75rem;
     background: #f1f3f4;
     padding: 1px 6px;
@@ -427,7 +427,7 @@
 
   p {
     margin: 0 0 0.3rem;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: var(--sim-sans);
     font-size: 0.6875rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;

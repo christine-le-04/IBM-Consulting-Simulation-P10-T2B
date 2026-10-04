@@ -36,6 +36,15 @@ it('offers revision before the third unsuccessful submission and hides final ass
   expect(screen.queryByRole('button', { name: 'View full assessment' })).not.toBeInTheDocument()
 })
 
+it('tells the learner when the decision coach could not answer', async () => {
+  mockedUseExplanation.mockReturnValue({ ...idleMutation(), isError: true } as ReturnType<typeof useProposalDecisionExplanation>)
+  mockedUseCounterfactual.mockReturnValue(idleMutation())
+  render(<MemoryRouter><ProposalOutcomeView engagementId="engagement-1" proposal={makeProposal()} /></MemoryRouter>)
+  expect(screen.queryByText('Coaching unavailable')).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Explain decision' }))
+  expect(screen.getByText('Coaching unavailable')).toBeInTheDocument()
+})
+
 // creates a base proposal object for tests with optional field overrides
 function makeProposal(overrides: Partial<Proposal> = {}): Proposal {
   return {

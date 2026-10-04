@@ -22,6 +22,12 @@
   --sim-purple-soft: #f6f2ff;
   /** Carbon's fixed header. */
   --sim-header: 3rem;
+  --sim-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --sim-serif: 'IBM Plex Serif', Georgia, serif;
   --sim-mono: 'IBM Plex Mono', Menlo, monospace;
+  // Faces borrowed by workspaces skinned like a real-world document (loaded in index.html).
+  --sim-display: 'Playfair Display', Georgia, serif;
+  --sim-reading: 'Source Serif 4', 'IBM Plex Serif', Georgia, serif;
+  --sim-masthead: 'UnifrakturMaguntia', 'Old English Text MT', serif;
+  --sim-hand: 'Caveat', 'Bradley Hand', cursive;
 }

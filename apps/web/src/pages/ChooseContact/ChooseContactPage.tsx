@@ -3,7 +3,7 @@ import { InlineNotification } from '@carbon/react'
 import { useContacts, useChooseContact } from '@/api/hooks/useContacts'
 import { useMentor } from '@/components/shell/useMentor'
 import LoadingState from '@/components/shared/LoadingState'
-import ErrorState from '@/components/shared/ErrorState'
+import LoadError from '@/components/shared/LoadError'
 import { firstName, statusFromContacts } from '@/lifecycle/contactSelection'
 import { ChooseContactView } from './ChooseContactView'
 
@@ -11,7 +11,7 @@ import { ChooseContactView } from './ChooseContactView'
 export default function ChooseContactPage() {
   const { engagementId } = useParams<{ engagementId: string }>()
   const navigate = useNavigate()
-  const { data, isLoading, isError } = useContacts(engagementId!)
+  const { data, isLoading, isError, error, refetch } = useContacts(engagementId!)
   const choose = useChooseContact(engagementId!)
 
   const base = `/dashboard/engagements/${engagementId}`
@@ -32,12 +32,12 @@ export default function ChooseContactPage() {
   )
 
   if (isLoading) return <LoadingState />
-  if (isError || !data) return <ErrorState />
+  if (isError || !data) return <LoadError title="Contacts could not be opened" error={error} reassurance="Your research is saved." onRetry={() => void refetch()} />
 
   return (
     <>
       {choose.isError && (
-        <InlineNotification kind="error" title="Could not choose this contact" subtitle="Please try again." hideCloseButton />
+        <InlineNotification kind="error" lowContrast title="Could not choose this contact" subtitle="Please try again." hideCloseButton />
       )}
       <ChooseContactView
         company={data.contacts[0]?.organisation ?? 'the company'}
