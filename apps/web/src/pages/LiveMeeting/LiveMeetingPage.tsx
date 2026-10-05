@@ -410,7 +410,7 @@ export default function LiveMeetingPage() {
           ? 'This attempt is preserved for review. Your evidence and preparation remain available; the live conversation restarts with a clean relationship state.'
           : automaticTermination?.reason === 'UNPROFESSIONAL_CONDUCT'
             ? 'This attempt is preserved for review. Retrying creates a new engagement from the same lead with a clean learner state.'
-            : 'Your research, preparation and transcripts are kept. Revise your meeting plan to start a fresh meeting cycle with three retries.'}</p>
+            : 'Your research, preparation and transcripts are kept. Revise your meeting plan to start a fresh meeting cycle with three attempts in total.'}</p>
         {automaticTermination?.retryGuidance.length ? (
           <ul className={styles.guidance}>{automaticTermination.retryGuidance.map((tip) => <li key={tip}>{tip}</li>)}</ul>
         ) : null}

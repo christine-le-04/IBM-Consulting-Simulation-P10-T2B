@@ -6,10 +6,10 @@ import com.ibm.consulting.sim.assessment.domain.*;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
 import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.engagement.domain.EngagementState;
-import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ibm.consulting.sim.meeting.domain.MeetingRepository;
 import com.ibm.consulting.sim.meeting.domain.PersonaState;
 import com.ibm.consulting.sim.meeting.domain.PersonaStateRepository;
-import com.ibm.consulting.sim.outreach.domain.OutreachAttempt;
 import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
 import com.ibm.consulting.sim.proposal.domain.Proposal;
 import com.ibm.consulting.sim.proposal.domain.ClientDecisionOutcome;
@@ -37,7 +37,8 @@ public class AssessmentService {
 
     private final AssessmentRepository assessmentRepository;
     private final EngagementRepository engagementRepository;
-    private final ResearchEvidenceRepository evidenceRepository;
+    private final MeetingRepository meetingRepository;
+    private final ObjectMapper objectMapper;
     private final OutreachRepository outreachRepository;
     private final PersonaStateRepository personaStateRepository;
     private final ProposalRepository proposalRepository;
@@ -47,7 +48,8 @@ public class AssessmentService {
 
     public AssessmentService(AssessmentRepository assessmentRepository,
                               EngagementRepository engagementRepository,
-                              ResearchEvidenceRepository evidenceRepository,
+                              MeetingRepository meetingRepository,
+                              ObjectMapper objectMapper,
                               OutreachRepository outreachRepository,
                               PersonaStateRepository personaStateRepository,
                               ProposalRepository proposalRepository,
@@ -56,7 +58,8 @@ public class AssessmentService {
                               ApplicationEventPublisher eventPublisher) {
         this.assessmentRepository = assessmentRepository;
         this.engagementRepository = engagementRepository;
-        this.evidenceRepository = evidenceRepository;
+        this.meetingRepository = meetingRepository;
+        this.objectMapper = objectMapper;
         this.outreachRepository = outreachRepository;
         this.personaStateRepository = personaStateRepository;
         this.proposalRepository = proposalRepository;
@@ -115,18 +118,12 @@ public class AssessmentService {
             throw new AssessmentNotAvailableException(engagement.getState());
         }
 
-        int evidenceCount = evidenceRepository.findByEngagementId(engagementId).size();
-        int avgOutreachScore = averageOutreachScore(outreachRepository.findByEngagementId(engagementId));
-        PersonaState state = personaStateRepository.findByEngagementId(engagementId)
-                .orElseGet(() -> PersonaState.initial(engagementId));
-        Proposal proposal = proposalRepository.findByEngagementId(engagementId).orElse(null);
-        int proposalAlignment = proposal != null
-                ? valueOr(proposal.getLearnerPerformanceScore(), proposal.getAlignmentScore())
-                : 0;
-
-        List<CompetencyScore> competencyScores = AssessmentEngine.score(
-                evidenceCount, avgOutreachScore, state.getTrust(), state.getInterest(), state.getPatience(),
-                proposalAlignment);
+        PersonaState state = personaStateRepository.findByEngagementId(engagementId).orElse(null);
+        Proposal proposal = currentProposal;
+        List<CompetencyScore> competencyScores = StageScoreCalculator.score(engagement,
+                outreachRepository.findByEngagementId(engagementId),
+                meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(engagementId),
+                state, proposal, objectMapper);
         Scenario scenario = scenarioRepository.findById(engagement.getScenarioId())
                 .orElseThrow(() -> new NotFoundException("Scenario", engagement.getScenarioId()));
         int overallScore = AssessmentEngine.overall(competencyScores, scenario.getRubricWeights());
@@ -177,19 +174,6 @@ public class AssessmentService {
         ClientDecisionOutcome clientOutcome = proposal.getClientDecisionOutcome();
         if (clientOutcome != null) return clientOutcome.name();
         return proposal.getDecision() == ProposalDecision.WON ? "PROPOSAL_ACCEPTED" : "PROPOSAL_REJECTED";
-    }
-
-    private int valueOr(Integer value, int fallback) {
-        return value == null ? fallback : value;
-    }
-
-    private int averageOutreachScore(List<OutreachAttempt> attempts) {
-        return (int) Math.round(attempts.stream()
-                .filter(a -> a.getScorePersonalisation() != null)
-                .mapToInt(a -> (a.getScorePersonalisation() + a.getScoreRelevance()
-                        + a.getScoreClarity() + a.getScoreCallToAction()) / 4)
-                .average()
-                .orElse(0));
     }
 
     public static class AssessmentNotAvailableException extends DomainException {

@@ -10,25 +10,45 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MeetingRetryPolicyTest {
 
     @Test
-    void permitsThreeLiveMeetingRetriesAfterTheInitialPerformanceFailure() {
+    void permitsTwoLiveMeetingRetriesAfterTheInitialPerformanceFailure() {
         Meeting initialFailure = performanceFailure();
 
         MeetingRetryEligibility eligibility = MeetingRetryPolicy.eligibilityFor(initialFailure, List.of(initialFailure));
 
         assertThat(eligibility.available()).isTrue();
-        assertThat(eligibility.retriesRemaining()).isEqualTo(3);
+        assertThat(eligibility.retriesRemaining()).isEqualTo(2);
     }
 
     @Test
-    void requiresLeadRetryAfterThreePerformanceRetriesAreExhausted() {
+    void exhaustsTheCycleAfterThreeTotalPerformanceAttempts() {
+        Meeting first = performanceFailure();
+        Meeting second = performanceFailure();
+        Meeting third = performanceFailure();
+
+        MeetingRetryEligibility eligibility = MeetingRetryPolicy.eligibilityFor(
+                third, List.of(first, second, third));
+
+        assertThat(eligibility.available()).isFalse();
+        assertThat(eligibility.retriesRemaining()).isZero();
+    }
+
+    @Test
+    void secondFailureLeavesExactlyOneAttempt() {
+        Meeting first = performanceFailure();
+        Meeting second = performanceFailure();
+        MeetingRetryEligibility eligibility = MeetingRetryPolicy.eligibilityFor(second, List.of(first, second));
+        assertThat(eligibility.available()).isTrue();
+        assertThat(eligibility.retriesRemaining()).isEqualTo(1);
+    }
+
+    @Test
+    void historicalFourAttemptCyclesDoNotGainAdditionalRetries() {
         Meeting first = performanceFailure();
         Meeting second = performanceFailure();
         Meeting third = performanceFailure();
         Meeting fourth = performanceFailure();
-
-        MeetingRetryEligibility eligibility = MeetingRetryPolicy.eligibilityFor(
-                fourth, List.of(first, second, third, fourth));
-
+        MeetingRetryEligibility eligibility = MeetingRetryPolicy.eligibilityFor(fourth,
+                List.of(first, second, third, fourth));
         assertThat(eligibility.available()).isFalse();
         assertThat(eligibility.retriesRemaining()).isZero();
     }

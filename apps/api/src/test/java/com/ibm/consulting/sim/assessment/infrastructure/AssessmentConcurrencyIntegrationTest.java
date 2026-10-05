@@ -82,7 +82,8 @@ class AssessmentConcurrencyIntegrationTest {
         ScenarioRepository scenarios = mock(ScenarioRepository.class);
         when(scenarios.findById(data.scenarioId())).thenReturn(Optional.of(scenario));
         AssessmentService service = new AssessmentService(new EntityManagerAssessmentRepository(),
-                new EntityManagerEngagementRepository(), mock(ResearchEvidenceRepository.class),
+                new EntityManagerEngagementRepository(), mock(com.ibm.consulting.sim.meeting.domain.MeetingRepository.class),
+                new com.fasterxml.jackson.databind.ObjectMapper(),
                 mock(OutreachRepository.class), mock(PersonaStateRepository.class), mock(ProposalRepository.class),
                 scenarios, achievements, events);
 
