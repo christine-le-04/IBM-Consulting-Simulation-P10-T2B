@@ -35,6 +35,7 @@ class AdminScenarioContractValidationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @MockBean ScenarioService scenarioService;
+    @MockBean com.ibm.consulting.sim.scenario.application.ScenarioAssignmentService assignmentService;
     @MockBean JwtTokenProvider jwtTokenProvider;
     @MockBean UserRepository userRepository;
 

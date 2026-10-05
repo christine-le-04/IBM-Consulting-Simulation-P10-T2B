@@ -47,6 +47,9 @@ class AdminScenarioControllerSecurityTest {
     private ScenarioService scenarioService;
 
     @MockBean
+    private com.ibm.consulting.sim.scenario.application.ScenarioAssignmentService assignmentService;
+
+    @MockBean
     private JwtTokenProvider jwtTokenProvider;
 
     @MockBean

@@ -4,6 +4,7 @@ import com.ibm.consulting.sim.scenario.domain.Persona;
 import com.ibm.consulting.sim.scenario.domain.PersonaRepository;
 import com.ibm.consulting.sim.scenario.domain.AdminScenarioCatalogQuery;
 import com.ibm.consulting.sim.scenario.domain.Scenario;
+import com.ibm.consulting.sim.scenario.domain.ScenarioAssignment;
 import com.ibm.consulting.sim.scenario.domain.ScenarioCatalogPage;
 import com.ibm.consulting.sim.scenario.domain.ScenarioCatalogQuery;
 import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
@@ -49,6 +50,25 @@ interface SpringDataScenarioRepository extends JpaRepository<Scenario, UUID>, or
             order by scenario.industry asc
             """)
     List<String> findDistinctIndustries(@Param("status") ScenarioStatus status);
+
+    @Query("""
+            select scenario from Scenario scenario
+            where scenario.status = :status
+              and scenario.scenarioLineageId in (
+                  select assignment.scenarioLineageId from ScenarioAssignment assignment
+                  where assignment.userId = :userId)
+            """)
+    List<Scenario> findByStatusAssignedTo(@Param("status") ScenarioStatus status, @Param("userId") UUID userId);
+
+    @Query("""
+            select distinct scenario.industry from Scenario scenario
+            where scenario.status = :status
+              and scenario.scenarioLineageId in (
+                  select assignment.scenarioLineageId from ScenarioAssignment assignment
+                  where assignment.userId = :userId)
+            order by scenario.industry asc
+            """)
+    List<String> findDistinctIndustriesAssignedTo(@Param("status") ScenarioStatus status, @Param("userId") UUID userId);
 }
 
 @Repository
@@ -61,6 +81,9 @@ class JpaScenarioRepository implements ScenarioRepository {
     }
 
     @Override public List<Scenario> findAllActive() { return repo.findByStatus(ScenarioStatus.ACTIVE); }
+    @Override public List<Scenario> findAllActiveAssignedTo(UUID userId) {
+        return repo.findByStatusAssignedTo(ScenarioStatus.ACTIVE, userId);
+    }
     @Override public ScenarioCatalogPage findCatalog(ScenarioCatalogQuery query) {
         var page = repo.findAll(catalogueSpecification(query), PageRequest.of(
                 query.page(), query.size(), Sort.by(Sort.Direction.ASC, "title")));
@@ -72,6 +95,9 @@ class JpaScenarioRepository implements ScenarioRepository {
         return new ScenarioCatalogPage(page.getContent(), page.getTotalElements(), page.getNumber(), page.getSize(), page.getTotalPages());
     }
     @Override public List<String> findCatalogIndustries() { return repo.findDistinctIndustries(ScenarioStatus.ACTIVE); }
+    @Override public List<String> findCatalogIndustriesAssignedTo(UUID userId) {
+        return repo.findDistinctIndustriesAssignedTo(ScenarioStatus.ACTIVE, userId);
+    }
     @Override public List<Scenario> findAll() { return repo.findAll(); }
     @Override public List<Scenario> findByLineageIdAndStatus(UUID lineageId, ScenarioStatus status) {
         return repo.findByScenarioLineageIdAndStatus(lineageId, status);
@@ -92,6 +118,13 @@ class JpaScenarioRepository implements ScenarioRepository {
             var predicates = new java.util.ArrayList<Predicate>();
             predicates.add(builder.equal(root.get("status"), ScenarioStatus.ACTIVE));
 
+            if (query.assigneeId() != null) {
+                var assigned = criteriaQuery.subquery(UUID.class);
+                var assignment = assigned.from(ScenarioAssignment.class);
+                assigned.select(assignment.<UUID>get("scenarioLineageId"))
+                        .where(builder.equal(assignment.get("userId"), query.assigneeId()));
+                predicates.add(root.get("scenarioLineageId").in(assigned));
+            }
             if (query.industry() != null) {
                 predicates.add(builder.equal(builder.lower(root.get("industry")), query.industry()));
             }

@@ -66,6 +66,15 @@ public class ScenarioService {
                 .toList();
     }
 
+    /** Live scenarios assigned to one consultant. */
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = SCENARIOS_CACHE, key = "'assigned:' + #userId")
+    public List<ScenarioSummary> listActiveAssignedTo(UUID userId) {
+        return scenarioRepository.findAllActiveAssignedTo(userId).stream()
+                .map(this::summary)
+                .toList();
+    }
+
     /** Bounded learner catalogue query that never loads every scenario into a dashboard request. */
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = SCENARIO_CATALOG_CACHE, key = "#query.cacheKey()")
@@ -83,6 +92,12 @@ public class ScenarioService {
     @Cacheable(cacheNames = SCENARIO_CATALOG_FACETS_CACHE, key = "'industries'")
     public List<String> listCatalogIndustries() {
         return scenarioRepository.findCatalogIndustries();
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = SCENARIO_CATALOG_FACETS_CACHE, key = "'industries:' + #userId")
+    public List<String> listCatalogIndustriesAssignedTo(UUID userId) {
+        return scenarioRepository.findCatalogIndustriesAssignedTo(userId);
     }
 
     @Transactional(readOnly = true)

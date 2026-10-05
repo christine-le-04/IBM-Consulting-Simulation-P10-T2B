@@ -6,9 +6,12 @@ import java.util.UUID;
 
 public interface ScenarioRepository {
     List<Scenario> findAllActive();
+    /** Live scenarios assigned to one consultant. */
+    List<Scenario> findAllActiveAssignedTo(UUID userId);
     ScenarioCatalogPage findCatalog(ScenarioCatalogQuery query);
     ScenarioCatalogPage findAdminCatalog(AdminScenarioCatalogQuery query);
     List<String> findCatalogIndustries();
+    List<String> findCatalogIndustriesAssignedTo(UUID userId);
     List<Scenario> findAll();
     List<Scenario> findByLineageIdAndStatus(UUID lineageId, ScenarioStatus status);
     Optional<Scenario> findById(UUID id);

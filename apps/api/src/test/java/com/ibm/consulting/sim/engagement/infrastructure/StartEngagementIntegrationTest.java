@@ -46,7 +46,8 @@ class StartEngagementIntegrationTest {
     @BeforeEach
     void setUp() {
         useCase = new StartEngagementUseCase(engagements, scenarios,
-                new DifficultyProfileService(objectMapper, scenarios, leads), leads, evidence);
+                new DifficultyProfileService(objectMapper, scenarios, leads), leads, evidence,
+                (userId, scenario) -> true);
     }
 
     @Test
