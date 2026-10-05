@@ -142,6 +142,20 @@ export interface ScenarioCatalogPage {
   totalPages: number
 }
 
+/** A consultant assigned to a scenario. Assignments are shared by every revision of the scenario. */
+export interface ScenarioAssignee {
+  id: string
+  displayName: string
+  email: string
+  active: boolean
+}
+
+export interface ScenarioAssignmentView {
+  scenarioId: string
+  scenarioLineageId: string
+  assignees: ScenarioAssignee[]
+}
+
 // ─── Lead ─────────────────────────────────────────────────────────────────────
 
 export interface LeadSignal {
