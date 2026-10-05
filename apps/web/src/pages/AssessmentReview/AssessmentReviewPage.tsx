@@ -170,8 +170,8 @@ export default function AssessmentReviewPage() {
                 <div className={styles.bar} role="img" aria-label={`${competency.name}: ${competency.score} out of 100`}><i style={{ width: `${competency.score}%` }} /></div>
                 {competency.stage && competency.attemptCount != null && (
                   <p>{competency.attemptCount} completed {competency.attemptCount === 1 ? 'attempt' : 'attempts'} total
-                    {competency.currentCycleAttempts != null && ` ? ${competency.currentCycleAttempts} in the current checkpoint cycle`}
-                    {competency.checkpointResets != null && ` ? ${competency.checkpointResets} checkpoint resets`}
+                    {competency.currentCycleAttempts != null && ` · ${competency.currentCycleAttempts} in the current checkpoint cycle`}
+                    {competency.checkpointResets != null && ` · ${competency.checkpointResets} checkpoint ${competency.checkpointResets === 1 ? 'reset' : 'resets'}`}
                   </p>
                 )}
                 {competency.evidenceNote && <p>{competency.evidenceNote}</p>}

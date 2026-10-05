@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import LiveMeetingPage from './LiveMeetingPage'
@@ -22,12 +22,20 @@ vi.mock('@/api/hooks/useMeeting', () => ({
   useReturnToPreparation: vi.fn(),
   useMeetingPreparation: () => ({ data: { objective: 'Validate the problem', agenda: ['Confirm objectives'], discoveryQuestions: ['Which site hurts most?'] } }),
 }))
+// what the engagement and scenario lookups answer; one test swaps them out
+const lookups = vi.hoisted(() => {
+  const defaults = {
+    engagement: { scenarioId: 'scn-1', leadCompanyName: 'MediCare' } as Record<string, unknown>,
+    scenario: { personas: [{ id: 'persona-1', name: 'Sarah Chen', jobTitle: 'Chief Operating Officer', organisation: 'MediCare' }] } as unknown,
+  }
+  return { defaults, current: { ...defaults } }
+})
 vi.mock('@/api/hooks/useEngagements', () => ({
   useRetryEngagement: vi.fn(),
-  useEngagement: () => ({ data: { scenarioId: 'scn-1', leadCompanyName: 'MediCare' } }),
+  useEngagement: () => ({ data: lookups.current.engagement }),
 }))
 vi.mock('@/api/hooks/useScenarios', () => ({
-  useScenario: () => ({ data: { personas: [{ id: 'persona-1', name: 'Sarah Chen', jobTitle: 'Chief Operating Officer', organisation: 'MediCare' }] } }),
+  useScenario: () => ({ data: lookups.current.scenario }),
 }))
 vi.mock('@/api/hooks/useMeetingSocket', () => ({ useMeetingSocket: vi.fn() }))
 vi.mock('@/components/shared/ObjectiveTourProvider', () => ({
@@ -326,5 +334,23 @@ describe('LiveMeetingPage without numbers', () => {
     expect(screen.getByLabelText('Conversation with Sarah Chen')).toBeInTheDocument()
     expect(screen.getByText('They trust you a little more. Their interest went up. It cost a little of their patience.')).toBeInTheDocument()
     expect(screen.queryByText(/\/100|\+6|points to threshold/)).not.toBeInTheDocument()
+  })
+})
+
+describe('LiveMeetingPage client name', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => { lookups.current = { ...lookups.defaults } })
+
+  it('names the contact the learner wrote to when the scenario personas are not available', () => {
+    lookups.current = {
+      engagement: { scenarioId: 'scn-1', leadCompanyName: 'AeroVector', contactPersonaId: 'persona-1', contactName: 'Elena Vargas Atlas', contactJobTitle: 'VP Asset Operations' },
+      scenario: undefined,
+    }
+    setup(makeMeeting({}))
+    renderPage()
+
+    expect(screen.getByLabelText('Message Elena Vargas Atlas')).toBeInTheDocument()
+    expect(screen.getByText('VP Asset Operations · AeroVector')).toBeInTheDocument()
+    expect(screen.queryByText('The client')).not.toBeInTheDocument()
   })
 })

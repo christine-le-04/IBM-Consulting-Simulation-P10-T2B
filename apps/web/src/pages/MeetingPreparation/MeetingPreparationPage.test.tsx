@@ -150,6 +150,39 @@ describe('MeetingPreparationPage readiness labels', () => {
     expect(screen.getByLabelText('Agenda item 4')).toBeInTheDocument()
   })
 
+  it('moves the caret into a newly added row so typing fills it', async () => {
+    const user = userEvent.setup()
+    setup({ agenda: ['Intro'], discoveryQuestions: ['First question'] })
+    renderPage()
+
+    const agendaRows = screen.getAllByLabelText(/^Agenda item \d+$/).length
+    await user.click(screen.getByRole('button', { name: 'Add agenda item' }))
+    const added = screen.getByLabelText(`Agenda item ${agendaRows + 1}`)
+    expect(added).toHaveFocus()
+    // Spaces used to press the still-focused button and add empty rows.
+    await user.keyboard('Walk through hand-offs')
+    expect(added).toHaveValue('Walk through hand-offs')
+    expect(screen.getAllByLabelText(/^Agenda item \d+$/)).toHaveLength(agendaRows + 1)
+
+    const questionRows = screen.getAllByLabelText(/^Question \d+$/).length
+    await user.click(screen.getByRole('button', { name: 'Add question' }))
+    expect(screen.getByLabelText(`Question ${questionRows + 1}`)).toHaveFocus()
+  })
+
+  it('names the chosen contact when the scenario personas are not available', () => {
+    setup({ agenda: [], discoveryQuestions: [] })
+    mockedScenario.mockReturnValue({ data: undefined } as never)
+    mockedShellEngagement.mockReturnValue({
+      engagement: { scenarioId: 'scenario-1', personaId: 'persona-1', contactPersonaId: 'persona-1', contactName: 'Elena Vargas Atlas' } as never,
+      engagementId: 'eng-1',
+      viewingPhase: 'MEETING_PREPARATION',
+    })
+    renderPage()
+
+    expect(screen.getByRole('heading', { name: 'Meeting with Elena Vargas Atlas' })).toBeInTheDocument()
+    expect(screen.getByText('Agenda — shared with Elena')).toBeInTheDocument()
+  })
+
   it('shows a spinner while the meeting is opening', () => {
     setup({
       objective: 'Confirm client priorities',
