@@ -125,13 +125,13 @@ class MeetingStartServiceTest {
         data.engagement().transitionTo(EngagementState.IN_MEETING, "Meeting started");
         data.engagement().transitionTo(EngagementState.MEETING_FAILED, "Retries exhausted");
         java.util.List<Meeting> attempts = new java.util.ArrayList<>();
-        for (int index = 0; index < 4; index++) {
+        for (int index = 0; index < 3; index++) {
             Meeting failed = Meeting.start(data.engagement().getId(), data.engagement().getPersonaId());
             failed.complete(com.ibm.consulting.sim.meeting.domain.MeetingCompletionOutcome.FAILED,
                     "Relationship gate failed", java.util.List.of());
             attempts.add(failed);
         }
-        Meeting latest = attempts.get(3);
+        Meeting latest = attempts.get(2);
         when(meetingRepository.findById(latest.getId())).thenReturn(Optional.of(latest));
         when(engagementRepository.findByIdAndUserId(data.engagement().getId(), data.userId()))
                 .thenReturn(Optional.of(data.engagement()));
@@ -142,14 +142,14 @@ class MeetingStartServiceTest {
 
         service.returnToPreparation(latest.getId(), data.userId());
         assertThat(data.engagement().getState()).isEqualTo(EngagementState.MEETING_SECURED);
-        assertThat(data.engagement().getMeetingRetryBaseline()).isEqualTo(4);
+        assertThat(data.engagement().getMeetingRetryBaseline()).isEqualTo(3);
         assertThat(data.engagement().getSelectedLeadId()).isNotNull();
         Meeting nextFailure = Meeting.start(data.engagement().getId(), data.engagement().getPersonaId());
         nextFailure.complete(com.ibm.consulting.sim.meeting.domain.MeetingCompletionOutcome.FAILED,
                 "New cycle failure", java.util.List.of());
         attempts.add(nextFailure);
         assertThat(com.ibm.consulting.sim.meeting.domain.MeetingRetryPolicy.eligibilityFor(nextFailure,
-                attempts.stream().skip(data.engagement().getMeetingRetryBaseline()).toList()).retriesRemaining()).isEqualTo(3);
+                attempts.stream().skip(data.engagement().getMeetingRetryBaseline()).toList()).retriesRemaining()).isEqualTo(2);
     }
 
     private record TestData(UUID userId, Engagement engagement, DifficultyProfile profile) {}

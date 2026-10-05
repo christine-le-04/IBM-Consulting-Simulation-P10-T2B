@@ -101,8 +101,36 @@ class MeetingRetryServiceTest {
     }
 
     @Test
+    void thirdFailureCannotStartAFourthMeetingInTheSameCycle() {
+        failure();
+        failure();
+        Meeting latest = failure();
+
+        assertThatThrownBy(() -> service.retry(latest.getId(), userId))
+                .isInstanceOf(MeetingService.MeetingRetryNotAvailableException.class);
+
+        assertThat(attempts).hasSize(3);
+        verify(meetings, never()).save(any());
+        verify(states, never()).save(any());
+    }
+
+    @Test
+    void existingThreeFailureRunCanReturnToPreparationWithoutWaitingForAFourthAttempt() {
+        failure();
+        failure();
+        Meeting latest = failure();
+        assertThat(engagement.getState()).isEqualTo(EngagementState.IN_MEETING);
+
+        service.returnToPreparation(latest.getId(), userId);
+
+        assertThat(engagement.getState()).isEqualTo(EngagementState.MEETING_SECURED);
+        assertThat(engagement.getMeetingRetryBaseline()).isEqualTo(3);
+        assertThat(attempts).hasSize(3);
+    }
+
+    @Test
     void returningToPreparationResetsTheCycleOnceWithoutDeletingEarlierAttempts() {
-        for (int index = 0; index < 4; index++) failure();
+        for (int index = 0; index < 3; index++) failure();
         Meeting latest = attempts.getLast();
         engagement.transitionTo(EngagementState.MEETING_FAILED, "Retries exhausted");
         changeRelationship();
@@ -112,9 +140,9 @@ class MeetingRetryServiceTest {
         service.returnToPreparation(latest.getId(), userId);
 
         assertThat(engagement.getState()).isEqualTo(EngagementState.MEETING_SECURED);
-        assertThat(engagement.getMeetingRetryBaseline()).isEqualTo(4);
+        assertThat(engagement.getMeetingRetryBaseline()).isEqualTo(3);
         assertThat(engagement.getSelectedLeadId()).isEqualTo(leadId);
-        assertThat(attempts).hasSize(4).allSatisfy(attempt ->
+        assertThat(attempts).hasSize(3).allSatisfy(attempt ->
                 assertThat(attempt.getStatus()).isEqualTo(MeetingStatus.COMPLETED));
         assertThat(state.getTrust()).isEqualTo(50);
         assertThat(state.getDisclosedFacts()).isEmpty();

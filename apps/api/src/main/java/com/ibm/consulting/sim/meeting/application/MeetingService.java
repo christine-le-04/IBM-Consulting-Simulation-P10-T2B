@@ -538,10 +538,14 @@ public class MeetingService {
         }
         if (engagement.getState() == EngagementState.MEETING_SECURED
                 || engagement.getState() == EngagementState.PREPARING) return;
-        if (engagement.getState() != EngagementState.MEETING_FAILED
+        if ((engagement.getState() != EngagementState.MEETING_FAILED
+                && engagement.getState() != EngagementState.IN_MEETING)
                 || MeetingRetryPolicy.eligibilityFor(failed,
                 attempts.stream().skip(engagement.getMeetingRetryBaseline()).toList()).available()) {
             throw new InvalidMeetingStateException("Use the remaining live meeting retries first.");
+        }
+        if (engagement.getState() == EngagementState.IN_MEETING) {
+            engagement.transitionTo(EngagementState.MEETING_FAILED, "Meeting attempt limit reached under current retry policy");
         }
         engagement.returnToMeetingPreparation(attempts.size());
         personaStateRepository.findByEngagementId(engagement.getId()).ifPresent(state -> {
