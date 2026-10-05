@@ -684,6 +684,11 @@ export interface CompetencyScoreView {
   name: string
   score: number
   evidenceNote: string | null
+  stage?: 'OUTREACH' | 'MEETING' | 'PROPOSAL' | null
+  attemptCount?: number | null
+  currentCycleAttempts?: number | null
+  checkpointResets?: number | null
+  scoreHistoryComplete?: boolean | null
 }
 
 export interface Assessment {

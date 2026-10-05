@@ -136,3 +136,31 @@ describe('AssessmentReviewPage strengths and improvement areas list', () => {
     expect(screen.getByText('Pilot approved')).toBeInTheDocument()
   })
 })
+
+describe('AssessmentReviewPage best stage scores', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows three stage best scores, total attempts and checkpoint cycles', () => {
+    setup(makeAssessment({ competencyScores: [
+      { name: 'Outreach Effectiveness', stage: 'OUTREACH', score: 90, evidenceNote: 'Best across all cycles.', attemptCount: 5, currentCycleAttempts: 2, checkpointResets: 1, scoreHistoryComplete: true },
+      { name: 'Relationship Building', stage: 'MEETING', score: 80, evidenceNote: 'Best across all cycles.', attemptCount: 7, currentCycleAttempts: 1, checkpointResets: 2, scoreHistoryComplete: true },
+      { name: 'Solution Alignment', stage: 'PROPOSAL', score: 75, evidenceNote: 'Best across all submissions.', attemptCount: 3, currentCycleAttempts: 3, checkpointResets: 0, scoreHistoryComplete: true },
+    ] }))
+    renderPage()
+    expect(screen.getByRole('heading', { name: 'Best scores by stage' })).toBeInTheDocument()
+    expect(screen.getByText('Outreach')).toBeInTheDocument()
+    expect(screen.getByText('Meeting')).toBeInTheDocument()
+    expect(screen.getByText('Proposal')).toBeInTheDocument()
+    expect(screen.getByText(/5 completed attempts total.*2 in the current checkpoint cycle.*1 checkpoint resets/)).toBeInTheDocument()
+    expect(screen.getByText(/7 completed attempts total.*1 in the current checkpoint cycle.*2 checkpoint resets/)).toBeInTheDocument()
+    expect(screen.getByText('90/100')).toBeInTheDocument()
+    expect(screen.getByText(/Research and meeting preparation receive feedback only/)).toBeInTheDocument()
+  })
+
+  it('keeps historical assessments readable without claiming attempt metadata', () => {
+    setup(makeAssessment({}))
+    renderPage()
+    expect(screen.getByRole('heading', { name: 'Competencies' })).toBeInTheDocument()
+    expect(screen.queryByText(/completed attempts total/)).not.toBeInTheDocument()
+  })
+})

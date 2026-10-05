@@ -128,6 +128,8 @@ export default function AssessmentReviewPage() {
   if (!result) return <LoadingState description="Generating assessment…" />
 
   const outcome = describeOutcome(result.outcome)
+  const hasStageScores = result.competencyScores.some((score) => score.stage)
+  const stageLabels = { OUTREACH: 'Outreach', MEETING: 'Meeting', PROPOSAL: 'Proposal' }
 
   return (
     <div className={styles.page}>
@@ -156,15 +158,22 @@ export default function AssessmentReviewPage() {
         </section>
 
         <section>
-          <h2 className={styles.label}>Competencies</h2>
+          <h2 className={styles.label}>{hasStageScores ? 'Best scores by stage' : 'Competencies'}</h2>
+          {hasStageScores && <p>Research and meeting preparation receive feedback only. Checkpoint resets give you fresh attempts and keep your earlier best scores.</p>}
           <div className={styles.competencies}>
             {result.competencyScores.map((competency) => (
               <div key={competency.name} className={styles.competency}>
                 <div className={styles.competencyHead}>
-                  <strong>{competency.name}</strong>
+                  <strong>{competency.stage ? stageLabels[competency.stage] : competency.name}</strong>
                   <span>{competency.score}/100</span>
                 </div>
                 <div className={styles.bar} role="img" aria-label={`${competency.name}: ${competency.score} out of 100`}><i style={{ width: `${competency.score}%` }} /></div>
+                {competency.stage && competency.attemptCount != null && (
+                  <p>{competency.attemptCount} completed {competency.attemptCount === 1 ? 'attempt' : 'attempts'} total
+                    {competency.currentCycleAttempts != null && ` ? ${competency.currentCycleAttempts} in the current checkpoint cycle`}
+                    {competency.checkpointResets != null && ` ? ${competency.checkpointResets} checkpoint resets`}
+                  </p>
+                )}
                 {competency.evidenceNote && <p>{competency.evidenceNote}</p>}
               </div>
             ))}
