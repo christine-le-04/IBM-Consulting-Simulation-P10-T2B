@@ -20,9 +20,13 @@ public record AssessmentResponse(
         boolean coachingPending,
         Instant generatedAt) {
 
-    public record CompetencyScoreView(String name, int score, String evidenceNote) {
+    public record CompetencyScoreView(String name, int score, String evidenceNote, String stage,
+                                     Integer attemptCount, Integer currentCycleAttempts,
+                                     Integer checkpointResets, Boolean scoreHistoryComplete) {
         static CompetencyScoreView from(CompetencyScore s) {
-            return new CompetencyScoreView(s.getCompetencyName(), s.getScore(), s.getEvidenceNote());
+            return new CompetencyScoreView(s.getCompetencyName(), s.getScore(), s.getEvidenceNote(),
+                    s.getStage(), s.getAttemptCount(), s.getCurrentCycleAttempts(),
+                    s.getCheckpointResets(), s.getScoreHistoryComplete());
         }
     }
 

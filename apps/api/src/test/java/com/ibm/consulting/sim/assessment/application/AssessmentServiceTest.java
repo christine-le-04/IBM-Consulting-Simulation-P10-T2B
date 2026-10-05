@@ -6,7 +6,8 @@ import com.ibm.consulting.sim.assessment.domain.AssessmentRepository;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
 import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.engagement.domain.EngagementState;
-import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ibm.consulting.sim.meeting.domain.MeetingRepository;
 import com.ibm.consulting.sim.meeting.domain.PersonaStateRepository;
 import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
 import com.ibm.consulting.sim.outreach.domain.OutreachAttempt;
@@ -42,7 +43,7 @@ import static org.mockito.Mockito.when;
 class AssessmentServiceTest {
 
     @Mock EngagementRepository engagementRepository;
-    @Mock ResearchEvidenceRepository evidenceRepository;
+    @Mock MeetingRepository meetingRepository;
     @Mock OutreachRepository outreachRepository;
     @Mock PersonaStateRepository personaStateRepository;
     @Mock ProposalRepository proposalRepository;
@@ -55,7 +56,7 @@ class AssessmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AssessmentService(assessmentRepository, engagementRepository, evidenceRepository,
+        service = new AssessmentService(assessmentRepository, engagementRepository, meetingRepository, new ObjectMapper(),
                 outreachRepository, personaStateRepository, proposalRepository, scenarioRepository,
                 achievementEvaluationService, eventPublisher);
     }
@@ -69,7 +70,7 @@ class AssessmentServiceTest {
         AssessmentResponse response = service.generate(data.engagement().getId(), data.userId());
 
         assertThat(assessmentRepository.saveCount).isEqualTo(1);
-        assertThat(response.competencyScores()).hasSize(4);
+        assertThat(response.competencyScores()).hasSize(3);
         assertThat(data.engagement().getState()).isEqualTo(EngagementState.COMPLETED);
         assertThat(data.engagement().getCompletedAt()).isNotNull();
         assertThat(data.engagement().getEvents())
@@ -163,7 +164,7 @@ class AssessmentServiceTest {
     }
 
     @Test
-    void outreachScoreAveragesResolvedAttemptsAcrossContactsAndCheckpointRounds() {
+    void outreachScoreKeepsBestResolvedAttemptAcrossContactsAndCheckpointRounds() {
         TestData data = engagementIn(EngagementState.CLIENT_DECISION);
         stubOwnedForUpdate(data);
         stubScoringInputs(data);
@@ -175,8 +176,8 @@ class AssessmentServiceTest {
 
         AssessmentResponse response = service.generate(data.engagement().getId(), data.userId());
 
-        // This locks the current average-based calculation; best-attempt scoring is separate work.
-        assertThat(score(response, "Outreach Effectiveness")).isEqualTo(60);
+        // Checkpoint resets preserve the better earlier score.
+        assertThat(score(response, "Outreach Effectiveness")).isEqualTo(80);
         assertThat(first.getScorePersonalisation()).isEqualTo(80);
         assertThat(second.getScorePersonalisation()).isEqualTo(40);
     }
@@ -282,7 +283,7 @@ class AssessmentServiceTest {
     }
 
     private void stubScoringInputs(TestData data) {
-        when(evidenceRepository.findByEngagementId(data.engagement().getId())).thenReturn(List.of());
+        when(meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(data.engagement().getId())).thenReturn(List.of());
         when(outreachRepository.findByEngagementId(data.engagement().getId())).thenReturn(List.of());
         when(personaStateRepository.findByEngagementId(data.engagement().getId())).thenReturn(Optional.empty());
         when(proposalRepository.findByEngagementId(data.engagement().getId())).thenReturn(Optional.empty());

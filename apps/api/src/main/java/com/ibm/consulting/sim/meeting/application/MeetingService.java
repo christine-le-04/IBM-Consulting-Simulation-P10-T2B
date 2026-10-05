@@ -235,7 +235,7 @@ public class MeetingService {
                     "I find that language unacceptable and unprofessional. I am ending this meeting.",
                     "professionalism_breach");
             turnRepository.save(personaTurn);
-            completeAutomatically(meeting, engagement, immediateTermination.get());
+            completeAutomatically(meeting, engagement, state, immediateTermination.get());
             return new MeetingTurnResult(
                     ConversationTurnResponse.from(learnerTurn),
                     ConversationTurnResponse.from(personaTurn),
@@ -284,7 +284,7 @@ public class MeetingService {
         var relationshipTermination = MeetingSafetyPolicy.evaluate(learnerMessage, state)
                 .filter(decision -> decision.reason() == MeetingTerminationReason.RELATIONSHIP_THRESHOLD_BREACH);
         MeetingRetryEligibility retryEligibility = relationshipTermination
-                .map(decision -> completeAutomatically(meeting, engagement, decision))
+                .map(decision -> completeAutomatically(meeting, engagement, state, decision))
                 .orElse(null);
 
         MeetingResponse completedMeeting = null;
@@ -409,6 +409,7 @@ public class MeetingService {
         MeetingDebriefNarrative debrief = createDebrief(meeting, state, profile, decision, turns);
 
         meeting.complete(decision.outcome(), debrief.feedback(), debrief.tips());
+        meeting.snapshotPerformance(state);
         transcriptExportService.scheduleAfterCommit(meeting.getId());
         meetingRepository.save(meeting);
 
@@ -446,8 +447,10 @@ public class MeetingService {
     }
 
     private MeetingRetryEligibility completeAutomatically(Meeting meeting, Engagement engagement,
+                                                          PersonaState state,
                                                           MeetingTerminationDecision decision) {
         meeting.complete(MeetingCompletionOutcome.FAILED, decision.message(), decision.retryGuidance(), decision.reason());
+        meeting.snapshotPerformance(state);
         transcriptExportService.scheduleAfterCommit(meeting.getId());
         meetingRepository.save(meeting);
 

@@ -30,6 +30,9 @@ public class Meeting extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private MeetingCompletionOutcome completionOutcome;
 
+    /** Immutable relationship score at completion, preserved when a retry resets persona state. */
+    private Integer performanceScore;
+
     @Enumerated(EnumType.STRING)
     private MeetingTerminationReason terminationReason;
 
@@ -91,6 +94,14 @@ public class Meeting extends BaseEntity {
     public Instant getCompletedAt() { return completedAt; }
     public String getTranscriptStorageReference() { return transcriptStorageReference; }
     public MeetingCompletionOutcome getCompletionOutcome() { return completionOutcome; }
+    public Integer getPerformanceScore() { return performanceScore; }
+
+    public void snapshotPerformance(PersonaState state) {
+        if (status != MeetingStatus.COMPLETED) throw new IllegalStateException("Meeting is not completed");
+        if (performanceScore == null) {
+            performanceScore = (state.getTrust() + state.getInterest() + state.getPatience()) / 3;
+        }
+    }
     public String getDebriefFeedback() { return debriefFeedback; }
     public List<String> getDebriefTips() { return Collections.unmodifiableList(debriefTips); }
     public MeetingTerminationReason getTerminationReason() { return terminationReason; }
