@@ -100,8 +100,7 @@ export default function App() {
           <Route index element={<CommandCentrePage />} />
           <Route path="engagements/:engagementId/intelligence" element={<ClientIntelligencePage />} />
           <Route path="engagements/:engagementId/contact" element={<ChooseContactPage />} />
-          <Route path="engagements/:engagementId/outreach"element={<RequireContact><OutreachWorkspacePage /></RequireContact>}/>
-          <Route path="engagements/:engagementId/outreach" element={<OutreachWorkspacePage />} />
+          <Route path="engagements/:engagementId/outreach" element={<RequireContact><OutreachWorkspacePage /></RequireContact>} />
           <Route path="engagements/:engagementId/preparation" element={<MeetingPreparationPage />} />
           <Route path="engagements/:engagementId/meetings/:meetingId" element={<LiveMeetingPage />} />
           <Route path="engagements/:engagementId/proposal" element={<ProposalStudioPage />} />

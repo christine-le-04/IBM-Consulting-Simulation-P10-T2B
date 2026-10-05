@@ -13,7 +13,7 @@
  * shows the submitted attempt read-only. Retryable losses can reopen the editor;
  * wins and exhausted losses go directly to the feedback/review page.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, InlineLoading, InlineNotification, Tag } from '@carbon/react'
 import { Add, ArrowLeft, Checkmark, CheckmarkFilled, ChevronLeft, ChevronRight, Renew, Send, TrashCan, WarningAlt } from '@carbon/icons-react'
@@ -31,6 +31,7 @@ import { useMentor } from '@/components/shell/useMentor'
 import { ProposalOutcomeView } from '@/features/proposal/components/ProposalOutcomeView'
 import { useProposalStudio } from '@/features/proposal/hooks/useProposalStudio'
 import { proposalSections } from '@/features/proposal/services/proposalDraftService'
+import { currentContactOf } from '@/lifecycle/contactSelection'
 import styles from './ProposalStudioPage.module.scss'
 
 const SOURCES_PER_PAGE = 4
@@ -65,6 +66,22 @@ function band(score: number) {
 
 const filled = (value: string | number) => String(value).trim().length > 0
 
+/**
+ * Adding a row moves the caret into it. Left on the button, typing a space
+ * would press it again and fill the list with empty rows.
+ */
+function useFocusAddedRow(count: number) {
+  const container = useRef<HTMLElement | null>(null)
+  const added = useRef(false)
+  useEffect(() => {
+    if (!added.current) return
+    added.current = false
+    const rows = container.current?.querySelectorAll('[data-row]')
+    rows?.[rows.length - 1]?.querySelector<HTMLElement>('input, button')?.focus()
+  }, [count])
+  return { container, markAdded: () => { added.current = true } }
+}
+
 function Table<T extends object>({ columns, rows, empty, onChange, readOnly = false }: {
   columns: [keyof T & string, string][]
   rows: T[]
@@ -74,13 +91,14 @@ function Table<T extends object>({ columns, rows, empty, onChange, readOnly = fa
 }) {
   const edit = (index: number, key: keyof T & string, value: string) =>
     onChange(rows.map((item, position) => (position === index ? { ...item, [key]: value } : item)))
+  const { container, markAdded } = useFocusAddedRow(rows.length)
   return (
-    <div className={styles.table}>
+    <div className={styles.table} ref={(node) => { container.current = node }}>
       <table>
         <thead><tr>{columns.map(([, label]) => <th key={label}>{label}</th>)}{!readOnly && <th aria-label="Remove" />}</tr></thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={index}>
+            <tr key={index} data-row>
               {columns.map(([key, label]) => (
                 <td key={key}>
                   {key === 'severity' ? (
@@ -99,21 +117,22 @@ function Table<T extends object>({ columns, rows, empty, onChange, readOnly = fa
           ))}
         </tbody>
       </table>
-      {!readOnly && <button type="button" className={styles.addRow} onClick={() => onChange([...rows, empty])}><Add size={14} /> Add row</button>}
+      {!readOnly && <button type="button" className={styles.addRow} onClick={() => { markAdded(); onChange([...rows, empty]) }}><Add size={14} /> Add row</button>}
     </div>
   )
 }
 
 function Bullets({ items, label, placeholder, onChange, readOnly = false }: { items: string[]; label: string; placeholder: string; onChange: (items: string[]) => void; readOnly?: boolean }) {
+  const { container, markAdded } = useFocusAddedRow(items.length)
   return (
-    <ul className={styles.bullets}>
+    <ul className={styles.bullets} ref={(node) => { container.current = node }}>
       {items.map((item, index) => (
-        <li key={index}>
+        <li key={index} data-row>
           <input value={item} readOnly={readOnly} placeholder={placeholder} aria-label={`${label} ${index + 1}`} onChange={(event) => onChange(items.map((value, position) => (position === index ? event.target.value : value)))} />
           {!readOnly && <button type="button" aria-label={`Remove item ${index + 1}`} onClick={() => onChange(items.length === 1 ? [''] : items.filter((_, position) => position !== index))}><TrashCan size={14} /></button>}
         </li>
       ))}
-      {!readOnly && <li><button type="button" className={styles.addRow} onClick={() => onChange([...items, ''])}><Add size={14} /> Add item</button></li>}
+      {!readOnly && <li><button type="button" className={styles.addRow} onClick={() => { markAdded(); onChange([...items, '']) }}><Add size={14} /> Add item</button></li>}
     </ul>
   )
 }
@@ -152,7 +171,8 @@ export default function ProposalStudioPage() {
   const visibleSources = sources.slice(sourcePage * SOURCES_PER_PAGE, (sourcePage + 1) * SOURCES_PER_PAGE)
   const activeLabel = proposalSections.find((section) => section.id === activeSection)?.label
   const sectionLinks = draft.evidenceLinks.filter((link) => link.section === activeSection).map((link) => link.sourceId)
-  const contact = scenario?.personas.find((persona) => persona.id === engagement?.personaId)
+  const persona = scenario?.personas.find((item) => item.id === engagement?.personaId)
+  const contact = persona ?? currentContactOf(engagement)
 
   const isReviewing = studio.reviewProposal.isPending
   const isSubmitting = studio.submitProposal.isPending
@@ -169,11 +189,22 @@ export default function ProposalStudioPage() {
   const solutionReady = draft.solutionStrategy.trim().length >= 20 && draft.components.some((component) => filled(component))
   const outcomeReady = draft.businessOutcomes.some((outcome) => filled(outcome.outcome) || filled(outcome.metric) || filled(outcome.target),)
   const evidenceReady = draft.evidenceLinks.length > 0
+  // Coverage as the submission check counts it: different sources linked,
+  // against up to four of those available. The scenario's own threshold is not
+  // sent to the studio, so the list asks for full coverage.
+  const coverageTarget = Math.min(4, sources.length)
+  const sourcesStillNeeded = Math.max(0, coverageTarget - new Set(draft.evidenceLinks.map((link) => link.sourceId)).size)
   const checklist = [
     { label: 'Problem statement is at least 20 characters', done: problemReady },
     { label: 'Solution is at least 20 characters with a component', done: solutionReady },
     { label: 'At least one business outcome or KPI is added', done: outcomeReady },
     { label: 'At least one evidence source is attached', done: evidenceReady },
+    {
+      label: sourcesStillNeeded
+        ? `Attach ${sourcesStillNeeded} more different ${sourcesStillNeeded === 1 ? 'source' : 'sources'} for full evidence coverage`
+        : 'Evidence draws on enough different sources',
+      done: coverageTarget > 0 && sourcesStillNeeded === 0,
+    },
     { label: studio.reviewIsStale ? 'Review needs to be rerun after changes' : 'You have run a proposal review', done: Boolean(studio.review) && !studio.reviewIsStale },
   ]
 
@@ -313,7 +344,7 @@ export default function ProposalStudioPage() {
               <p className={styles.outlineTitle}>{readOnly ? 'What you submitted' : 'Before you submit'}</p>
               {/* Whether a review was run is not stored with the proposal, so
                   once it is submitted that line cannot be answered honestly. */}
-              <ReadinessList items={readOnly ? checklist.slice(0, 4) : checklist} />
+              <ReadinessList items={readOnly ? checklist.slice(0, -1) : checklist} />
             </section>
           </nav>
 

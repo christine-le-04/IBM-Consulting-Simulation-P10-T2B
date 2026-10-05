@@ -14,6 +14,7 @@ import LoadError from '@/components/shared/LoadError'
 import styles from './MeetingPreparationPage.module.scss'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import { useShellEngagement } from '@/components/shell/useShellEngagement'
+import { currentContactOf } from '@/lifecycle/contactSelection'
 
 interface DraftListItem {
   id: string
@@ -115,7 +116,14 @@ function EditableList({
     const next = items.filter((_, itemIndex) => itemIndex !== index)
     onChange(next.length > 0 ? next : [createDraftItem()])
   }
-  const add = () => onChange([...items, createDraftItem()])
+  // A new row takes the caret. Left on the button, typing a space would press it
+  // again and fill the list with empty rows.
+  const focusId = useRef<string | null>(null)
+  const add = () => {
+    const item = createDraftItem()
+    focusId.current = item.id
+    onChange([...items, item])
+  }
 
   return (
     <div className={lined ? styles.linedList : styles.agendaList}>
@@ -124,6 +132,12 @@ function EditableList({
           <li key={item.id}>
             <span className={styles.itemNumber}>{index + 1}</span>
             <input
+              ref={(input) => {
+                if (input && focusId.current === item.id) {
+                  focusId.current = null
+                  input.focus()
+                }
+              }}
               value={item.value}
               placeholder={placeholder}
               aria-label={`${itemLabel} ${index + 1}`}
@@ -242,7 +256,8 @@ export default function MeetingPreparationPage() {
   ]
   const saveState = updatePreparation.isPending && !launchingMeeting ? 'Saving…' : updatePreparation.isSuccess ? 'Plan saved' : 'Saved in this browser as you type'
   const persona = scenario?.personas.find((item) => item.id === engagement?.personaId)
-  const firstName = persona?.name?.split(' ')[0] ?? 'the client'
+  const contactName = persona?.name || currentContactOf(engagement)?.name || null
+  const firstName = contactName?.split(' ')[0] ?? 'the client'
 
   return (
     <ObjectiveTourProvider tourId="meeting-preparation" objectives={MEETING_PREP_OBJECTIVES}>
@@ -252,7 +267,7 @@ export default function MeetingPreparationPage() {
             <div className={styles.eventTitle}>
               <Calendar size={20} />
               <div>
-                <h1>Meeting with {persona?.name ?? 'The client'}</h1>
+                <h1>Meeting with {contactName ?? 'the client'}</h1>
               </div>
             </div>
             <div className={`${styles.eventActions} objective-start`}>
