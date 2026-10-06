@@ -1,7 +1,17 @@
 package com.ibm.consulting.sim.meeting.application;
 
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.ai.application.AiOrchestrationService;
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
 import com.ibm.consulting.sim.ai.domain.PersonaTurnResponse;
 import com.ibm.consulting.sim.ai.infrastructure.PersonaTurnResponseParser;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
@@ -11,21 +21,37 @@ import com.ibm.consulting.sim.knowledge.application.KnowledgeRetrievalService;
 import com.ibm.consulting.sim.knowledge.domain.KnowledgeCollection;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidence;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
-import com.ibm.consulting.sim.meeting.domain.*;
-import com.ibm.consulting.sim.scenario.application.PersonaCatalogService;
+import com.ibm.consulting.sim.meeting.domain.ConversationActor;
+import com.ibm.consulting.sim.meeting.domain.ConversationTurn;
+import com.ibm.consulting.sim.meeting.domain.ConversationTurnRepository;
+import com.ibm.consulting.sim.meeting.domain.InvalidMeetingStateException;
+import com.ibm.consulting.sim.meeting.domain.Meeting;
+import com.ibm.consulting.sim.meeting.domain.MeetingBehaviourAssessment;
+import com.ibm.consulting.sim.meeting.domain.MeetingClosingPolicy;
+import com.ibm.consulting.sim.meeting.domain.MeetingCompletionDecision;
+import com.ibm.consulting.sim.meeting.domain.MeetingCompletionOutcome;
+import com.ibm.consulting.sim.meeting.domain.MeetingCompletionPolicy;
+import com.ibm.consulting.sim.meeting.domain.MeetingNaturalCompletionPolicy;
+import com.ibm.consulting.sim.meeting.domain.MeetingPreparation;
+import com.ibm.consulting.sim.meeting.domain.MeetingPreparationRepository;
+import com.ibm.consulting.sim.meeting.domain.MeetingRepository;
+import com.ibm.consulting.sim.meeting.domain.MeetingRetryEligibility;
+import com.ibm.consulting.sim.meeting.domain.MeetingRetryPolicy;
+import com.ibm.consulting.sim.meeting.domain.MeetingSafetyPolicy;
+import com.ibm.consulting.sim.meeting.domain.MeetingStatus;
+import com.ibm.consulting.sim.meeting.domain.MeetingTerminationDecision;
+import com.ibm.consulting.sim.meeting.domain.MeetingTerminationReason;
+import com.ibm.consulting.sim.meeting.domain.MeetingTranscriptPolicy;
+import com.ibm.consulting.sim.meeting.domain.PersonaState;
+import com.ibm.consulting.sim.meeting.domain.PersonaStateEngine;
+import com.ibm.consulting.sim.meeting.domain.PersonaStateRepository;
+import com.ibm.consulting.sim.meeting.domain.PreparationNotReadyException;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
+import com.ibm.consulting.sim.scenario.application.PersonaCatalogService;
 import com.ibm.consulting.sim.scenario.application.PersonaProfile;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.shared.domain.DomainException;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 /**
  * Orchestrates the live meeting lifecycle: starting a meeting, exchanging
@@ -225,11 +251,11 @@ public class MeetingService {
         int nextSequence = existingTurns.size() + 1;
         ConversationTurn learnerTurn = ConversationTurn.learnerTurn(meeting.getId(), nextSequence, learnerMessage,
                 clientMessageId);
-        turnRepository.save(learnerTurn);
 
         var immediateTermination = MeetingSafetyPolicy.evaluate(learnerMessage, state)
                 .filter(decision -> decision.reason() == MeetingTerminationReason.UNPROFESSIONAL_CONDUCT);
         if (immediateTermination.isPresent()) {
+            turnRepository.save(learnerTurn);
             ConversationTurn personaTurn = ConversationTurn.personaTurn(
                     meeting.getId(), nextSequence + 1,
                     "I find that language unacceptable and unprofessional. I am ending this meeting.",
@@ -257,8 +283,11 @@ public class MeetingService {
                 prompt,
                 PROMPT_VERSION,
                 parser,
-                () -> PersonaTurnResponse.safeFallback(
-                        "Sorry, could you repeat that? I want to make sure I understand you correctly."));
+                () -> {
+                    throw new AiProviderException("Client reply unavailable; no meeting turn was consumed. Please try again.");
+                });
+
+        turnRepository.save(learnerTurn);
 
         List<String> priorLearnerMessages = existingTurns.stream()
                 .filter(turn -> turn.getActor() == ConversationActor.LEARNER)
@@ -557,8 +586,9 @@ public class MeetingService {
 
     private String buildDebriefPrompt(PersonaState state, DifficultyProfile profile, MeetingCompletionDecision decision,
                                       List<ConversationTurn> turns) {
-        String transcript = turns.stream()
-                .skip(Math.max(0, turns.size() - 8))
+        List<ConversationTurn> usableTurns = MeetingTranscriptPolicy.usableTurns(turns);
+        String transcript = usableTurns.stream()
+                .skip(Math.max(0, usableTurns.size() - 8))
                 .map(turn -> turn.getActor().name() + ": " + turn.getContent())
                 .collect(java.util.stream.Collectors.joining("\n"));
         return """

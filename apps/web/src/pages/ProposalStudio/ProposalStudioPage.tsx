@@ -66,6 +66,19 @@ function band(score: number) {
 
 const filled = (value: string | number) => String(value).trim().length > 0
 
+const VALIDATION_LABELS: Record<string, string> = {
+  PROBLEM_REQUIRED: 'Describe the client problem',
+  SOLUTION_REQUIRED: 'Explain your recommendation',
+  OUTCOME_REQUIRED: 'Add a measurable outcome',
+  RISK_COVERAGE: 'Document delivery risks',
+  TIMELINE_DETAIL: 'Add delivery milestones',
+  ASSUMPTIONS: 'State your assumptions',
+  EVIDENCE_REQUIRED: 'Attach supporting evidence',
+  INVALID_EVIDENCE_LINK: 'Replace an unavailable source',
+  DIFFICULTY_EVIDENCE_COVERAGE: 'Support your proposal with enough evidence',
+  UNSUPPORTED_CLAIM: 'Check the evidence behind your claim',
+}
+
 /**
  * Adding a row moves the caret into it. Left on the button, typing a space
  * would press it again and fill the list with empty rows.
@@ -189,11 +202,15 @@ export default function ProposalStudioPage() {
   const solutionReady = draft.solutionStrategy.trim().length >= 20 && draft.components.some((component) => filled(component))
   const outcomeReady = draft.businessOutcomes.some((outcome) => filled(outcome.outcome) || filled(outcome.metric) || filled(outcome.target),)
   const evidenceReady = draft.evidenceLinks.length > 0
-  // Coverage as the submission check counts it: different sources linked,
-  // against up to four of those available. The scenario's own threshold is not
-  // sent to the studio, so the list asks for full coverage.
+  // Match the backend's rounded percentage against up to four available sources.
   const coverageTarget = Math.min(4, sources.length)
-  const sourcesStillNeeded = Math.max(0, coverageTarget - new Set(draft.evidenceLinks.map((link) => link.sourceId)).size)
+  const coverageThreshold = studio.workspace.data?.evidenceCoverageThreshold ?? 100
+  const requiredSources = Math.max(1, Array.from({ length: coverageTarget + 1 }, (_, count) => count)
+    .find((count) => coverageTarget > 0 && Math.round(count * 100 / coverageTarget) >= coverageThreshold) ?? coverageTarget)
+  const availableSourceIds = new Set(sources.map((source) => source.id))
+  const linkedSourceCount = new Set(draft.evidenceLinks.map((link) => link.sourceId)
+    .filter((id) => availableSourceIds.has(id))).size
+  const sourcesStillNeeded = Math.max(0, requiredSources - linkedSourceCount)
   const checklist = [
     { label: 'Problem statement is at least 20 characters', done: problemReady },
     { label: 'Solution is at least 20 characters with a component', done: solutionReady },
@@ -201,7 +218,7 @@ export default function ProposalStudioPage() {
     { label: 'At least one evidence source is attached', done: evidenceReady },
     {
       label: sourcesStillNeeded
-        ? `Attach ${sourcesStillNeeded} more different ${sourcesStillNeeded === 1 ? 'source' : 'sources'} for full evidence coverage`
+        ? `Attach ${sourcesStillNeeded} more different ${sourcesStillNeeded === 1 ? 'source' : 'sources'} ${studio.workspace.data?.evidenceCoverageThreshold == null ? 'for full evidence coverage' : `to meet the ${coverageThreshold}% evidence requirement`}`
         : 'Evidence draws on enough different sources',
       done: coverageTarget > 0 && sourcesStillNeeded === 0,
     },
@@ -310,7 +327,7 @@ export default function ProposalStudioPage() {
             <InlineNotification kind="error" lowContrast title="Proposal could not be saved or submitted" subtitle={proposalProblem.detail} hideCloseButton />
             {proposalProblem.violations && (
               <ul aria-label="Proposal validation errors">
-                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{field.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}</strong>: {message}</li>)}
+                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{VALIDATION_LABELS[field] ?? 'Review this part of your proposal'}</strong>: {message}</li>)}
               </ul>
             )}
           </div>
@@ -443,7 +460,7 @@ export default function ProposalStudioPage() {
                         </li>
                       ))}
                     </ul>
-                  ) : <p className={styles.fieldHelp}>No sources attached yet. Attach at least one source to the proposal. Additional evidence coverage may be required by scenario difficulty.</p>}
+                  ) : <p className={styles.fieldHelp}>No sources attached yet. Attach at least one source to the proposal. This scenario requires {coverageThreshold}% evidence coverage across up to {coverageTarget} available sources.</p>}
                 </>
               )}
 

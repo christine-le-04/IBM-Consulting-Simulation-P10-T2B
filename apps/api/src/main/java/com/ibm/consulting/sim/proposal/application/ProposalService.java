@@ -1,5 +1,22 @@
 package com.ibm.consulting.sim.proposal.application;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.ai.application.AiOrchestrationService;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
@@ -12,32 +29,27 @@ import com.ibm.consulting.sim.meeting.domain.ConversationTurnRepository;
 import com.ibm.consulting.sim.meeting.domain.MeetingCompletionOutcome;
 import com.ibm.consulting.sim.meeting.domain.MeetingRepository;
 import com.ibm.consulting.sim.meeting.domain.MeetingStatus;
+import com.ibm.consulting.sim.meeting.domain.MeetingTranscriptPolicy;
 import com.ibm.consulting.sim.meeting.domain.PersonaState;
 import com.ibm.consulting.sim.meeting.domain.PersonaStateRepository;
-import com.ibm.consulting.sim.proposal.domain.*;
+import com.ibm.consulting.sim.proposal.domain.ClientDecisionOutcome;
+import com.ibm.consulting.sim.proposal.domain.Proposal;
+import com.ibm.consulting.sim.proposal.domain.ProposalAlreadySubmittedException;
+import com.ibm.consulting.sim.proposal.domain.ProposalDecision;
+import com.ibm.consulting.sim.proposal.domain.ProposalDecisionEngine;
+import com.ibm.consulting.sim.proposal.domain.ProposalDecisionInsight;
+import com.ibm.consulting.sim.proposal.domain.ProposalDecisionSnapshot;
+import com.ibm.consulting.sim.proposal.domain.ProposalDecisionSource;
+import com.ibm.consulting.sim.proposal.domain.ProposalDraftContent;
+import com.ibm.consulting.sim.proposal.domain.ProposalRepository;
+import com.ibm.consulting.sim.proposal.domain.ProposalStatus;
+import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.application.PersonaCatalogService;
 import com.ibm.consulting.sim.scenario.application.PersonaProfile;
-import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.shared.config.CacheConfig;
 import com.ibm.consulting.sim.shared.domain.DomainException;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * Proposal application boundary. Canonical evidence and transcript entries are
@@ -95,7 +107,7 @@ public class ProposalService {
         ProposalResponse proposal = proposalRepository.findByEngagementId(engagementId)
                 .map(ProposalResponse::from)
                 .orElse(null);
-        return new ProposalWorkspaceResponse(proposal, sources(engagement));
+        return new ProposalWorkspaceResponse(proposal, sources(engagement), difficultyProfileService.forEngagement(engagement).proposalEvidenceCoverageThreshold());
     }
 
     @Transactional
@@ -377,7 +389,8 @@ public class ProposalService {
                 "RESEARCH_EVIDENCE", evidence.getNote(), evidence.getConfidence().name())));
         meetingRepository.findByEngagementId(engagement.getId()).ifPresent(meeting ->
                 turnRepository.findByMeetingIdOrderBySequenceAsc(meeting.getId()).stream()
-                        .filter(turn -> turn.getActor() == ConversationActor.PERSONA)
+                        .filter(turn -> turn.getActor() == ConversationActor.PERSONA
+                                && !MeetingTranscriptPolicy.isProviderFallback(turn))
                         .forEach(turn -> sources.add(new ProposalSource(
                                 "meeting:" + turn.getId(), "M-" + turn.getSequence() + " Client discovery",
                                 "MEETING_DISCOVERY", turn.getContent(), "HIGH"))));

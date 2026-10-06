@@ -177,6 +177,7 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
           console.warn('Live meeting turn failed', event.payload.message)
           const message = 'The client could not reply just now. Send your message again.'
           setError(message)
+          setStreamingText('')
           setIsStreaming(false)
           sendingRef.current = false
           pendingResolversRef.current?.reject(new Error(message))
