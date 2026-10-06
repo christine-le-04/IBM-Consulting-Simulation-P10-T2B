@@ -12,6 +12,7 @@ import com.ibm.consulting.sim.lead.domain.LeadRepository;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidence;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
+import com.ibm.consulting.sim.scenario.application.ScenarioAccessPolicy;
 import com.ibm.consulting.sim.scenario.domain.DifficultyLevel;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.scenario.domain.Persona;
@@ -46,7 +47,8 @@ class StartEngagementIntegrationTest {
     @BeforeEach
     void setUp() {
         useCase = new StartEngagementUseCase(engagements, scenarios,
-                new DifficultyProfileService(objectMapper, scenarios, leads), leads, evidence);
+                new DifficultyProfileService(objectMapper, scenarios, leads), leads, evidence,
+                (userId, scenario) -> true);
     }
 
     @Test
@@ -231,6 +233,89 @@ class StartEngagementIntegrationTest {
         useCase.execute(userId, scenario.getId(), null);
 
         assertThat(engagements.created()).hasSize(1);
+    }
+
+    // ─── Scenario assignment ───
+
+    @Test
+    void anUnassignedConsultantCannotStartANewRunAndNothingIsSaved() {
+        StartEngagementUseCase guarded = useCaseWith((user, target) -> false);
+        Scenario scenario = activeScenario("Not assigned");
+        when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
+
+        assertThatThrownBy(() -> guarded.execute(UUID.randomUUID(), scenario.getId(), null))
+                .isInstanceOf(StartEngagementUseCase.ScenarioNotAssignedException.class)
+                .hasMessageContaining("not assigned");
+
+        assertThat(engagements.created()).isEmpty();
+        verify(evidence, never()).save(any());
+    }
+
+    @Test
+    void aLeadFirstStartAlsoRequiresAnAssignment() {
+        StartEngagementUseCase guarded = useCaseWith((user, target) -> false);
+        Scenario scenario = activeScenario("Not assigned lead");
+        Lead lead = Lead.create(scenario.getId(), "Example Co", "Technology",
+                "Modernisation opportunity", LeadDifficulty.MEDIUM);
+        when(leads.findById(lead.getId())).thenReturn(Optional.of(lead));
+        when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
+
+        assertThatThrownBy(() -> guarded.executeForLead(UUID.randomUUID(), lead.getId(), null))
+                .isInstanceOf(StartEngagementUseCase.ScenarioNotAssignedException.class);
+
+        assertThat(engagements.created()).isEmpty();
+    }
+
+    @Test
+    void anUnassignedConsultantCanStillResumeARunAlreadyInProgress() {
+        ScenarioAccessPolicy policy = mock(ScenarioAccessPolicy.class);
+        StartEngagementUseCase guarded = useCaseWith(policy);
+        UUID userId = UUID.randomUUID();
+        Scenario scenario = activeScenario("Unassigned mid-run");
+        Engagement inProgress = Engagement.start(userId, scenario.getId(), scenario.getPersonas().getFirst().getId());
+        engagements.seed(inProgress);
+        when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
+
+        var response = guarded.execute(userId, scenario.getId(), null);
+
+        assertThat(response.id()).isEqualTo(inProgress.getId());
+        assertThat(engagements.created()).isEmpty();
+        // Resuming never consults the assignment rule.
+        verify(policy, never()).canStart(any(), any());
+    }
+
+    @Test
+    void theAssignmentRuleIsAskedAboutThisUserAndThisScenario() {
+        ScenarioAccessPolicy policy = mock(ScenarioAccessPolicy.class);
+        when(policy.canStart(any(), any())).thenReturn(true);
+        StartEngagementUseCase guarded = useCaseWith(policy);
+        UUID userId = UUID.randomUUID();
+        Scenario scenario = activeScenario("Assigned");
+        when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
+        when(leads.findByScenarioId(scenario.getId())).thenReturn(List.of());
+
+        guarded.execute(userId, scenario.getId(), null);
+
+        verify(policy).canStart(userId, scenario);
+        assertThat(engagements.created()).hasSize(1);
+    }
+
+    @Test
+    void anArchivedScenarioIsReportedAsUnavailableBeforeAssignmentIsChecked() {
+        ScenarioAccessPolicy policy = mock(ScenarioAccessPolicy.class);
+        StartEngagementUseCase guarded = useCaseWith(policy);
+        Scenario scenario = activeScenario("Deleted");
+        scenario.archive();
+        when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
+
+        assertThatThrownBy(() -> guarded.execute(UUID.randomUUID(), scenario.getId(), null))
+                .isInstanceOf(StartEngagementUseCase.ScenarioUnavailableException.class);
+        verify(policy, never()).canStart(any(), any());
+    }
+
+    private StartEngagementUseCase useCaseWith(ScenarioAccessPolicy policy) {
+        return new StartEngagementUseCase(engagements, scenarios,
+                new DifficultyProfileService(objectMapper, scenarios, leads), leads, evidence, policy);
     }
 
     private Scenario activeScenario(String title) {

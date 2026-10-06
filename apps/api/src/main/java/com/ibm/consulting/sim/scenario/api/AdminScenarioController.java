@@ -2,7 +2,10 @@ package com.ibm.consulting.sim.scenario.api;
 
 import com.ibm.consulting.sim.scenario.application.CreatePersonaRequest;
 import com.ibm.consulting.sim.scenario.application.CreateScenarioRequest;
+import com.ibm.consulting.sim.scenario.application.ScenarioAssignmentService;
+import com.ibm.consulting.sim.scenario.application.ScenarioAssignmentView;
 import com.ibm.consulting.sim.scenario.application.ScenarioService;
+import com.ibm.consulting.sim.scenario.application.UpdateScenarioAssignmentsRequest;
 import com.ibm.consulting.sim.scenario.application.ScenarioSummary;
 import com.ibm.consulting.sim.scenario.application.UpdateRubricWeightsRequest;
 import com.ibm.consulting.sim.scenario.application.UpdateDifficultyProfileRequest;
@@ -14,10 +17,12 @@ import com.ibm.consulting.sim.scenario.application.LeadAuthoringRequest;
 import com.ibm.consulting.sim.scenario.application.LeadAuthoringView;
 import com.ibm.consulting.sim.scenario.domain.AdminScenarioCatalogQuery;
 import com.ibm.consulting.sim.scenario.domain.ScenarioStatus;
+import com.ibm.consulting.sim.identity.domain.User;
 import com.ibm.consulting.sim.lead.application.LeadSummary;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,9 +40,11 @@ import java.util.UUID;
 public class AdminScenarioController {
 
     private final ScenarioService scenarioService;
+    private final ScenarioAssignmentService assignmentService;
 
-    public AdminScenarioController(ScenarioService scenarioService) {
+    public AdminScenarioController(ScenarioService scenarioService, ScenarioAssignmentService assignmentService) {
         this.scenarioService = scenarioService;
+        this.assignmentService = assignmentService;
     }
 
     @GetMapping
@@ -74,6 +81,20 @@ public class AdminScenarioController {
     @PatchMapping("/{scenarioId}/archive")
     ScenarioSummary archive(@PathVariable UUID scenarioId) {
         return scenarioService.archive(scenarioId);
+    }
+
+    /** Consultants assigned to the scenario. Shared by every revision of the scenario. */
+    @GetMapping("/{scenarioId}/assignments")
+    ScenarioAssignmentView assignments(@PathVariable UUID scenarioId) {
+        return assignmentService.assignments(scenarioId);
+    }
+
+    /** Replaces the assigned consultants. Allowed in any status; it changes access, not authored content. */
+    @PutMapping("/{scenarioId}/assignments")
+    ScenarioAssignmentView replaceAssignments(@PathVariable UUID scenarioId,
+                                              @Valid @RequestBody UpdateScenarioAssignmentsRequest request,
+                                              @AuthenticationPrincipal User admin) {
+        return assignmentService.replaceAssignments(scenarioId, request.userIds(), admin == null ? null : admin.getId());
     }
 
     @PutMapping("/{scenarioId}/rubric")
