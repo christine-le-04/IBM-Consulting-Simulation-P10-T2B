@@ -62,6 +62,12 @@ function isTooEarly(detail: string | undefined): boolean {
   return !!detail && /not available in state/i.test(detail)
 }
 
+/** Older saved narratives may still contain outcome identifiers. */
+function readableCoaching(text: string): string {
+  return text.replace(/\b(PILOT_APPROVED|PROPOSAL_ACCEPTED|REVISION_REQUESTED|FURTHER_DISCOVERY_REQUIRED|STRATEGIC_PARTNERSHIP|DEFERRED|REJECTED)\b/g,
+    (outcome) => describeOutcome(outcome).label.toLowerCase())
+}
+
 export default function AssessmentReviewPage() {
   const { engagementId } = useParams<{ engagementId: string }>()
   const queryClient = useQueryClient()
@@ -154,7 +160,7 @@ export default function AssessmentReviewPage() {
 
         <section className={styles.summary}>
           <h2 className={styles.label}>Reviewer’s summary</h2>
-          {result.coachingPending ? <InlineLoading description="Preparing personalised AI coaching…" status="active" /> : <p>{result.feedbackSummary}</p>}
+          {result.coachingPending ? <InlineLoading description="Preparing personalised AI coaching…" status="active" /> : <p>{readableCoaching(result.feedbackSummary)}</p>}
         </section>
 
         <section>
@@ -185,7 +191,7 @@ export default function AssessmentReviewPage() {
             <h2 className={styles.label}>Strengths</h2>
             {result.coachingPending ? <InlineLoading description="Preparing strengths…" status="active" /> : (
               <>
-                <ol>{result.strengths.map((item, index) => <li key={index}>{item}</li>)}</ol>
+                <ol>{result.strengths.map((item, index) => <li key={index}>{readableCoaching(item)}</li>)}</ol>
                 {result.strengths.length === 0 && <p className={styles.empty}>None recorded.</p>}
               </>
             )}
@@ -194,7 +200,7 @@ export default function AssessmentReviewPage() {
             <h2 className={styles.label}>Areas for Improvement</h2>
             {result.coachingPending ? <InlineLoading description="Preparing areas for improvement…" status="active" /> : (
               <>
-                <ol>{result.improvementAreas.map((item, index) => <li key={index}>{item}</li>)}</ol>
+                <ol>{result.improvementAreas.map((item, index) => <li key={index}>{readableCoaching(item)}</li>)}</ol>
                 {result.improvementAreas.length === 0 && <p className={styles.empty}>None recorded.</p>}
               </>
             )}

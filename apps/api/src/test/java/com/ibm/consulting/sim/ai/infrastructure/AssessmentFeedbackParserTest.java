@@ -12,6 +12,18 @@ class AssessmentFeedbackParserTest {
     private final AssessmentFeedbackParser parser = new AssessmentFeedbackParser(new ObjectMapper());
 
     @Test
+    void convertsOutcomeIdentifiersIntoReadableCoaching() {
+        var feedback = parser.parse("""
+                {"feedbackSummary":"Congratulations on PILOT_APPROVED.",
+                 "strengths":["Your proposal earned PROPOSAL_ACCEPTED."],
+                 "improvementAreas":["Consider why REVISION_REQUESTED happened."]}
+                """);
+        assertThat(feedback.feedbackSummary()).isEqualTo("Congratulations on pilot approved.");
+        assertThat(feedback.strengths()).containsExactly("Your proposal earned proposal accepted.");
+        assertThat(feedback.improvementAreas()).containsExactly("Consider why revision requested happened.");
+    }
+
+    @Test
     void parsesTheCoachingSummaryAndEvidenceLists() {
         var feedback = parser.parse("""
                 {"feedbackSummary":"You addressed the client's operating concern.",
