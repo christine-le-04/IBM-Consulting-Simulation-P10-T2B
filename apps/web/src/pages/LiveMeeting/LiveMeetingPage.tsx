@@ -22,6 +22,7 @@ import LoadError from '@/components/shared/LoadError'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
 import { useMentor } from '@/components/shell/useMentor'
+import { currentContactOf } from '@/lifecycle/contactSelection'
 import styles from './LiveMeetingPage.module.scss'
 
 const DEFAULT_MEETING_THRESHOLD = 70
@@ -121,7 +122,10 @@ export default function LiveMeetingPage() {
     [turns, latestSignals, currentState, meetingThreshold],
   )
   const persona = scenario?.personas.find((item) => item.id === meeting?.personaId)
-  const clientName = persona?.name ?? 'The client'
+  // Learners are not sent the scenario's personas, so the engagement's own
+  // record of who they wrote to is the name to show.
+  const contact = currentContactOf(engagement)
+  const clientName = persona?.name || contact?.name || 'The client'
   const isCompleted = meeting?.status === 'COMPLETED'
   const passed = meeting?.completionOutcome === 'PASSED'
   const meetingGateMet = Boolean(currentState
@@ -235,7 +239,7 @@ export default function LiveMeetingPage() {
             </span>
             <div className={styles.chatWho}>
               <strong>{clientName}</strong>
-              <span>{[persona?.jobTitle, persona?.organisation ?? engagement?.leadCompanyName].filter(Boolean).join(' · ')}</span>
+              <span>{[persona?.jobTitle || contact?.jobTitle, persona?.organisation ?? engagement?.leadCompanyName].filter(Boolean).join(' · ')}</span>
             </div>
             <Tag type="purple" size="sm" title="Respond in your own words">
               Free text

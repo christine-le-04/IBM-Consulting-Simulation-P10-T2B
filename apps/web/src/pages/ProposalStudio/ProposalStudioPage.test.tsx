@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProposalStudioPage from './ProposalStudioPage'
@@ -341,5 +342,46 @@ describe('ProposalStudioPage after submission', () => {
     // The checklist stays in the outline, as what was sent.
     expect(screen.getByText('What you submitted')).toBeInTheDocument()
     expect(screen.getByText('At least one evidence source is attached')).toBeInTheDocument()
+  })
+})
+
+describe('ProposalStudioPage checklist and editing', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('says how many more different sources full evidence coverage needs', () => {
+    setup(['a', 'b', 'c', 'd', 'e'].map(makeSource))
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({
+      ...studio,
+      draft: {
+        ...createEmptyProposalDraft(),
+        evidenceLinks: [
+          { section: 'PROBLEM', sourceId: 'a' },
+          { section: 'OUTCOMES', sourceId: 'a' },
+        ],
+      },
+    } as ReturnType<typeof useProposalStudio>)
+    renderPage()
+
+    // The same source twice is still one source, and coverage counts up to four.
+    const outline = screen.getByRole('region', { name: 'Before you submit' })
+    expect(within(outline).getByText('Attach 3 more different sources for full evidence coverage')).toBeInTheDocument()
+  })
+
+  it('moves the caret into a newly added table row', async () => {
+    const user = userEvent.setup()
+    setupSection('RISKS', { risks: [{ risk: 'Data access', severity: 'MEDIUM', mitigation: 'Read-only' }] })
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockImplementation(() => {
+      const [draft, setDraft] = useState(studio.draft)
+      return { ...studio, draft, updateDraft: (updater: (current: ProposalDraftRequest) => ProposalDraftRequest) => setDraft(updater) } as ReturnType<typeof useProposalStudio>
+    })
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: 'Add row' }))
+    expect(screen.getByLabelText('Risk 2')).toHaveFocus()
+    await user.keyboard('False positives')
+    expect(screen.getByLabelText('Risk 2')).toHaveValue('False positives')
+    expect(screen.queryByLabelText('Risk 3')).not.toBeInTheDocument()
   })
 })
