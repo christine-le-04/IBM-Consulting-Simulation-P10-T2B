@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, InlineNotification } from '@carbon/react'
+import { Button, InlineLoading, InlineNotification } from '@carbon/react'
 import { Add, ChevronLeft, OpenPanelFilledRight, Search } from '@carbon/icons-react'
 import { useEngagement } from '@/api/hooks/useEngagements'
 import { useCompleteResearch, useResearch, useResearchGateStatus, useResearchSourceDeck, useSaveResearch } from '@/api/hooks/useLeads'
@@ -197,7 +197,15 @@ export default function ClientIntelligencePage() {
           ) : (
             <div className={styles.readingEmpty}>
               <Search size={24} />
-              <span>{sourceDeck.isFetching || sourceDeck.data?.enrichmentPending ? 'Preparing the client’s sources…' : 'No sources are available for this client yet.'}</span>
+              {sourceDeck.isFetching || sourceDeck.data?.enrichmentPending ? (
+                <>
+                  <InlineLoading description="Preparing the client’s sources…" />
+                  {/* The first load of a new client can take several seconds; say so, so it does not look stuck. */}
+                  <span className={styles.readingWait}>The first time, this can take up to 15 seconds while the documents are gathered.</span>
+                </>
+              ) : (
+                <span>No sources are available for this client yet.</span>
+              )}
             </div>
           )}
           {sourceDeck.isError && (

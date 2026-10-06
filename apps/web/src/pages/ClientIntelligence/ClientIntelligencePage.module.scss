@@ -28,11 +28,22 @@
 
 .readingEmpty {
   display: flex;
+  flex-direction: column;
   gap: 0.6rem;
   align-items: center;
   justify-content: center;
   padding: 4rem 1rem;
   color: var(--sim-ink-2);
+  text-align: center;
+
+  :global(.cds--inline-loading) {
+    width: auto;
+  }
+}
+
+.readingWait {
+  max-width: 28rem;
+  font-size: 0.75rem;
 }
 
 .reading {
