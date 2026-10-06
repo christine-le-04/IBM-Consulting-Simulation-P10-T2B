@@ -4,6 +4,8 @@ import com.ibm.consulting.sim.scenario.application.ScenarioService;
 import com.ibm.consulting.sim.scenario.application.ScenarioCatalogResponse;
 import com.ibm.consulting.sim.scenario.application.ScenarioSummary;
 import com.ibm.consulting.sim.scenario.domain.ScenarioCatalogQuery;
+import com.ibm.consulting.sim.identity.domain.User;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 import jakarta.validation.constraints.Max;
@@ -45,7 +47,7 @@ public class ScenarioController {
     }
 
     @GetMapping("/{id}")
-    ScenarioSummary getById(@PathVariable UUID id) {
-        return scenarioService.getActiveById(id);
+    ScenarioSummary getById(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        return scenarioService.getForLearner(id, user.getId());
     }
 }

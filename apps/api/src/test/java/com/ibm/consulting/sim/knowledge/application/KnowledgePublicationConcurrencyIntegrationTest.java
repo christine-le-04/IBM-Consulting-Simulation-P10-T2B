@@ -1,5 +1,6 @@
 package com.ibm.consulting.sim.knowledge.application;
 
+import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.ai.domain.EmbeddingGateway;
 import com.ibm.consulting.sim.knowledge.domain.DocumentChunk;
 import com.ibm.consulting.sim.knowledge.domain.DocumentChunkRepository;
@@ -100,7 +101,7 @@ class KnowledgePublicationConcurrencyIntegrationTest {
         when(difficulty.forScenario(any(Scenario.class)))
                 .thenReturn(com.ibm.consulting.sim.scenario.domain.DifficultyProfile.defaults(3, 3, 3, 3));
         ScenarioService scenarioService = new ScenarioService(scenarios, difficulty, config, leads,
-                mock(KnowledgeIngestionService.class), mock(AuditLogger.class));
+                mock(KnowledgeIngestionService.class), mock(AuditLogger.class), mock(EngagementRepository.class));
         EmbeddingGateway embeddings = mock(EmbeddingGateway.class);
         KnowledgeIngestionService knowledgeService = new KnowledgeIngestionService(
                 new EntityManagerKnowledgeDocumentRepository(), new NoOpChunkRepository(), embeddings,
