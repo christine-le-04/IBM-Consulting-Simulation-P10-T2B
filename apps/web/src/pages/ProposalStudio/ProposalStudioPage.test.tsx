@@ -230,6 +230,21 @@ describe('ProposalStudioPage document', () => {
     expect(screen.getByDisplayValue('Outcome A')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Outcome D')).toBeInTheDocument()
   })
+
+  it('wraps long table cells instead of cutting them off, and keeps Enter out of a cell', async () => {
+    const user = userEvent.setup()
+    setupSection('OUTCOMES', {
+      businessOutcomes: [{ outcome: 'Reduce avoidable unplanned downtime on the critical asset group', metric: '', target: '' }],
+    })
+    renderPage()
+
+    const cell = screen.getByLabelText('Business outcome 1')
+    expect(cell.tagName).toBe('TEXTAREA')
+
+    await user.type(cell, '{Enter}')
+    const updateDraft = mockedUseProposalStudio.mock.results[0].value.updateDraft
+    expect(updateDraft).not.toHaveBeenCalled()
+  })
 })
 
 describe('ProposalStudioPage submit and review', () => {

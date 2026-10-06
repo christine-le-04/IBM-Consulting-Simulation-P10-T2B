@@ -21,6 +21,7 @@ import { useEngagement } from '@/api/hooks/useEngagements'
 import { useScenario } from '@/api/hooks/useScenarios'
 import { getApiProblem } from '@/api/problemDetails'
 import type { ProposalReview } from '@/api/types'
+import GrowingTextarea from '@/components/shared/GrowingTextarea'
 import LoadError from '@/components/shared/LoadError'
 import LoadingState from '@/components/shared/LoadingState'
 import ObjectiveTourProvider from '@/components/shared/ObjectiveTourProvider'
@@ -90,7 +91,7 @@ function useFocusAddedRow(count: number) {
     if (!added.current) return
     added.current = false
     const rows = container.current?.querySelectorAll('[data-row]')
-    rows?.[rows.length - 1]?.querySelector<HTMLElement>('input, button')?.focus()
+    rows?.[rows.length - 1]?.querySelector<HTMLElement>('input, textarea, button')?.focus()
   }, [count])
   return { container, markAdded: () => { added.current = true } }
 }
@@ -117,7 +118,7 @@ function Table<T extends object>({ columns, rows, empty, onChange, readOnly = fa
                   {key === 'severity' ? (
                     <Choice id={`severity-${index}`} label={label} hideLabel size="sm" disabled={readOnly} value={String(row[key])} options={SEVERITY} onChange={(value) => edit(index, key, value)} />
                   ) : (
-                    <input aria-label={`${label} ${index + 1}`} readOnly={readOnly} value={String(row[key] ?? '')} placeholder={label} onChange={(event) => edit(index, key, event.target.value)} />
+                    <GrowingTextarea aria-label={`${label} ${index + 1}`} readOnly={readOnly} value={String(row[key] ?? '')} placeholder={label} onChange={(value) => edit(index, key, value)} />
                   )}
                 </td>
               ))}
@@ -197,6 +198,12 @@ export default function ProposalStudioPage() {
   useEffect(() => {
     setSourcePage((current) => Math.min(current, sourcePageCount - 1))
   }, [sourcePageCount])
+
+  // Each section is a new page; opening one halfway down hides its heading.
+  const pageScroll = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    pageScroll.current?.scrollTo?.({ top: 0 })
+  }, [activeSection])
 
   const problemReady = draft.problemStatement.trim().length >= 20
   const solutionReady = draft.solutionStrategy.trim().length >= 20 && draft.components.some((component) => filled(component))
@@ -366,7 +373,7 @@ export default function ProposalStudioPage() {
           </nav>
 
           {/* Only the page scrolls; the outline and the margin stay put. */}
-          <div className={styles.pageScroll}>
+          <div className={styles.pageScroll} ref={pageScroll}>
             <article className={styles.page}>
               <header className={styles.pageHead}>
                 <span className={styles.ibm}>IBM Consulting</span>

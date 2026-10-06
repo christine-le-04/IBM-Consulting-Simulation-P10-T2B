@@ -9,8 +9,10 @@
   flex: 1 1 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  height: calc(100vh - var(--sim-header) - 2.75rem);
-  min-height: 480px;
+  // Dana's step brief sits above the meeting until "Got it"; without its height
+  // here the message box landed below the fold on a laptop-height screen.
+  height: calc(100vh - var(--sim-header) - 2.75rem - var(--sim-brief-height, 0px));
+  min-height: 320px;
   margin: -2rem;
   background: #f5f5f5;
 

@@ -57,6 +57,8 @@ export function useProposalStudio(engagementId: string) {
     }
   }, [engagementId, workspace.data])
 
+  const resetSubmitError = submitProposal.reset
+
   const updateDraft = useCallback((updater: (current: ProposalDraftRequest) => ProposalDraftRequest) => {
     const nextDraft = updater(draftRef.current)
     draftRef.current = nextDraft
@@ -65,7 +67,10 @@ export function useProposalStudio(engagementId: string) {
     setDraft(nextDraft)
     setReview(null)
     setSaveState('idle')
-  }, [engagementId])
+    // A rejected submit describes the draft as it was; once the learner edits,
+    // the banner would point at problems they may already have fixed.
+    resetSubmitError()
+  }, [engagementId, resetSubmitError])
 
   const persist = useCallback(async (): Promise<boolean> => {
     if (submitted) return true

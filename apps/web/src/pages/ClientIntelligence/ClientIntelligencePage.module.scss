@@ -28,11 +28,22 @@
 
 .readingEmpty {
   display: flex;
+  flex-direction: column;
   gap: 0.6rem;
   align-items: center;
   justify-content: center;
   padding: 4rem 1rem;
   color: var(--sim-ink-2);
+  text-align: center;
+
+  :global(.cds--inline-loading) {
+    width: auto;
+  }
+}
+
+.readingWait {
+  max-width: 28rem;
+  font-size: 0.75rem;
 }
 
 .reading {
@@ -325,7 +336,20 @@
 .clipActions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.clipSwitch {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  padding: 0.75rem;
+  border-left: 3px solid #f1c21b;
+  background: #fcf4d6;
+  font-size: 0.8125rem;
+
+  p { margin: 0; }
 }
 
 // Hypothesis tab

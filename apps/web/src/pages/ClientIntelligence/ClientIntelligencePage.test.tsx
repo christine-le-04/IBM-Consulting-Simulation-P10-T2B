@@ -138,6 +138,36 @@ describe('ClientIntelligencePage research desk', () => {
     )
   })
 
+  it('asks before another passage replaces a written takeaway', async () => {
+    const user = userEvent.setup()
+    setup([])
+    const twoPassages = {
+      ...newsSource,
+      blocks: [...newsSource.blocks, { ...newsSource.blocks[0], id: 'b2', content: 'Discharge summaries reach GPs four days late.' }],
+    }
+    mockedResearchSourceDeck.mockReturnValue({
+      data: { sourcesByType: { COMPANY_NEWS: [twoPassages] }, enrichmentPending: false },
+      isFetching: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useResearchSourceDeck>)
+    renderPage()
+
+    const [first, second] = screen.getAllByRole('button', { name: 'Save this passage as evidence' })
+    await user.click(first)
+    await user.type(screen.getByLabelText('Your consulting takeaway'), 'Clinical time, not IT cost.')
+    await user.click(second)
+
+    expect(screen.getByText('You have not added this evidence yet. Opening the new passage will discard your takeaway.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Keep this draft' }))
+    expect(screen.getByLabelText('Your consulting takeaway')).toHaveValue('Clinical time, not IT cost.')
+    expect(screen.getByText('Staff at two sites re-enter patient details into three systems.', { selector: 'blockquote' })).toBeInTheDocument()
+
+    await user.click(second)
+    await user.click(screen.getByRole('button', { name: 'Discard and open new passage' }))
+    expect(screen.getByLabelText('Your consulting takeaway')).toHaveValue('')
+    expect(screen.getByText('Discharge summaries reach GPs four days late.', { selector: 'blockquote' })).toBeInTheDocument()
+  })
+
   it('submits the research area and reliability actually chosen for a source the learner found', async () => {
     const user = userEvent.setup()
     setup([])

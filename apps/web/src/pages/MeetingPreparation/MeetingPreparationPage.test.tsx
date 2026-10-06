@@ -123,6 +123,15 @@ describe('MeetingPreparationPage readiness labels', () => {
     expect(screen.getByText('Agenda — 0/40 points (10 points each)')).toBeInTheDocument()
     expect(screen.getByText('Discovery questions — 0/40 points (8 points each)')).toBeInTheDocument()
     expect(screen.getByText('50 more points needed to reach readiness.')).toBeInTheDocument()
+    expect(screen.getByText('20/100')).toBeInTheDocument()
+    expect(screen.getByText(/70 needed to join/)).toBeInTheDocument()
+  })
+
+  it('lets a long question wrap onto the next line instead of cutting it off', () => {
+    setup({ discoveryQuestions: ['Which asset group causes the most avoidable unplanned downtime each quarter?'] })
+    renderPage()
+
+    expect(screen.getByLabelText('Question 1').tagName).toBe('TEXTAREA')
   })
 
   it('awards agenda points for three meaningful agenda items', () => {
