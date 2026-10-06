@@ -8,6 +8,7 @@ import {
   useStartMeeting,
 } from '@/api/hooks/useMeeting'
 import { useScenario } from '@/api/hooks/useScenarios'
+import GrowingTextarea from '@/components/shared/GrowingTextarea'
 import LoadingState from '@/components/shared/LoadingState'
 import { getApiProblem } from '@/api/problemDetails'
 import LoadError from '@/components/shared/LoadError'
@@ -131,7 +132,7 @@ function EditableList({
         {items.map((item, index) => (
           <li key={item.id}>
             <span className={styles.itemNumber}>{index + 1}</span>
-            <input
+            <GrowingTextarea
               ref={(input) => {
                 if (input && focusId.current === item.id) {
                   focusId.current = null
@@ -141,7 +142,7 @@ function EditableList({
               value={item.value}
               placeholder={placeholder}
               aria-label={`${itemLabel} ${index + 1}`}
-              onChange={(event) => update(index, event.target.value)}
+              onChange={(value) => update(index, value)}
             />
             <button
               type="button"
@@ -339,8 +340,9 @@ export default function MeetingPreparationPage() {
               <section className={`${styles.readiness} objective-readiness`} aria-label="Before you join the meeting">
                 <span className={styles.label}>Readiness</span>
                 <div className={styles.readinessScore}>
-                  <strong>{readinessScore}/{READY_THRESHOLD}</strong>
-                  <span> points</span>
+                  {/* Out of 100, not out of the threshold: "100/70" read as a typo. */}
+                  <strong>{readinessScore}/100</strong>
+                  <span> points · {READY_THRESHOLD} needed to join</span>
                 </div>
                 <ul className={styles.readinessList}>
                   {readinessBreakdown.map((item) => (

@@ -76,6 +76,9 @@ export default function ClientIntelligencePage() {
   const [tab, setTab] = useState<Tab>('company')
   const [panelOpen, setPanelOpen] = useState(true)
   const [clip, setClip] = useState<Clip | null>(null)
+  // A passage the learner asked to save while a written draft was still open.
+  const [pendingClip, setPendingClip] = useState<Clip | null>(null)
+  const [clipDirty, setClipDirty] = useState(false)
   const [manual, setManual] = useState(false)
   const [savedBlocks, setSavedBlocks] = useState<Set<string>>(new Set())
   const [selection, setSelection] = useState<{ text: string; rect: DOMRect } | null>(null)
@@ -122,11 +125,24 @@ export default function ClientIntelligencePage() {
   }, [])
 
   const openClip = (snippet: string, blockId: string | null) => {
-    setClip({ snippet, blockId })
     setManual(false)
     setPanelOpen(true)
     setSelection(null)
     document.getSelection()?.removeAllRanges()
+    // Replacing a draft with a written takeaway used to lose it silently.
+    if (clip && clipDirty && clip.snippet !== snippet) {
+      setPendingClip({ snippet, blockId })
+      return
+    }
+    setPendingClip(null)
+    setClipDirty(false)
+    setClip({ snippet, blockId })
+  }
+
+  const closeClip = () => {
+    setClip(null)
+    setPendingClip(null)
+    setClipDirty(false)
   }
 
   const save = (payload: SaveResearchPayload, onDone: () => void) => saveResearch.mutate(payload, { onSuccess: onDone })
@@ -147,7 +163,7 @@ export default function ClientIntelligencePage() {
       },
       () => {
         if (clip.blockId) setSavedBlocks((current) => new Set(current).add(clip.blockId!))
-        setClip(null)
+        closeClip()
         setTab('evidence')
       },
     )
@@ -213,7 +229,16 @@ export default function ClientIntelligencePage() {
         <aside className={`${styles.panel} ${panelOpen ? '' : styles.panelClosed}`} aria-label="Research panel">
           {clip && source ? (
             <div className={styles.panelBody}>
-              <ClipForm source={source} snippet={clip.snippet} saving={saveResearch.isPending} onCancel={() => setClip(null)} onSave={saveClip} />
+              {pendingClip && (
+                <div className={styles.clipSwitch} role="alert">
+                  <p>You have not added this evidence yet. Opening the new passage will discard your takeaway.</p>
+                  <div className={styles.clipActions}>
+                    <Button kind="secondary" size="sm" onClick={() => setPendingClip(null)}>Keep this draft</Button>
+                    <Button kind="danger--tertiary" size="sm" onClick={() => { setClipDirty(false); setClip(pendingClip); setPendingClip(null) }}>Discard and open new passage</Button>
+                  </div>
+                </div>
+              )}
+              <ClipForm key={clip.snippet} source={source} snippet={clip.snippet} saving={saveResearch.isPending} onCancel={closeClip} onSave={saveClip} onDirtyChange={setClipDirty} />
             </div>
           ) : (
             <>

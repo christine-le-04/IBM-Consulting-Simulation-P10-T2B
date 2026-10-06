@@ -29,12 +29,14 @@ export interface ClipValues {
   takeaway: string
 }
 
-export default function ClipForm({ source, snippet, saving, onCancel, onSave }: {
+export default function ClipForm({ source, snippet, saving, onCancel, onSave, onDirtyChange }: {
   source: ResearchArtifact
   snippet: string
   saving: boolean
   onCancel: () => void
   onSave: (values: ClipValues) => void
+  /** Tells the page whether opening another passage would throw away a written takeaway. */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const [lane, setLane] = useState<ReasoningLane>('SYMPTOM')
   const [confidence, setConfidence] = useState<ConfidenceLevel>(source.confidence)
@@ -58,7 +60,10 @@ export default function ClipForm({ source, snippet, saving, onCancel, onSave }: 
         placeholder="What does this mean for the client’s problem? Keep uncertainty explicit."
         rows={3}
         value={takeaway}
-        onChange={(event) => setTakeaway(event.target.value)}
+        onChange={(event) => {
+          setTakeaway(event.target.value)
+          onDirtyChange?.(event.target.value.trim().length > 0)
+        }}
         helperText="Required — the board holds your reasoning, not just the quote."
       />
       {saving && <InlineLoading description="Saving evidence" />}

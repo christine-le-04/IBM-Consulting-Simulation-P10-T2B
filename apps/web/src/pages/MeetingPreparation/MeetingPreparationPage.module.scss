@@ -159,15 +159,18 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
 
   li {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.6rem;
   }
 
-  input {
+  textarea {
     flex: 1;
     min-width: 0;
+    padding: 0;
     border: 0;
     outline: none;
+    resize: none;
+    overflow: hidden;
     background: transparent;
     color: var(--cds-text-primary, #161616);
     font: inherit;
@@ -201,8 +204,9 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
     border-bottom: 1px solid $line;
   }
 
-  input {
+  textarea {
     font-size: 0.9375rem;
+    line-height: 22px;
 
     &::placeholder {
       color: $ink-3;
@@ -267,20 +271,27 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
 }
 
 .linedList {
+  // Rows grow a whole ruled line at a time, so wrapped questions stay on the paper's lines.
   li {
-    height: 32px;
+    min-height: 32px;
   }
 
   .itemNumber {
     width: auto;
+    height: 32px;
     margin-left: -30px;
     background: none;
     color: $note-red;
     font-family: $mono;
   }
 
-  input {
+  li button {
     height: 32px;
+    align-items: center;
+  }
+
+  textarea {
+    line-height: 32px;
     color: $note-ink;
     font-family: $mono;
 
