@@ -15,6 +15,7 @@ import com.ibm.consulting.sim.scenario.domain.Scenario;
 import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
 import com.ibm.consulting.sim.scenario.domain.ScenarioStatus;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
+import com.ibm.consulting.sim.scenario.application.ScenarioAccessPolicy;
 import com.ibm.consulting.sim.shared.domain.DomainException;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
 import org.springframework.stereotype.Service;
@@ -34,17 +35,20 @@ public class StartEngagementUseCase {
     private final DifficultyProfileService difficultyProfileService;
     private final LeadRepository leadRepository;
     private final ResearchEvidenceRepository evidenceRepository;
+    private final ScenarioAccessPolicy accessPolicy;
 
     public StartEngagementUseCase(EngagementRepository engagementRepository,
                                   ScenarioRepository scenarioRepository,
                                   DifficultyProfileService difficultyProfileService,
                                   LeadRepository leadRepository,
-                                  ResearchEvidenceRepository evidenceRepository) {
+                                  ResearchEvidenceRepository evidenceRepository,
+                                  ScenarioAccessPolicy accessPolicy) {
         this.engagementRepository = engagementRepository;
         this.scenarioRepository = scenarioRepository;
         this.difficultyProfileService = difficultyProfileService;
         this.leadRepository = leadRepository;
         this.evidenceRepository = evidenceRepository;
+        this.accessPolicy = accessPolicy;
     }
 
     /** Starts an engagement using the first persona defined for the scenario. */
@@ -72,6 +76,10 @@ public class StartEngagementUseCase {
         Optional<Engagement> inProgress = inProgressEngagement(userId, scenarioId);
         if (inProgress.isPresent()) {
             return EngagementResponse.from(inProgress.get());
+        }
+        // Resuming is always allowed; only a new run requires an assignment.
+        if (!accessPolicy.canStart(userId, scenario)) {
+            throw new ScenarioNotAssignedException(scenarioId);
         }
 
         Persona persona = resolveClient(scenario, personaId);
@@ -154,6 +162,9 @@ public class StartEngagementUseCase {
         if (inProgress.isPresent()) {
             return EngagementResponse.from(inProgress.get());
         }
+        if (!accessPolicy.canStart(userId, scenario)) {
+            throw new ScenarioNotAssignedException(scenario.getId());
+        }
 
         Persona persona = resolveClient(scenario, personaId);
 
@@ -168,6 +179,12 @@ public class StartEngagementUseCase {
     public static class PersonaNotInScenarioException extends DomainException {
         public PersonaNotInScenarioException(UUID personaId, UUID scenarioId) {
             super("Persona " + personaId + " does not belong to scenario " + scenarioId);
+        }
+    }
+
+    public static class ScenarioNotAssignedException extends DomainException {
+        public ScenarioNotAssignedException(UUID scenarioId) {
+            super("You are not assigned to scenario " + scenarioId + ". Ask an administrator to assign it to you.");
         }
     }
 

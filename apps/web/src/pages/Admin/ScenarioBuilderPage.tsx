@@ -20,8 +20,9 @@ import {
   Modal,
   Pagination,
 } from '@carbon/react'
-import { Add, ArrowLeft, ArrowRight } from '@carbon/icons-react'
+import { Add, ArrowLeft, ArrowRight, TrashCan, UserMultiple } from '@carbon/icons-react'
 import styles from './ScenarioBuilderPage.module.css'
+import AssignUsersModal from '@/components/admin/AssignUsersModal'
 import {
   useAddPersona,
   useAdminScenarioCatalog,
@@ -360,9 +361,18 @@ function KnowledgeDocumentForm({ scenario }: { scenario: ScenarioSummary }) {
   )
 }
 
-function ScenarioCard({ scenario }: { scenario: ScenarioSummary }) {
+function ScenarioCard({ scenario, onDeleted }: { scenario: ScenarioSummary; onDeleted?: () => void }) {
   const publish = usePublishScenario()
   const archive = useArchiveScenario()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const deleteScenario = () => {
+    archive.mutate(scenario.id, {
+      onSuccess: () => {
+        setConfirmingDelete(false)
+        onDeleted?.()
+      },
+    })
+  }
   const authoring = useScenarioAuthoring(scenario.id)
   const readyToPublish = authoring.data?.readiness.readyToPublish ?? false
 
@@ -388,12 +398,31 @@ function ScenarioCard({ scenario }: { scenario: ScenarioSummary }) {
               Publish
             </Button>
           )}
-          {scenario.status === 'ACTIVE' && (
-            <Button size="sm" kind="danger--tertiary" onClick={() => archive.mutate(scenario.id)} disabled={archive.isPending}>
-              Archive
+          {scenario.status !== 'ARCHIVED' && (
+            <Button size="sm" kind="danger--tertiary" renderIcon={TrashCan} onClick={() => setConfirmingDelete(true)} disabled={archive.isPending}>
+              Delete
             </Button>
           )}
         </div>
+
+        <Modal
+          danger
+          open={confirmingDelete}
+          modalHeading={`Delete "${scenario.title}"?`}
+          primaryButtonText={archive.isPending ? 'Deleting...' : 'Delete scenario'}
+          secondaryButtonText="Cancel"
+          primaryButtonDisabled={archive.isPending}
+          onRequestClose={() => setConfirmingDelete(false)}
+          onRequestSubmit={deleteScenario}
+        >
+          <p className={styles.modalIntro}>
+            Consultants will no longer see this scenario or be able to start it.
+            It stays in the library with the Archived status, and its content can't be edited.
+          </p>
+          {archive.isError && (
+            <InlineNotification kind="error" title="Scenario was not deleted" subtitle="Try again in a moment." hideCloseButton />
+          )}
+        </Modal>
 
         <Accordion>
           <AccordionItem title="Authoring blueprint">
@@ -443,7 +472,11 @@ function ScenarioCard({ scenario }: { scenario: ScenarioSummary }) {
   )
 }
 
-function ScenarioLibraryRow({ scenario, onOpen }: { scenario: ScenarioSummary; onOpen: (id: string) => void }) {
+function ScenarioLibraryRow({ scenario, onOpen, onAssign }: {
+  scenario: ScenarioSummary
+  onOpen: (id: string) => void
+  onAssign: (scenario: ScenarioSummary) => void
+}) {
   const difficultyLabel = ['Guided', 'Foundational', 'Standard', 'Advanced', 'Expert'][Math.max(0, scenario.difficulty - 1)]
 
   return (
@@ -464,9 +497,16 @@ function ScenarioLibraryRow({ scenario, onOpen }: { scenario: ScenarioSummary; o
         <span><strong>{scenario.personas.length}</strong> personas</span>
         <span><strong>{difficultyLabel}</strong> difficulty</span>
       </div>
-      <Button kind="ghost" size="sm" renderIcon={ArrowRight} iconDescription="Open scenario editor" onClick={() => onOpen(scenario.id)}>
-        Open editor
-      </Button>
+      <div className={styles.libraryActions}>
+        {scenario.status !== 'ARCHIVED' && (
+          <Button kind="ghost" size="sm" renderIcon={UserMultiple} onClick={() => onAssign(scenario)}>
+            Assign users
+          </Button>
+        )}
+        <Button kind="ghost" size="sm" renderIcon={ArrowRight} iconDescription="Open scenario editor" onClick={() => onOpen(scenario.id)}>
+          Open editor
+        </Button>
+      </div>
     </Tile>
   )
 }
@@ -485,7 +525,7 @@ function ScenarioEditor({ scenarioId, onBack }: { scenarioId: string; onBack: ()
             <Button kind="ghost" size="sm" renderIcon={ArrowLeft} onClick={onBack}>All scenarios</Button>
             <span>Scenario editor</span>
           </div>
-          <ScenarioCard scenario={authoring.data.scenario} />
+          <ScenarioCard scenario={authoring.data.scenario} onDeleted={onBack} />
         </Stack>
       </Column>
     </Grid>
@@ -664,6 +704,8 @@ export default function ScenarioBuilderPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedScenarioId = searchParams.get('scenario')
   const [showCreate, setShowCreate] = useState(false)
+  const [assigning, setAssigning] = useState<ScenarioSummary | null>(null)
+  const [assignedNotice, setAssignedNotice] = useState<{ title: string; count: number } | null>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('ALL')
   const [page, setPage] = useState(1)
@@ -727,6 +769,15 @@ export default function ScenarioBuilderPage() {
             <div className={styles.catalogCount}><strong>{scenarioPage?.totalElements ?? 0}</strong><span>scenarios</span></div>
           </section>
 
+          {assignedNotice && (
+            <InlineNotification
+              kind="success"
+              title="Assignments saved"
+              subtitle={`${assignedNotice.count} consultant${assignedNotice.count === 1 ? '' : 's'} assigned to "${assignedNotice.title}".`}
+              onClose={() => setAssignedNotice(null)}
+            />
+          )}
+
           {scenarios.length === 0 ? (
             <Tile className={styles.emptyState}>
               <h3>No scenarios found</h3>
@@ -734,7 +785,9 @@ export default function ScenarioBuilderPage() {
             </Tile>
           ) : (
             <section className={styles.libraryList} aria-busy={catalogue.isFetching}>
-              {scenarios.map((scenario) => <ScenarioLibraryRow key={scenario.id} scenario={scenario} onOpen={openScenario} />)}
+              {scenarios.map((scenario) => (
+                <ScenarioLibraryRow key={scenario.id} scenario={scenario} onOpen={openScenario} onAssign={setAssigning} />
+              ))}
             </section>
           )}
 
@@ -749,6 +802,17 @@ export default function ScenarioBuilderPage() {
           )}
         </Stack>
       </Column>
+      {assigning && (
+        <AssignUsersModal
+          key={assigning.id}
+          scenario={assigning}
+          onClose={() => setAssigning(null)}
+          onSaved={(count) => {
+            setAssignedNotice({ title: assigning.title, count })
+            setAssigning(null)
+          }}
+        />
+      )}
       <CreateScenarioModal
         open={showCreate}
         onClose={() => setShowCreate(false)}

@@ -2,6 +2,7 @@ package com.ibm.consulting.sim.scenario.api;
 
 import com.ibm.consulting.sim.identity.domain.UserRepository;
 import com.ibm.consulting.sim.identity.infrastructure.JwtTokenProvider;
+import com.ibm.consulting.sim.scenario.application.ScenarioAssignmentService;
 import com.ibm.consulting.sim.scenario.application.ScenarioCatalogResponse;
 import com.ibm.consulting.sim.scenario.application.ScenarioService;
 import com.ibm.consulting.sim.scenario.domain.ScenarioCatalogQuery;
@@ -26,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ScenarioQueryValidationTest {
     @Autowired MockMvc mockMvc;
     @MockBean ScenarioService scenarios;
+    @MockBean ScenarioAssignmentService assignments;
     @MockBean JwtTokenProvider tokens;
     @MockBean UserRepository users;
 

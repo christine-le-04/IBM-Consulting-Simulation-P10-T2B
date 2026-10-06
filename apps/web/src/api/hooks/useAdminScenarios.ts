@@ -11,6 +11,7 @@ import type {
   LeadAuthoringView,
   LeadSummary,
   ScenarioAuthoringConfig,
+  ScenarioAssignmentView,
   ScenarioAuthoringView,
   ScenarioCatalogPage,
   ScenarioSummary,
@@ -309,5 +310,35 @@ export function useUpdateKnowledgeDocument(scenarioId: string) {
       await apiClient.put(`/api/v1/admin/scenarios/${scenarioId}/documents/${documentId}`, request)
     },
     onSuccess: () => invalidateScenarioAuthoring(queryClient, scenarioId),
+  })
+}
+
+/** Consultants assigned to a scenario. Only fetched while the assign dialog is open. */
+export function useScenarioAssignments(scenarioId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...adminScenarioKeys.all, scenarioId, 'assignments'],
+    queryFn: async () => {
+      const res = await apiClient.get<ScenarioAssignmentView>(`/api/v1/admin/scenarios/${scenarioId}/assignments`)
+      return res.data
+    },
+    enabled: enabled && Boolean(scenarioId),
+    refetchOnWindowFocus: false,
+  })
+}
+
+/** Replaces the full set of assigned consultants. */
+export function useUpdateScenarioAssignments(scenarioId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (userIds: string[]) => {
+      const res = await apiClient.put<ScenarioAssignmentView>(
+        `/api/v1/admin/scenarios/${scenarioId}/assignments`, { userIds })
+      return res.data
+    },
+    onSuccess: (view) => {
+      queryClient.setQueryData([...adminScenarioKeys.all, scenarioId, 'assignments'], view)
+      queryClient.invalidateQueries({ queryKey: ['scenarios'] })
+      queryClient.invalidateQueries({ queryKey: adminPlatformKeys.overview })
+    },
   })
 }

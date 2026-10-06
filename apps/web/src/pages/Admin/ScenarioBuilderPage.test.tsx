@@ -7,7 +7,9 @@ import {
   useAddPersona, useAdminScenarioCatalog, useArchiveScenario, useCreateScenario, usePublishScenario,
   useUpdateRubricWeights, useUpdateGameplayDifficulty, useUploadKnowledgeDocument, useScenarioAuthoring,
   useGetKnowledgeDocuments, useDeleteKnowledgeDocument, useUpdateKnowledgeDocument,
+  useScenarioAssignments, useUpdateScenarioAssignments,
 } from '@/api/hooks/useAdminScenarios'
+import { useAdminUsers } from '@/api/hooks/useAdminUsers'
 import type { GameplayDifficultyProfile, ScenarioSummary } from '@/api/types'
 
 vi.mock('@/api/hooks/useAdminScenarios', () => ({
@@ -15,7 +17,9 @@ vi.mock('@/api/hooks/useAdminScenarios', () => ({
   useCreateScenario: vi.fn(), usePublishScenario: vi.fn(), useUpdateRubricWeights: vi.fn(),
   useUpdateGameplayDifficulty: vi.fn(), useUploadKnowledgeDocument: vi.fn(), useScenarioAuthoring: vi.fn(),
   useGetKnowledgeDocuments: vi.fn(), useDeleteKnowledgeDocument: vi.fn(), useUpdateKnowledgeDocument: vi.fn(),
+  useScenarioAssignments: vi.fn(), useUpdateScenarioAssignments: vi.fn(),
 }))
+vi.mock('@/api/hooks/useAdminUsers', () => ({ useAdminUsers: vi.fn() }))
 
 vi.mock('@/components/admin/ScenarioBlueprintWorkspace', () => ({ default: () => <div>Authoring blueprint</div> }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
@@ -25,6 +29,10 @@ const createMutate = vi.fn()
 const addPersonaMutate = vi.fn()
 const publishMutate = vi.fn()
 const archiveMutate = vi.fn()
+const assignMutate = vi.fn()
+const learner = (id: string, displayName: string, active = true) => ({
+  id, displayName, email: `${id}@example.com`, role: 'LEARNER', active, emailVerified: true,
+})
 const gameplayDifficulty: GameplayDifficultyProfile = {
   level: 'MEDIUM', researchArtifactsPerAction: 4, distractorArtifactsPerAction: 1, contradictionCount: 1,
   initialTrust: 50, initialInterest: 50, initialPatience: 50, meetingTurnLimit: 10, budgetVisible: false,
@@ -69,6 +77,15 @@ beforeEach(() => {
   vi.mocked(useGetKnowledgeDocuments).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useGetKnowledgeDocuments>)
   vi.mocked(useDeleteKnowledgeDocument).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useDeleteKnowledgeDocument>)
   vi.mocked(useUpdateKnowledgeDocument).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useUpdateKnowledgeDocument>)
+  vi.mocked(useScenarioAssignments).mockReturnValue({
+    data: { scenarioId: 'scn-1', scenarioLineageId: 'scn-1', assignees: [{ id: 'u-1', displayName: 'Ada', email: 'u-1@example.com', active: true }] },
+    isLoading: false, isError: false,
+  } as unknown as ReturnType<typeof useScenarioAssignments>)
+  vi.mocked(useUpdateScenarioAssignments).mockReturnValue({ mutate: assignMutate, isPending: false, isError: false } as unknown as ReturnType<typeof useUpdateScenarioAssignments>)
+  vi.mocked(useAdminUsers).mockReturnValue({
+    data: { items: [learner('u-1', 'Ada'), learner('u-2', 'Grace'), learner('u-3', 'Linus', false)], totalElements: 3, totalPages: 1, page: 0, size: 100 },
+    isLoading: false, isError: false, isFetching: false,
+  } as unknown as ReturnType<typeof useAdminUsers>)
 })
 
 describe('ScenarioBuilderPage library and drafts', () => {
@@ -172,7 +189,7 @@ describe('ScenarioBuilderPage personas and publication', () => {
     expect(publishMutate).toHaveBeenCalledWith('scn-1')
   })
 
-  it('locks published personas and rules while allowing the revision to be archived', async () => {
+  it('locks published personas and rules while allowing the scenario to be deleted after confirmation', async () => {
     const user = userEvent.setup()
     setupEditor({ status: 'ACTIVE' }, true)
     renderPage('?scenario=scn-1')
@@ -181,7 +198,78 @@ describe('ScenarioBuilderPage personas and publication', () => {
     expect(screen.getByText('Personas are locked in this published revision. Create a revision to make changes.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add persona' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Archive' }))
-    expect(archiveMutate).toHaveBeenCalledWith('scn-1')
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(archiveMutate).not.toHaveBeenCalled()
+
+    const confirm = screen.getByRole('dialog', { name: /Delete "Protecting dispatch reliability"\?/ })
+    await user.click(within(confirm).getByRole('button', { name: 'Delete scenario' }))
+    expect(archiveMutate).toHaveBeenCalledWith('scn-1', expect.anything())
+  })
+
+  it('lets drafts be deleted too, and cancelling keeps the scenario', async () => {
+    const user = userEvent.setup()
+    renderPage('?scenario=scn-1')
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    const confirm = screen.getByRole('dialog', { name: /Delete "Protecting dispatch reliability"\?/ })
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+
+    expect(archiveMutate).not.toHaveBeenCalled()
+  })
+
+  it('does not offer delete for an archived scenario', () => {
+    setupEditor({ status: 'ARCHIVED' })
+    renderPage('?scenario=scn-1')
+
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ScenarioBuilderPage user assignment', () => {
+  it('pre-selects the assigned consultants and saves the new selection, then returns to the list', async () => {
+    const user = userEvent.setup()
+    assignMutate.mockImplementation((_ids, options) => options.onSuccess({ assignees: [{}, {}] }))
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'Assign users' }))
+
+    const dialog = screen.getByRole('dialog', { name: /Assign users/ })
+    expect(within(dialog).getByLabelText(/Ada/)).toBeChecked()
+    expect(within(dialog).getByLabelText(/Grace/)).not.toBeChecked()
+    expect(within(dialog).getByText('Deactivated')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByLabelText(/Grace/))
+    await user.click(within(dialog).getByRole('button', { name: 'Save assignments' }))
+
+    expect(assignMutate).toHaveBeenCalledWith(['u-1', 'u-2'], expect.anything())
+    expect(screen.queryByRole('dialog', { name: /Assign users/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Assignments saved')).toBeInTheDocument()
+    expect(screen.getByText('2 consultants assigned to "Protecting dispatch reliability".')).toBeInTheDocument()
+  })
+
+  it('only searches consultant accounts', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'Assign users' }))
+
+    expect(useAdminUsers).toHaveBeenCalledWith(expect.objectContaining({ role: 'LEARNER' }))
+  })
+
+  it('can unassign everyone', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'Assign users' }))
+    const dialog = screen.getByRole('dialog', { name: /Assign users/ })
+    await user.click(within(dialog).getByLabelText(/Ada/))
+    await user.click(within(dialog).getByRole('button', { name: 'Save assignments' }))
+
+    expect(assignMutate).toHaveBeenCalledWith([], expect.anything())
+  })
+
+  it('hides assignment for archived scenarios', () => {
+    vi.mocked(useAdminScenarioCatalog).mockReturnValue({
+      data: { items: [{ ...scenario, status: 'ARCHIVED' }], totalElements: 1, totalPages: 1, page: 0, size: 12 }, isLoading: false, isError: false,
+    } as unknown as ReturnType<typeof useAdminScenarioCatalog>)
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: 'Assign users' })).not.toBeInTheDocument()
   })
 })
