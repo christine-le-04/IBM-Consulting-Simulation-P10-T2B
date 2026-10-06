@@ -7,6 +7,7 @@ import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.meeting.domain.ConversationTurnRepository;
+import com.ibm.consulting.sim.meeting.domain.ConversationTurn;
 import com.ibm.consulting.sim.meeting.domain.Meeting;
 import com.ibm.consulting.sim.meeting.domain.MeetingCompletionOutcome;
 import com.ibm.consulting.sim.meeting.domain.MeetingRepository;
@@ -16,6 +17,7 @@ import com.ibm.consulting.sim.proposal.domain.ProposalDraftContent;
 import com.ibm.consulting.sim.proposal.domain.ProposalRepository;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.application.PersonaCatalogService;
+import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
 import com.ibm.consulting.sim.shared.config.CacheConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -33,6 +35,35 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ProposalServiceTest {
+
+    @Test
+    void workspaceExcludesProviderFallbacksAndExposesTheEngagementCoverageThreshold() {
+        UUID userId = UUID.randomUUID();
+        Engagement engagement = engagementInMeeting(UUID.randomUUID(), userId);
+        Meeting meeting = Meeting.start(engagement.getId(), UUID.randomUUID());
+        var fallback = ConversationTurn.personaTurn(meeting.getId(), 2,
+                "Sorry, could you repeat that? I want to make sure I understand you correctly.", "");
+        var answer = ConversationTurn.personaTurn(meeting.getId(), 4,
+                "The operations director owns delivery.", "");
+        EngagementRepository engagements = mock(EngagementRepository.class);
+        MeetingRepository meetings = mock(MeetingRepository.class);
+        ConversationTurnRepository turns = mock(ConversationTurnRepository.class);
+        DifficultyProfileService difficulty = mock(DifficultyProfileService.class);
+        when(engagements.findByIdAndUserId(engagement.getId(), userId)).thenReturn(Optional.of(engagement));
+        when(meetings.findByEngagementId(engagement.getId())).thenReturn(Optional.of(meeting));
+        when(turns.findByMeetingIdOrderBySequenceAsc(meeting.getId())).thenReturn(List.of(fallback, answer));
+        when(difficulty.forEngagement(engagement)).thenReturn(
+                DifficultyProfile.defaults(1, 1, 1, 1));
+        ProposalService service = new ProposalService(mock(ProposalRepository.class), engagements,
+                mock(ResearchEvidenceRepository.class), mock(PersonaStateRepository.class), meetings, turns,
+                mock(AiOrchestrationService.class), new ObjectMapper(), mock(PersonaCatalogService.class), difficulty,
+                new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE), mock(ApplicationEventPublisher.class));
+
+        var workspace = service.workspace(engagement.getId(), userId);
+
+        assertThat(workspace.evidenceCoverageThreshold()).isEqualTo(50);
+        assertThat(workspace.sources()).extracting(ProposalSource::content).containsExactly(answer.getContent());
+    }
 
     @Test
     void repairsAnOlderPassedMeetingStateBeforeSavingTheDraft() {

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/api/client'
+import { isAxiosError } from 'axios'
 import type { CapabilityBrief, OutreachAttempt } from '@/api/types'
 
 const OUTREACH_REQUEST_TIMEOUT_MS = 20_000
@@ -21,12 +22,20 @@ export function useSendOutreach(engagementId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (data: { subject: string; body: string }) => {
-      const res = await apiClient.post<OutreachAttempt>(
-        `/api/v1/engagements/${engagementId}/outreach`,
-        data,
-        { timeout: OUTREACH_REQUEST_TIMEOUT_MS }
-      )
-      return res.data
+      const request = { ...data, requestId: crypto.randomUUID() }
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const res = await apiClient.post<OutreachAttempt>(
+            `/api/v1/engagements/${engagementId}/outreach`, request,
+            { timeout: OUTREACH_REQUEST_TIMEOUT_MS },
+          )
+          return res.data
+        } catch (error) {
+          if (attempt > 0 || !isAxiosError(error) || error.response?.status !== 503) throw error
+          // A provider failure consumes no attempt. Reuse the key so recovery cannot duplicate an email.
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+      }
     },
     onSuccess: (attempt) => {
       qc.setQueryData<OutreachAttempt[]>(['outreach', engagementId], (current = []) => [

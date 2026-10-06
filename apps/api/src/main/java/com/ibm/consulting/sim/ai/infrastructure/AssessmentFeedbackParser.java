@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.ai.domain.AiResponseParser;
 import com.ibm.consulting.sim.ai.domain.AiValidationException;
 import com.ibm.consulting.sim.ai.domain.AssessmentFeedback;
+import com.ibm.consulting.sim.proposal.domain.ClientDecisionOutcome;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class AssessmentFeedbackParser implements AiResponseParser<AssessmentFeedback> {
 
@@ -37,6 +39,15 @@ public class AssessmentFeedbackParser implements AiResponseParser<AssessmentFeed
         List<String> improvementAreas = new ArrayList<>();
         root.path("improvementAreas").forEach(n -> improvementAreas.add(n.asText()));
 
-        return new AssessmentFeedback(summary, strengths, improvementAreas);
+        return new AssessmentFeedback(readableOutcome(summary),
+                strengths.stream().map(this::readableOutcome).toList(),
+                improvementAreas.stream().map(this::readableOutcome).toList());
+    }
+
+    private String readableOutcome(String text) {
+        for (var outcome : ClientDecisionOutcome.values()) {
+            text = text.replace(outcome.name(), outcome.name().replace('_', ' ').toLowerCase(Locale.ROOT));
+        }
+        return text;
     }
 }

@@ -605,6 +605,7 @@ export interface ProposalSource {
 export interface ProposalWorkspace {
   proposal: Proposal | null
   sources: ProposalSource[]
+  evidenceCoverageThreshold?: number
 }
 
 export interface ProposalValidationIssue {
