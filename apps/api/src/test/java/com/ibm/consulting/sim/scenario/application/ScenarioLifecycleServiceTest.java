@@ -261,9 +261,12 @@ class ScenarioLifecycleServiceTest {
                 "Add at least one client persona.",
                 "Add the company profile.",
                 "Define the learner objective.",
-                "Add scenario-approved canonical facts.",
-                "Define intelligence reveal rules.",
                 "Save competency rubric weights.");
+        // A draft with no authoring config falls back to ScenarioAuthoringConfig.defaults(),
+        // which already has facts and reveal rules, so those are never blockers here.
+        assertThat(readiness.blockers()).doesNotContain(
+                "Add scenario-approved canonical facts.",
+                "Define intelligence reveal rules.");
     }
 
     // ─── Company profile (lead): one per scenario, drafts only ────────────
