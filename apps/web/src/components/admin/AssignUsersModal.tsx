@@ -68,8 +68,8 @@ export default function AssignUsersModal({ scenario, onClose, onSaved }: {
   return (
     <Modal
       open
+      // No modalLabel: Carbon would use it as the dialog's accessible name instead of the heading.
       modalHeading="Assign users"
-      modalLabel={scenario.title}
       primaryButtonText={save.isPending ? 'Saving...' : 'Save assignments'}
       secondaryButtonText="Cancel"
       primaryButtonDisabled={loading || save.isPending}
@@ -79,7 +79,7 @@ export default function AssignUsersModal({ scenario, onClose, onSaved }: {
     >
       <div className={styles.assignBody}>
         <p className={styles.modalIntro}>
-          Assigned consultants see this scenario once it is live. Everyone else can't see or start it.
+          Choose who can see <strong>{scenario.title}</strong> once it is live. Everyone else can't see or start it.
           Assignments carry over to new revisions.
         </p>
 
