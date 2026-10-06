@@ -1,28 +1,28 @@
 package com.ibm.consulting.sim.scenario.application;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InOrder;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.knowledge.application.KnowledgeIngestionService;
 import com.ibm.consulting.sim.lead.domain.EvidenceType;
 import com.ibm.consulting.sim.lead.domain.Lead;
@@ -53,12 +53,13 @@ class ScenarioLifecycleServiceTest {
     private final DifficultyProfileService difficultyProfileService = mock(DifficultyProfileService.class);
     private final ScenarioAuthoringConfigService authoringConfigService = new ScenarioAuthoringConfigService(new ObjectMapper());
     private final AuditLogger auditLogger = mock(AuditLogger.class);
+    private final EngagementRepository engagementRepository = mock(EngagementRepository.class);
     private ScenarioService service;
 
     @BeforeEach
     void setUp() {
         service = new ScenarioService(scenarioRepository, difficultyProfileService, authoringConfigService,
-                leadRepository, mock(KnowledgeIngestionService.class), auditLogger);
+                leadRepository, mock(KnowledgeIngestionService.class), auditLogger, engagementRepository);
         when(difficultyProfileService.forScenario(any(Scenario.class))).thenAnswer(invocation -> {
             Scenario scenario = invocation.getArgument(0);
             return DifficultyProfile.defaults(scenario.getDifficulty(), scenario.getInformationAmbiguity(),
