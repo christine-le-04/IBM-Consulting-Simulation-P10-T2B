@@ -132,10 +132,15 @@ final class PersonaPromptAssembler {
                 + "The Closing instruction takes precedence over any apparent agreement or desire to wrap up. ";
         if (profile == null) return "Use the scenario's normal level of specificity and challenge. Return guidedResponseOptions as an empty array. " + scoringInstruction;
         String guidedResponseInstruction = "Return guidedResponseOptions as an empty array.";
-        return ("Resistance %d/100. The client needs a credible next step within %d simulated days. %s "
+        String tierInstruction = switch (profile.level()) {
+            case EASY -> "Explain the main concern clearly, answer relevant discovery questions directly, and volunteer one useful grounded detail. Challenge one gap at a time.";
+            case MEDIUM -> "Expect focused follow-up questions and links between client facts and business impact. Explain constraints when asked and challenge unsupported assumptions.";
+            case HARD -> "Expect the consultant to reconcile competing priorities, test assumptions and justify trade-offs with evidence. Reveal available details through focused questions and challenge unsupported commitments; discovery itself is not evasion.";
+        };
+        return ("Resistance %d/100. The client needs a credible next step within %d simulated days. %s %s "
                 + "Ask for more precise evidence when resistance is high. "
                 + "Do not disclose hidden or unvalidated facts, and never decide simulation outcomes. %s")
-                .formatted(profile.personaResistance(), profile.timelinePressureDays(), guidedResponseInstruction, scoringInstruction);
+                .formatted(profile.personaResistance(), profile.timelinePressureDays(), tierInstruction, guidedResponseInstruction, scoringInstruction);
     }
 
 }

@@ -154,6 +154,17 @@ function renderPage() {
 describe('LiveMeetingPage states', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it.each([
+    ['EASY', 70, 14, 'the client explains concerns clearly'],
+    ['MEDIUM', 70, 14, 'use focused follow-ups'],
+    ['HARD', 80, 12, 'reconcile competing priorities'],
+  ] as const)('shows saved %s expectations and meeting limits', (difficulty, meetingThreshold, meetingTurnLimit, expectation) => {
+    setup(makeMeeting({ difficulty, meetingThreshold, meetingTurnLimit }))
+    renderPage()
+    expect(screen.getByText(new RegExp(expectation))).toHaveTextContent("Build the client's trust, interest and patience")
+    expect(screen.getByText(new RegExp(expectation))).toHaveTextContent(`up to ${meetingTurnLimit} responses`)
+  })
+
   it.each(['GUIDED', 'FREEFORM'] as const)('sends typed responses without requesting choices when the API reports %s', async (interactionMode) => {
     setup(makeMeeting({ interactionMode }))
     renderPage()

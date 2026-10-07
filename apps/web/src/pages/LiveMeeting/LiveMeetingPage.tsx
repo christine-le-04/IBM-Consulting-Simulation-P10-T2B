@@ -278,6 +278,13 @@ export default function LiveMeetingPage() {
           </header>
 
           <div className={styles.messages} ref={chatRef} aria-label={`Conversation with ${clientName}`} aria-live="polite">
+            <p className={styles.system}>
+              {meeting.difficulty === 'EASY' ? 'Easy: the client explains concerns clearly and offers useful details.'
+                : meeting.difficulty === 'MEDIUM' ? 'Medium: use focused follow-ups and connect client facts to business impact.'
+                  : meeting.difficulty === 'HARD' ? 'Hard: reconcile competing priorities and justify trade-offs with evidence.' : 'Use focused discovery to understand the client before recommending a solution.'}
+              {' '}Build the client's trust, interest and patience before agreeing the next step.
+              {meeting.meetingTurnLimit != null && ` You have up to ${meeting.meetingTurnLimit} responses; the meeting ends with a debrief at the limit.`}
+            </p>
             <p className={styles.system}><Information size={14} /> Meeting started · transcript saved automatically</p>
             {turns.length === 0 && !pendingMessage && <p className={styles.system}>Begin with a focused discovery question.</p>}
             {turns.map((turn) => renderTurn(turn))}

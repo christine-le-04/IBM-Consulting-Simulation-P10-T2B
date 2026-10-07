@@ -16,6 +16,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PersonaPromptContractRegressionTest {
 
     @Test
+    void openingInstructionsKeepDiscoveryOpenAndDifferentiateDifficulty() {
+        PersonaProfile persona = new PersonaProfile();
+        for (int tier : List.of(1, 3, 5)) {
+            String prompt = PersonaPromptAssembler.assemble(persona, PersonaState.initial(UUID.randomUUID()),
+                    List.of(), List.of(), List.of(), "What are your priorities?",
+                    DifficultyProfile.defaults(tier, 3, 3, 3), false);
+            assertThat(prompt).contains("The backend has not authorized closure")
+                    .contains("do not demand a solution mechanism on every turn")
+                    .contains("The Closing instruction takes precedence");
+            assertThat(prompt).contains(switch (tier) {
+                case 1 -> "volunteer one useful grounded detail";
+                case 3 -> "links between client facts and business impact";
+                default -> "reconcile competing priorities";
+            });
+        }
+    }
+
+    @Test
     void keepsScoringGroundingAndFinalTurnContractsInThePersonaPrompt() {
         PersonaProfile persona = new PersonaProfile();
         persona.setId(UUID.randomUUID());
