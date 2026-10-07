@@ -263,9 +263,21 @@
 .rowTop {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  // A two-line client name keeps the status on its first line.
+  align-items: flex-start;
   gap: 0.5rem;
   font-size: 0.875rem;
+
+  strong {
+    min-width: 0;
+  }
+
+  // Flex shrank the tag under a long client name, leaving its label
+  // spilling past the pill. The name wraps instead.
+  :global(.cds--tag) {
+    flex: none;
+    margin-block: 0;
+  }
 }
 
 .rowMeta {
