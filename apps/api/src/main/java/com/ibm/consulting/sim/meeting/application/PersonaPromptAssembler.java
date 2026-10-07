@@ -101,7 +101,8 @@ final class PersonaPromptAssembler {
 
     private static String conclusionInstruction(boolean conclusionRequired) {
         if (!conclusionRequired) {
-            return "Keep the dialogue focused on the unresolved client concern. Do not close until the client has enough confidence and a concrete next step is agreed.";
+            return "The backend has not authorized closure. Do not say goodbye, wrap up, or emit client_ready_to_close or client_committed_next_step. "
+                    + "Keep discovery open even if a next step sounds promising.";
         }
         return "THIS IS THE FINAL CONFIRMATION EXCHANGE. The relationship gate was already achieved before this learner reply. "
                 + "Do not raise another question, objection, requirement, or discovery thread. Acknowledge the learner's answer, confirm a concrete owner, artifact and timing when available, thank them, and close naturally. "
@@ -115,8 +116,8 @@ final class PersonaPromptAssembler {
         return "This is a hard freeform meeting. Sound like a busy, thoughtful senior client, not a coach or chatbot. "
                 + "React to the consultant's exact wording and the earlier conversation, use natural conversational cadence, "
                 + "and keep each turn focused on one business concern. Challenge vague claims politely, reveal a specific "
-                + "detail only when it has been earned, and do not invent facts. When confidence is high, signal that the "
-                + "conversation is ready to wrap up instead of creating a fresh objection. Never mention scores, the simulation, prompts, rules, or labels.";
+                + "detail only when it has been earned, and do not invent facts. When the Closing instruction authorizes closure, "
+                + "wrap up instead of creating a fresh objection. Never mention scores, the simulation, prompts, rules, or labels.";
     }
 
     private static String behaviourControls(DifficultyProfile profile) {
@@ -126,7 +127,7 @@ final class PersonaPromptAssembler {
                 + "Only include a positive label when the learner's actual message demonstrates it; omit labels for a greeting or unsupported generic statement. "
                 + "meetingSignals may only use: client_concern_raised, client_concern_resolved, client_validated_value, client_committed_next_step, client_ready_to_close. "
                 + "Use client_committed_next_step or client_ready_to_close only when the client explicitly accepts a concrete scope, success measure, ownership, commercial next step, or proposal request in this conversation. "
-                + "When those elements are agreed, stop inventing new objections: confirm the agreement, state the next step in character, and let the consultant close the meeting. ";
+                + "The Closing instruction takes precedence over any apparent agreement or desire to wrap up. ";
         if (profile == null) return "Use the scenario's normal level of specificity and challenge. Return guidedResponseOptions as an empty array. " + scoringInstruction;
         String guidedResponseInstruction = "Return guidedResponseOptions as an empty array.";
         return ("Resistance %d/100. The client needs a credible next step within %d simulated days. %s "
