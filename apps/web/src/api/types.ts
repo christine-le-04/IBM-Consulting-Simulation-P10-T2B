@@ -737,6 +737,7 @@ export interface CompletedEngagementView {
   scenarioId: string
   scenarioTitle: string
   industry: string
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | null
   outcome: string
   overallScore: number | null
   completedAt: string | null
@@ -764,6 +765,7 @@ export interface ReplayEngagementSnapshot {
   engagementId: string
   scenarioTitle: string
   personaName: string
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | null
   outcome: string
   overallScore: number
   competencyScores: ReplayCompetencyScore[]

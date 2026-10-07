@@ -3,6 +3,7 @@ package com.ibm.consulting.sim.portfolio.application;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.ibm.consulting.sim.scenario.domain.DifficultyLevel;
 
 /**
  * Aggregate view of a learner's training history: overall stats plus how each
@@ -29,6 +30,7 @@ public record PortfolioSummaryResponse(
             UUID scenarioId,
             String scenarioTitle,
             String industry,
+            DifficultyLevel difficulty,
             String outcome,
             Integer overallScore,
             Instant completedAt) {}

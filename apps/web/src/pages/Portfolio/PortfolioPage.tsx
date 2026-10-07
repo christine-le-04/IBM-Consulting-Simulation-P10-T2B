@@ -20,6 +20,7 @@ import IndustryArt from '@/components/shell/IndustryArt'
 import styles from './PortfolioPage.module.scss'
 import { achievementDescription } from '@/features/achievement/achievementPresentation'
 import { useAuthStore } from '@/store/authStore'
+import { portfolioDifficultyLabel, portfolioTooltipLabel } from '@/features/portfolio/portfolioPresentation'
 
 /** Lightweight competency trend visualisation: one row per historical score,
  *  avoiding a chart-library dependency while still showing progression clearly. */
@@ -76,7 +77,7 @@ function CompetencyGraphLegend({ trends, hiddenCompetencies, toggleCompetency } 
 }
 
 // Responsive graph to show progress across completed engagements.
-function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
+function CompetencyTrendGraph({ trends, history }: { trends: CompetencyTrend[]; history: CompletedEngagementView[] }) {
   const [hoveredCompetency, setHoveredCompetency] = useState<string | null>(null)
   const [hiddenCompetencies, setHiddenCompetencies] = useState<Set<string>>(new Set())
 
@@ -143,7 +144,10 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
                   const trendIndex = Number(String(item.dataKey).replace('competency_', ''))
                   return [ value, trends[trendIndex]?.competencyName ?? 'Competency']
                 }}
-                labelFormatter={(label) => label}
+                labelFormatter={(label) => {
+                  const point = chartData.find((item) => item.engagement === label)
+                  return point ? portfolioTooltipLabel(point, history) : label
+                }}
               />
               {trends.map((trend, index) => {
                 const isHidden = hiddenCompetencies.has(trend.competencyName)
@@ -191,6 +195,7 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
       <div className={styles.tags}>
         <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.overallScore == null ? 'Assessment pending' : engagement.outcome.replace(/_/g, ' ')}</Tag>
         <Tag type="cyan" size="sm">{engagement.industry}</Tag>
+        <Tag type="gray" size="sm">{portfolioDifficultyLabel(engagement.difficulty)}</Tag>
       </div>
       <div className={styles.historyMeta}>
         <span>{engagement.completedAt ? new Date(engagement.completedAt).toLocaleDateString('en-GB') : 'In review'}</span>
@@ -245,6 +250,9 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
           actionLabel="Try again" onAction={() => void refetch()} />}
 
         {currentComparison && <>
+          {currentComparison.engagementA.difficulty && currentComparison.engagementB.difficulty
+            && currentComparison.engagementA.difficulty !== currentComparison.engagementB.difficulty
+            && <p>These engagements used different difficulty levels. Interpret score changes in that context.</p>}
           <div className={styles.replayGrid}>
             {[currentComparison.engagementA, currentComparison.engagementB].map((snapshot, idx) => {
               const completedAt = history.find((item) => item.engagementId === snapshot.engagementId)?.completedAt
@@ -253,6 +261,7 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
                 <p>Engagement {idx === 0 ? 'A' : 'B'}</p>
                 <h3>{snapshot.scenarioTitle}</h3>
                 <p>vs. {snapshot.personaName}</p>
+                <Tag type="gray" size="sm">{portfolioDifficultyLabel(snapshot.difficulty)}</Tag>
                 <p>{snapshot.outcome.replaceAll('_', ' ').toLowerCase()}</p>
                 <p>{completedAt
                   ? new Date(completedAt).toLocaleDateString('en-GB')
@@ -377,7 +386,7 @@ export default function PortfolioPage() {
             ))}
           </div>
           {portfolio.completedEngagements >= 2 ? (
-            <CompetencyTrendGraph trends={portfolio.competencyTrends} />
+            <CompetencyTrendGraph trends={portfolio.competencyTrends} history={sortedHistory} />
           ) : (
             <div className={styles.chartCard}>
               <h3>Progress Across Engagements</h3>

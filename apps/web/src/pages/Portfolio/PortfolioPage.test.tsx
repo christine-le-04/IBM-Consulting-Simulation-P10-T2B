@@ -503,6 +503,20 @@ describe('PortfolioPage replay comparison', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
+  it('shows recorded difficulty and gives context for comparing different tiers', async () => {
+    mockedUseReplayComparison.mockReturnValue({ data: {
+      engagementA: { ...comparison.engagementA, difficulty: 'EASY' },
+      engagementB: { ...comparison.engagementB, difficulty: 'HARD' },
+    }, isFetching: false, isError: false } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    expect(screen.getByText('Easy')).toBeInTheDocument()
+    expect(screen.getByText('Hard')).toBeInTheDocument()
+    expect(screen.getByText(/These engagements used different difficulty levels/)).toBeInTheDocument()
+  })
+
   it('offers retry when comparison fails and does not show old results', async () => {
     const retry = vi.fn()
     mockedUseReplayComparison.mockReturnValue({ data: comparison, isFetching: false, isError: true,
@@ -595,6 +609,7 @@ describe('PortfolioPage completed engagements', () => {
           scenarioId: 'scn-7',
           scenarioTitle: 'MediCare Digital Transformation',
           industry: 'Healthcare',
+          difficulty: 'MEDIUM',
           outcome: 'PROPOSAL_ACCEPTED',
           overallScore: 82,
           completedAt: '2026-09-28T10:00:00Z',
@@ -608,5 +623,6 @@ describe('PortfolioPage completed engagements', () => {
 
     expect(screen.getByRole('link', { name: 'Open the review of MediCare Digital Transformation' }))
       .toHaveAttribute('href', '/dashboard/engagements/eng-7/assessment')
+    expect(screen.getByText('Medium')).toBeInTheDocument()
   })
 })
