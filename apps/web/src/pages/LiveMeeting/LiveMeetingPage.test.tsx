@@ -392,4 +392,16 @@ describe('LiveMeetingPage wrap-up', () => {
     expect(screen.queryByText('Sarah Chen is ready to wrap up.')).not.toBeInTheDocument()
     expect(screen.getByText('Sarah Chen is trying to wrap up, but is not convinced yet.')).toBeInTheDocument()
   })
+
+  it('still says so after a reload, from the signals saved on the client’s last reply', () => {
+    const goodbye: ConversationTurn = {
+      id: 'turn-goodbye', meetingId: 'meeting-1', actor: 'PERSONA', content: 'I will see you on Friday.',
+      sequence: 99, signals: 'client_ready_to_close, client_committed_next_step', createdAt: '2026-10-07T05:40:00Z',
+    }
+    setup(makeMeeting({}), [...learnerTurns(5), goodbye])
+    withSocket([], { ...personaState, trust: 55 })
+    renderPage()
+
+    expect(screen.getByText('Sarah Chen is trying to wrap up, but is not convinced yet.')).toBeInTheDocument()
+  })
 })
