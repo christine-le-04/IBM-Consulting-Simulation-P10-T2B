@@ -188,12 +188,12 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
         <h3>{engagement.scenarioTitle}</h3>
       </div>
       <div className={styles.tags}>
-        <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.outcome.replace(/_/g, ' ')}</Tag>
+        <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.overallScore == null ? 'Assessment pending' : engagement.outcome.replace(/_/g, ' ')}</Tag>
         <Tag type="cyan" size="sm">{engagement.industry}</Tag>
       </div>
       <div className={styles.historyMeta}>
         <span>{engagement.completedAt ? new Date(engagement.completedAt).toLocaleDateString('en-GB') : 'In review'}</span>
-        <strong>{engagement.overallScore}/100</strong>
+        {engagement.overallScore != null && <strong>{engagement.overallScore}/100</strong>}
       </div>
       <span className={styles.historyOpen}>Open review <ArrowRight size={16} /></span>
     </Link>
@@ -205,10 +205,11 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
   const [engagementB, setEngagementB] = useState('')
   const { data: comparison, isFetching } = useReplayComparison(engagementA, engagementB)
 
-  if (history.length < 2) return null
+  const assessedHistory = history.filter((engagement) => engagement.overallScore != null)
+  if (assessedHistory.length < 2) return null
   const options = [
     { value: '', label: 'Select an engagement…' },
-    ...history.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100` })),
+    ...assessedHistory.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100` })),
   ]
 
   return (
@@ -309,11 +310,12 @@ export default function PortfolioPage() {
         <div>
           <span>Completed engagements</span>
           <strong>{portfolio.completedEngagements} / {portfolio.totalEngagements}</strong>
-          <small>{portfolio.totalEngagements - portfolio.completedEngagements} still in progress</small>
+          <small>{portfolio.inProgressEngagements ?? portfolio.totalEngagements - portfolio.completedEngagements - (portfolio.failedEngagements ?? 0)} still in progress</small>
+          {!!portfolio.failedEngagements && <small>{portfolio.failedEngagements} ended after a failed meeting</small>}
         </div>
         <div><span>Contracts won</span><strong className={styles.good}>{portfolio.contractsWon}</strong></div>
         <div><span>Contracts lost</span><strong className={styles.bad}>{portfolio.contractsLost}</strong></div>
-        <div><span>Average score</span><strong>{portfolio.averageOverallScore || '—'}</strong></div>
+        <div><span>Average score</span><strong>{portfolio.averageOverallScore ?? '—'}</strong></div>
       </section>
 
       {portfolio.competencyTrends.length > 0 && (

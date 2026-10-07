@@ -738,16 +738,18 @@ export interface CompletedEngagementView {
   scenarioTitle: string
   industry: string
   outcome: string
-  overallScore: number
+  overallScore: number | null
   completedAt: string | null
 }
 
 export interface PortfolioSummary {
   totalEngagements: number
   completedEngagements: number
+  inProgressEngagements?: number
+  failedEngagements?: number
   contractsWon: number
   contractsLost: number
-  averageOverallScore: number
+  averageOverallScore: number | null
   competencyTrends: CompetencyTrend[]
   completedEngagementsHistory: CompletedEngagementView[]
 }

@@ -165,8 +165,8 @@ function CompletedRow({ item }: { item: CompletedEngagementView }) {
           <small>{item.industry}{item.completedAt ? ` · ${new Date(item.completedAt).toLocaleDateString('en-GB')}` : ''}</small>
         </span>
         <span className={styles.completedResult}>
-          <Tag type={lost ? 'red' : 'green'} size="sm">{item.outcome.replaceAll('_', ' ').toLowerCase()}</Tag>
-          <strong>{item.overallScore}/100</strong>
+          <Tag type={item.overallScore == null ? 'purple' : lost ? 'red' : 'green'} size="sm">{item.outcome.replaceAll('_', ' ').toLowerCase()}</Tag>
+          <strong>{item.overallScore == null ? 'Assessment pending' : `${item.overallScore}/100`}</strong>
         </span>
       </button>
     </li>

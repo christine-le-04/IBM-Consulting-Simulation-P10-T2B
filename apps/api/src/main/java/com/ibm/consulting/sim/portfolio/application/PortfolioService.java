@@ -87,7 +87,10 @@ public class PortfolioService {
                 .filter(a -> LOST_OUTCOMES.contains(a.getOutcome()))
                 .count();
 
-        double avgScore = assessments.stream().mapToInt(Assessment::getOverallScore).average().orElse(0.0);
+        Double avgScore = assessments.isEmpty() ? null
+                : round1(assessments.stream().mapToInt(Assessment::getOverallScore).average().orElseThrow());
+        int inProgress = (int) engagements.stream().filter(e -> !e.getState().isTerminal()).count();
+        int failed = (int) engagements.stream().filter(e -> e.getState() == EngagementState.MEETING_FAILED).count();
 
         List<CompletedEngagementView> history = completed.stream()
                 .map(e -> {
@@ -95,8 +98,8 @@ public class PortfolioService {
                     Assessment assessment = assessmentByEngagement.get(e.getId());
                     return new CompletedEngagementView(
                             e.getId(), e.getScenarioId(), scenario.getTitle(), scenario.getIndustry(),
-                            assessment != null ? assessment.getOutcome() : e.getState().name(),
-                            assessment != null ? assessment.getOverallScore() : 0,
+                            assessment != null ? assessment.getOutcome() : "ASSESSMENT_PENDING",
+                            assessment != null ? Integer.valueOf(assessment.getOverallScore()) : null,
                             e.getCompletedAt());
                 })
                 .sorted(Comparator.comparing(CompletedEngagementView::completedAt,
@@ -106,7 +109,7 @@ public class PortfolioService {
         List<CompetencyTrend> trends = buildCompetencyTrends(assessmentByEngagement);
 
         return new PortfolioSummaryResponse(
-                engagements.size(), completed.size(), won, lost, round1(avgScore), trends, history);
+                engagements.size(), completed.size(), inProgress, failed, won, lost, avgScore, trends, history);
     }
 
     @Transactional(readOnly = true)

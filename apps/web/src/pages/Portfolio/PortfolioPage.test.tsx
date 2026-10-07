@@ -438,6 +438,48 @@ describe('PortfolioPage competency progression', () => {
 describe('PortfolioPage completed engagements', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('shows a recorded zero average and counts failed meetings separately from active work', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: {
+      ...basePortfolio, averageOverallScore: 0, inProgressEngagements: 0, failedEngagements: 1,
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const totals = screen.getByRole('region', { name: 'Totals' })
+    expect(within(totals).getByText('Average score').parentElement).toHaveTextContent('Average score0')
+    expect(within(totals).getByText('0 still in progress')).toBeInTheDocument()
+    expect(within(totals).getByText('1 ended after a failed meeting')).toBeInTheDocument()
+  })
+
+  it('shows an unavailable average separately from a recorded zero', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio, averageOverallScore: null } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    expect(screen.getByText('Average score').parentElement).toHaveTextContent('Average score—')
+  })
+
+  it('shows pending assessments without a placeholder score or a replay comparison', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: ['pending', 'scored'].map((id) => ({
+        engagementId: id, scenarioId: 'scenario', scenarioTitle: id, industry: 'Healthcare',
+        outcome: id === 'pending' ? 'ASSESSMENT_PENDING' : 'REJECTED',
+        overallScore: id === 'pending' ? null : 0, completedAt: '2026-10-07T10:00:00Z',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const pending = screen.getByRole('link', { name: 'Open the review of pending' })
+    expect(within(pending).getByText('Assessment pending')).toBeInTheDocument()
+    expect(within(pending).queryByText(/\/100/)).not.toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Open the review of scored' })).getByText('0/100')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Replay comparison' })).not.toBeInTheDocument()
+  })
+
   it('opens the review of a completed engagement', () => {
     setupPortfolio([])
     mockedUsePortfolioSummary.mockReturnValue({

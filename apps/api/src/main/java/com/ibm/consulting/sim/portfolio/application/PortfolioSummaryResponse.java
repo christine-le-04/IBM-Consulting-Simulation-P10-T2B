@@ -12,9 +12,11 @@ import java.util.UUID;
 public record PortfolioSummaryResponse(
         int totalEngagements,
         int completedEngagements,
+        int inProgressEngagements,
+        int failedEngagements,
         int contractsWon,
         int contractsLost,
-        double averageOverallScore,
+        Double averageOverallScore,
         List<CompetencyTrend> competencyTrends,
         List<CompletedEngagementView> completedEngagementsHistory) {
 
@@ -28,6 +30,6 @@ public record PortfolioSummaryResponse(
             String scenarioTitle,
             String industry,
             String outcome,
-            int overallScore,
+            Integer overallScore,
             Instant completedAt) {}
 }
