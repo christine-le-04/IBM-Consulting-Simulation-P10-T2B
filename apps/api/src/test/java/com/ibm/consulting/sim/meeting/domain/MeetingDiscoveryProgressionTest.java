@@ -1,21 +1,23 @@
 package com.ibm.consulting.sim.meeting.domain;
 
-import com.ibm.consulting.sim.ai.domain.PersonaStateDelta;
-import org.junit.jupiter.api.Test;
 import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+
+import com.ibm.consulting.sim.ai.domain.PersonaStateDelta;
 
 class MeetingDiscoveryProgressionTest {
     @Test
     void threeDistinctOpeningDiscoveryQuestionsAreNotEvasive() {
-        List<String> questions = List.of(
-                "What are your main priorities?",
+       List<String> questions = List.of(
+                "What are your main priorities for this engagement?",
                 "Which current workflow constraints cause the greatest operational impact for your team?",
                 "How do you measure success and which metrics matter most to stakeholders?");
         for (int i = 0; i < questions.size(); i++) {
             var assessment = MeetingTurnProgressionPolicy.assess(new PersonaStateDelta(-6, -5, -6),
-                    questions.get(i), List.of("evasive", "does_not_answer"), "Explain your solution.",
-                    List.of(), questions.subList(0, i));
+                    questions.get(i), List.of(), "Explain your solution.",
+                        List.of(), questions.subList(0, i));
             assertThat(assessment.quality()).isIn("FOCUSED_DISCOVERY", "GROUNDED_DISCOVERY");
             assertThat(assessment.relationshipDelta().trust()).isGreaterThanOrEqualTo(0);
             assertThat(assessment.relationshipDelta().patience()).isGreaterThanOrEqualTo(0);
