@@ -102,7 +102,7 @@ final class PersonaPromptAssembler {
     private static String conclusionInstruction(boolean conclusionRequired) {
         if (!conclusionRequired) {
             return "The backend has not authorized closure. Do not say goodbye, wrap up, or emit client_ready_to_close or client_committed_next_step. "
-                    + "Keep discovery open even if a next step sounds promising.";
+                    + "Keep discovery open even if a next step sounds promising. Answer focused discovery questions before requesting a solution.";
         }
         return "THIS IS THE FINAL CONFIRMATION EXCHANGE. The relationship gate was already achieved before this learner reply. "
                 + "Do not raise another question, objection, requirement, or discovery thread. Acknowledge the learner's answer, confirm a concrete owner, artifact and timing when available, thank them, and close naturally. "
@@ -122,7 +122,9 @@ final class PersonaPromptAssembler {
 
     private static String behaviourControls(DifficultyProfile profile) {
         String scoringInstruction = "Do not reward greetings, vague prompts, or requests for the client to do the consultant's discovery. "
-                + "First assess whether the consultant directly answered the latest client concern. Use negative stateDelta for vague, evasive, dismissive, or unprofessional behaviour. "
+                + "Focused questions about priorities, current processes, constraints, impact and success measures are valid discovery, especially at the start. "
+                + "Answer them with available client facts; do not demand a solution mechanism on every turn or label a relevant discovery question evasive merely because it is not a pitch. "
+                + "Use negative stateDelta for vague, evasive, dismissive, or unprofessional behaviour. "
                 + "detectedLearnerBehaviours must contain only observed labels from: directly_addresses_concern, acknowledges_constraint, uses_client_fact, uses_disclosed_evidence, quantifies_business_impact, uses_specific_metric, asks_focused_question, grounded_recommendation, evasive, unprepared, dismissive, does_not_answer, unsupported_claim. "
                 + "Only include a positive label when the learner's actual message demonstrates it; omit labels for a greeting or unsupported generic statement. "
                 + "meetingSignals may only use: client_concern_raised, client_concern_resolved, client_validated_value, client_committed_next_step, client_ready_to_close. "
