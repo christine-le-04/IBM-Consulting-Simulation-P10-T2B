@@ -499,7 +499,7 @@ describe('PortfolioPage replay comparison', () => {
     await select('Engagement A', 'Scenario A')
     await select('Engagement B', 'Scenario A')
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Select two different engagements')
+    expect(screen.getByText('Select two different engagements to compare.')).toHaveAttribute('role', 'alert')
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
@@ -551,6 +551,94 @@ describe('PortfolioPage replay comparison', () => {
 
     expect(screen.getByText('Loading...')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+})
+
+describe('PortfolioPage history browsing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Element.prototype.scrollIntoView = vi.fn()
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      totalEngagements: 8, completedEngagements: 8,
+      completedEngagementsHistory: Array.from({ length: 8 }, (_, index) => ({
+        engagementId: `run-${index + 1}`, scenarioId: 'scenario', scenarioTitle: `Client ${index + 1}`,
+        industry: index < 4 ? 'Retail' : 'Healthcare', difficulty: index % 2 === 0 ? null : 'HARD',
+        outcome: index === 0 ? 'ASSESSMENT_PENDING' : index === 1 ? 'REJECTED' : 'PILOT_APPROVED',
+        overallScore: index === 0 ? null : 80, completedAt: '2026-10-01T10:00:00Z',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+  })
+
+  function historySection() {
+    return screen.getByRole('region', { name: 'Completed engagement history' })
+  }
+
+  async function filter(name: string, option: string) {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name }))
+    await user.click(screen.getByRole('option', { name: option }))
+  }
+
+  it('paginates newest-first history and resets the page when searching', async () => {
+    render(<PortfolioPage />)
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
+    expect(within(historySection()).queryByRole('link', { name: 'Open the review of Client 1' })).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(2)
+
+    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), '  CLIENT 8 ')
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 8' })).toBeInTheDocument()
+  })
+
+  it('combines industry search, difficulty and outcome filters and can clear them', async () => {
+    render(<PortfolioPage />)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Search completed engagements'), 'retail')
+    await filter('Difficulty', 'Hard')
+    await filter('Outcome', 'Rejected')
+
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 2' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Clear history filters' }))
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
+    expect(screen.getByLabelText('Search completed engagements')).toHaveValue('')
+  })
+
+  it('filters unavailable difficulty and pending assessments without changing portfolio totals or comparisons', async () => {
+    render(<PortfolioPage />)
+    await filter('Difficulty', 'Difficulty unavailable')
+    await filter('Outcome', 'Assessment pending')
+
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Completed engagements (8 of 8)' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Replay comparison' })).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    expect(screen.getByRole('option', { name: 'Client 8 — 80/100 · 01/10/2026' })).toBeInTheDocument()
+  })
+
+  it('shows a recoverable empty result rather than the first-engagement empty state', async () => {
+    render(<PortfolioPage />)
+    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), 'no matching client')
+
+    expect(within(historySection()).getByRole('status')).toHaveTextContent('No completed engagements match these filters.')
+    expect(within(historySection()).queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Complete your first engagement/)).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Clear history filters' }))
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
+  })
+
+  it('returns to the first page when the page size increases', async () => {
+    render(<PortfolioPage />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
+    fireEvent.change(screen.getByRole('combobox', { name: /Items per page/ }), { target: { value: '12' } })
+
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(8)
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
   })
 })
 
