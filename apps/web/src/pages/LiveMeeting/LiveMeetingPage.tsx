@@ -115,13 +115,21 @@ export default function LiveMeetingPage() {
   const debriefRef = useRef<HTMLElement>(null)
 
   const turns = useMemo(() => transcript ?? [], [transcript])
+  // The socket only knows the signals of replies sent since the page opened.
+  // After a reload, read them from the client's last saved turn instead, so a
+  // client who already said goodbye still shows as wrapping up.
+  const signals = useMemo(() => {
+    if (latestSignals.length > 0) return latestSignals
+    const lastReply = [...turns].reverse().find((turn) => turn.actor === 'PERSONA')
+    return lastReply?.signals?.split(',').map((signal) => signal.trim()).filter(Boolean) ?? []
+  }, [latestSignals, turns])
   const currentState = personaState ?? persistedPersonaState
   const latestPersistedFeedback = meeting?.behaviourLedger?.[meeting.behaviourLedger.length - 1] ?? null
   const feedback = behaviourFeedback ?? latestPersistedFeedback
   const meetingThreshold = meeting?.meetingThreshold ?? DEFAULT_MEETING_THRESHOLD
   const hint = useMemo(
-    () => currentState ? deriveHint(turns, latestSignals, currentState, meetingThreshold) : [],
-    [turns, latestSignals, currentState, meetingThreshold],
+    () => currentState ? deriveHint(turns, signals, currentState, meetingThreshold) : [],
+    [turns, signals, currentState, meetingThreshold],
   )
   const persona = scenario?.personas.find((item) => item.id === meeting?.personaId)
   // Learners are not sent the scenario's personas, so the engagement's own
@@ -132,7 +140,7 @@ export default function LiveMeetingPage() {
   const passed = meeting?.completionOutcome === 'PASSED'
   const meetingGateMet = Boolean(currentState
     && currentState.trust >= meetingThreshold && currentState.interest >= meetingThreshold && currentState.patience >= meetingThreshold)
-  const clientReadyToClose = latestSignals.includes('client_ready_to_close') || latestSignals.includes('client_committed_next_step')
+  const clientReadyToClose = signals.includes('client_ready_to_close') || signals.includes('client_committed_next_step')
   const learnerTurns = turns.filter((turn) => turn.actor === 'LEARNER').length
   // Mirrors the backend's MeetingClosingPolicy: the meeting only closes once
   // every score has passed and three turns are done. Promising "closes after
