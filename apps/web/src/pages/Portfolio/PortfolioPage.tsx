@@ -6,19 +6,21 @@
  */
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Checkbox, Tag } from '@carbon/react'
+import { Button, Checkbox, Pagination, Tag, TextInput } from '@carbon/react'
 import { ArrowRight, TrophyFilled, Locked } from '@carbon/icons-react'
 import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfolio'
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import LoadingState from '@/components/shared/LoadingState'
 import LoadError from '@/components/shared/LoadError'
+import ErrorState from '@/components/shared/ErrorState'
 import type { AchievementSummary, CompetencyTrend, CompletedEngagementView } from '@/api/types'
 import Choice from '@/components/shell/Choice'
 import IndustryArt from '@/components/shell/IndustryArt'
 import styles from './PortfolioPage.module.scss'
 import { achievementDescription } from '@/features/achievement/achievementPresentation'
 import { useAuthStore } from '@/store/authStore'
+import { portfolioDifficultyLabel, portfolioPracticeFocus, portfolioTooltipLabel } from '@/features/portfolio/portfolioPresentation'
 
 /** Lightweight competency trend visualisation: one row per historical score,
  *  avoiding a chart-library dependency while still showing progression clearly. */
@@ -36,7 +38,7 @@ function CompetencyTrendCard({ trend, showHistory }: { trend: CompetencyTrend, s
         <strong>{trend.competencyName}</strong>
         {trend.points.length > 1 && (
           <Tag type={delta >= 0 ? 'green' : 'red'} size="sm">
-            {delta >= 0 ? '+' : ''}{delta} since first attempt
+            {delta >= 0 ? '+' : ''}{delta} since first engagement
           </Tag>
         )}
       </div>
@@ -74,8 +76,8 @@ function CompetencyGraphLegend({ trends, hiddenCompetencies, toggleCompetency } 
   )
 }
 
-// responsive graph to show progress over attempts
-function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
+// Responsive graph to show progress across completed engagements.
+function CompetencyTrendGraph({ trends, history }: { trends: CompetencyTrend[]; history: CompletedEngagementView[] }) {
   const [hoveredCompetency, setHoveredCompetency] = useState<string | null>(null)
   const [hiddenCompetencies, setHiddenCompetencies] = useState<Set<string>>(new Set())
 
@@ -107,7 +109,7 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
       .sort((a, b) => new Date(a.generatedAt).getTime() - new Date(b.generatedAt).getTime())
       .map((point, index) => ({
         ...point,
-        attempt: `Attempt ${index + 1}`,
+        engagement: `Engagement ${index + 1}`,
       }))
   }, [trends])
 
@@ -129,20 +131,23 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
 
   return (
     <div className={styles.chartCard}>
-      <h3>Progress Across Attempts</h3>
+      <h3>Progress Across Engagements</h3>
       <p>Track how each competency has changed across your completed engagements.</p>
       <div className={styles.chart}>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis dataKey="attempt" tick={{ fill: '#525252', fontSize: 12 }} axisLine={{ stroke: '#8d8d8d' }} tickLine={{ stroke: '#8d8d8d' }} />
+              <XAxis dataKey="engagement" tick={{ fill: '#525252', fontSize: 12 }} axisLine={{ stroke: '#8d8d8d' }} tickLine={{ stroke: '#8d8d8d' }} />
               <YAxis domain={[0, 100]} tick={{ fill: '#525252', fontSize: 12 }} axisLine={{ stroke: '#8d8d8d' }} tickLine={{ stroke: '#8d8d8d' }} />
               <Tooltip
                 formatter={(value, _name, item) => {
                   const trendIndex = Number(String(item.dataKey).replace('competency_', ''))
                   return [ value, trends[trendIndex]?.competencyName ?? 'Competency']
                 }}
-                labelFormatter={(label) => label}
+                labelFormatter={(label) => {
+                  const point = chartData.find((item) => item.engagement === label)
+                  return point ? portfolioTooltipLabel(point, history) : label
+                }}
               />
               {trends.map((trend, index) => {
                 const isHidden = hiddenCompetencies.has(trend.competencyName)
@@ -178,6 +183,7 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
 }
 
 function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementView }) {
+  const stageLabels = { OUTREACH: 'Outreach', MEETING: 'Meeting', PROPOSAL: 'Proposal' }
   const won = ['PILOT_APPROVED', 'PROPOSAL_ACCEPTED', 'STRATEGIC_PARTNERSHIP', 'WON']
     .includes(engagement.outcome)
   const rejected = ['REJECTED', 'PROPOSAL_REJECTED', 'LOST'].includes(engagement.outcome)
@@ -188,54 +194,144 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
         <h3>{engagement.scenarioTitle}</h3>
       </div>
       <div className={styles.tags}>
-        <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.outcome.replace(/_/g, ' ')}</Tag>
+        <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.overallScore == null ? 'Assessment pending' : engagement.outcome.replace(/_/g, ' ')}</Tag>
         <Tag type="cyan" size="sm">{engagement.industry}</Tag>
+        <Tag type="gray" size="sm">{portfolioDifficultyLabel(engagement.difficulty)}</Tag>
       </div>
       <div className={styles.historyMeta}>
         <span>{engagement.completedAt ? new Date(engagement.completedAt).toLocaleDateString('en-GB') : 'In review'}</span>
-        <strong>{engagement.overallScore}/100</strong>
+        {engagement.overallScore != null && <strong>{engagement.overallScore}/100</strong>}
       </div>
+      {engagement.stageScores && engagement.stageScores.length > 0 ? (
+        <div className={styles.stageScores}>
+          <strong>Best scores by stage</strong>
+          <dl>
+            {engagement.stageScores.map((score) => <div key={score.stage}>
+              <dt>{stageLabels[score.stage]}</dt>
+              <dd>
+                <strong>{score.bestScore}/100</strong>
+                {score.attemptCount != null && <span>{score.attemptCount} completed {score.attemptCount === 1 ? 'attempt' : 'attempts'} total</span>}
+                {score.currentCycleAttempts != null && <span>{score.currentCycleAttempts} in the final checkpoint cycle</span>}
+                {score.checkpointResets != null && <span>{score.checkpointResets} checkpoint {score.checkpointResets === 1 ? 'reset' : 'resets'}</span>}
+                {score.scoreHistoryComplete === false && <span>Best available score; some older attempts have no saved score.</span>}
+              </dd>
+            </div>)}
+          </dl>
+        </div>
+      ) : engagement.overallScore != null && <p className={styles.emptyState}>Stage breakdown unavailable for this assessment.</p>}
       <span className={styles.historyOpen}>Open review <ArrowRight size={16} /></span>
     </Link>
   )
 }
 
 function ReplayComparisonSection({ history }: { history: CompletedEngagementView[] }) {
+  const [replayScenario, setReplayScenario] = useState('ALL')
   const [engagementA, setEngagementA] = useState('')
   const [engagementB, setEngagementB] = useState('')
-  const { data: comparison, isFetching } = useReplayComparison(engagementA, engagementB)
+  const { data: comparison, isFetching, isError, refetch } = useReplayComparison(engagementA, engagementB)
 
-  if (history.length < 2) return null
+  const assessedHistory = history.filter((engagement) => engagement.overallScore != null)
+  if (assessedHistory.length < 2) return null
+  const scenarioGroups = new Map<string, { title: string; count: number }>()
+  assessedHistory.forEach((engagement) => {
+    const group = scenarioGroups.get(engagement.scenarioId)
+    if (group) group.count++
+    else scenarioGroups.set(engagement.scenarioId, { title: engagement.scenarioTitle, count: 1 })
+  })
+  const replayHistory = replayScenario === 'ALL' ? assessedHistory
+    : assessedHistory.filter((engagement) => engagement.scenarioId === replayScenario)
   const options = [
     { value: '', label: 'Select an engagement…' },
-    ...history.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100` })),
+    ...replayHistory.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100${h.completedAt ? ` · ${new Date(h.completedAt).toLocaleDateString('en-GB')}` : ''}` })),
   ]
+  const sameEngagement = !!engagementA && engagementA === engagementB
+  const selectionReady = !!engagementA && !!engagementB && !sameEngagement
+    && replayHistory.some((engagement) => engagement.engagementId === engagementA)
+    && replayHistory.some((engagement) => engagement.engagementId === engagementB)
+  const currentComparison = selectionReady && !isFetching && !isError
+    && comparison?.engagementA.engagementId === engagementA
+    && comparison?.engagementB.engagementId === engagementB ? comparison : undefined
+  const competencyNames = currentComparison ? [...new Set([
+    ...currentComparison.engagementA.competencyScores.map((score) => score.competencyName),
+    ...currentComparison.engagementB.competencyScores.map((score) => score.competencyName),
+  ])] : []
+  const scoreChange = (scoreA: number | undefined, scoreB: number | undefined) => {
+    if (scoreA == null || scoreB == null) return 'Not comparable'
+    const delta = scoreB - scoreA
+    return <Tag type={delta > 0 ? 'green' : delta < 0 ? 'red' : 'gray'} size="sm">
+      {delta > 0 ? '+' : ''}{delta} {Math.abs(delta) === 1 ? 'point' : 'points'}
+    </Tag>
+  }
 
   return (
     <section className={styles.section}>
       <h2>Replay comparison</h2>
       <div className={styles.replay}>
+        <Choice id="replay-scenario" label="Compare within a scenario" value={replayScenario}
+          options={[{ value: 'ALL', label: 'All scenarios' }, ...[...scenarioGroups].map(([id, group]) => ({
+            value: id, label: `${group.title} (${group.count} assessed ${group.count === 1 ? 'engagement' : 'engagements'})`,
+          }))]}
+          onChange={(value) => {
+            setReplayScenario(value)
+            setEngagementA('')
+            setEngagementB('')
+          }} />
+        <p>{replayScenario === 'ALL'
+          ? 'Choose a scenario to compare repeated practice, or compare any two engagements across scenarios.'
+          : `${replayHistory.length} assessed ${replayHistory.length === 1 ? 'engagement is' : 'engagements are'} available for this scenario.`}</p>
+        {replayScenario !== 'ALL' && replayHistory.length < 2
+          && <p>Complete another engagement for this scenario, or choose All scenarios to compare with other practice.</p>}
         <div className={styles.replayPickers}>
           <Choice id="replay-a" label="Engagement A" value={engagementA} onChange={setEngagementA} options={options} />
           <Choice id="replay-b" label="Engagement B" value={engagementB} onChange={setEngagementB} options={options} />
         </div>
 
-        {isFetching && <LoadingState description="Loading comparison…" />}
+        {sameEngagement && <p role="alert">Select two different engagements to compare.</p>}
+        {selectionReady && isFetching && <LoadingState description="Loading comparison…" />}
+        {selectionReady && isError && <ErrorState title="Comparison could not be loaded"
+          message="Try again, or select another pair of assessed engagements."
+          actionLabel="Try again" onAction={() => void refetch()} />}
 
-        {comparison && (
+        {currentComparison && <>
+          {currentComparison.engagementA.difficulty && currentComparison.engagementB.difficulty
+            && currentComparison.engagementA.difficulty !== currentComparison.engagementB.difficulty
+            && <p>These engagements used different difficulty levels. Interpret score changes in that context.</p>}
           <div className={styles.replayGrid}>
-            {[comparison.engagementA, comparison.engagementB].map((snapshot, idx) => (
-              <div key={idx} className={styles.snapshot}>
+            {[currentComparison.engagementA, currentComparison.engagementB].map((snapshot, idx) => {
+              const completedAt = history.find((item) => item.engagementId === snapshot.engagementId)?.completedAt
+              return (
+              <div key={snapshot.engagementId} className={styles.snapshot}>
+                <p>Engagement {idx === 0 ? 'A' : 'B'}</p>
                 <h3>{snapshot.scenarioTitle}</h3>
                 <p>vs. {snapshot.personaName}</p>
+                <Tag type="gray" size="sm">{portfolioDifficultyLabel(snapshot.difficulty)}</Tag>
+                <p>{snapshot.outcome.replaceAll('_', ' ').toLowerCase()}</p>
+                <p>{completedAt
+                  ? new Date(completedAt).toLocaleDateString('en-GB')
+                  : 'Completion date unavailable'}</p>
                 <strong className={styles.snapshotScore}>{snapshot.overallScore}/100</strong>
-                {snapshot.competencyScores.map((c) => (
-                  <div key={c.competencyName} className={styles.snapshotRow}><span>{c.competencyName}</span><span>{c.score}</span></div>
-                ))}
+                <Link to={`/dashboard/engagements/${snapshot.engagementId}/assessment`}>Open review</Link>
               </div>
-            ))}
+              )
+            })}
           </div>
-        )}
+          <div className={styles.comparisonTable}>
+            <table>
+              <caption>Score changes from Engagement A to Engagement B</caption>
+              <thead><tr><th scope="col">Competency</th><th scope="col">A</th><th scope="col">B</th><th scope="col">Change (B − A)</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Overall score</th><td>{currentComparison.engagementA.overallScore}</td><td>{currentComparison.engagementB.overallScore}</td>
+                  <td>{scoreChange(currentComparison.engagementA.overallScore, currentComparison.engagementB.overallScore)}</td></tr>
+                {competencyNames.map((name) => {
+                  const scoreA = currentComparison.engagementA.competencyScores.find((score) => score.competencyName === name)?.score
+                  const scoreB = currentComparison.engagementB.competencyScores.find((score) => score.competencyName === name)?.score
+                  return <tr key={name}><th scope="row">{name}</th><td>{scoreA ?? 'Not assessed'}</td><td>{scoreB ?? 'Not assessed'}</td>
+                    <td>{scoreChange(scoreA, scoreB)}</td></tr>
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>}
       </div>
     </section>
   )
@@ -280,15 +376,43 @@ export default function PortfolioPage() {
   const { data: portfolio, isLoading, isError, error, refetch } = usePortfolioSummary()
   const { displayName } = useAuthStore()
   const [showCompetencyHistory, setShowCompetencyHistory] = useState(false)
+  const [historySearch, setHistorySearch] = useState('')
+  const [historyDifficulty, setHistoryDifficulty] = useState('ALL')
+  const [historyOutcome, setHistoryOutcome] = useState('ALL')
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize, setHistoryPageSize] = useState(6)
   const sortedHistory = useMemo(
     () => (portfolio?.completedEngagementsHistory ?? []).slice().reverse(),
     [portfolio],
   )
 
+  const filteredHistory = useMemo(() => {
+    const query = historySearch.trim().toLowerCase()
+    return sortedHistory.filter((engagement) =>
+      `${engagement.scenarioTitle} ${engagement.industry}`.toLowerCase().includes(query)
+      && (historyDifficulty === 'ALL' || (engagement.difficulty ?? 'UNKNOWN') === historyDifficulty)
+      && (historyOutcome === 'ALL' || (engagement.overallScore == null ? 'ASSESSMENT_PENDING' : engagement.outcome) === historyOutcome))
+  }, [sortedHistory, historySearch, historyDifficulty, historyOutcome])
+  const currentHistoryPage = Math.min(historyPage, Math.max(1, Math.ceil(filteredHistory.length / historyPageSize)))
+  const visibleHistory = filteredHistory.slice((currentHistoryPage - 1) * historyPageSize, currentHistoryPage * historyPageSize)
+  const outcomeOptions = [
+    { value: 'ALL', label: 'All outcomes' },
+    ...[...new Set(sortedHistory.map((engagement) => engagement.overallScore == null ? 'ASSESSMENT_PENDING' : engagement.outcome))]
+      .sort().map((outcome) => ({ value: outcome,
+        label: outcome.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase()) })),
+  ]
+  const clearHistoryFilters = () => {
+    setHistorySearch('')
+    setHistoryDifficulty('ALL')
+    setHistoryOutcome('ALL')
+    setHistoryPage(1)
+  }
+
   if (isLoading) return <LoadingState />
   if (isError || !portfolio) return <LoadError title="Portfolio could not be opened" error={error} onRetry={() => void refetch()} />
 
   const initials = (displayName ?? '').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+  const practiceFocus = portfolioPracticeFocus(sortedHistory, portfolio.competencyTrends)
 
   return (
     <div className={styles.page}>
@@ -309,12 +433,23 @@ export default function PortfolioPage() {
         <div>
           <span>Completed engagements</span>
           <strong>{portfolio.completedEngagements} / {portfolio.totalEngagements}</strong>
-          <small>{portfolio.totalEngagements - portfolio.completedEngagements} still in progress</small>
+          <small>{portfolio.inProgressEngagements ?? portfolio.totalEngagements - portfolio.completedEngagements - (portfolio.failedEngagements ?? 0)} still in progress</small>
+          {!!portfolio.failedEngagements && <small>{portfolio.failedEngagements} ended after a failed meeting</small>}
         </div>
         <div><span>Contracts won</span><strong className={styles.good}>{portfolio.contractsWon}</strong></div>
         <div><span>Contracts lost</span><strong className={styles.bad}>{portfolio.contractsLost}</strong></div>
-        <div><span>Average score</span><strong>{portfolio.averageOverallScore || '—'}</strong></div>
+        <div><span>Average score</span><strong>{portfolio.averageOverallScore ?? '—'}</strong></div>
       </section>
+
+      {practiceFocus && <section className={styles.practiceFocus} aria-label="Recommended practice">
+        <h2>Focus next: {practiceFocus.name}</h2>
+        <Tag type="gray" size="sm">{portfolioDifficultyLabel(practiceFocus.difficulty)}</Tag>
+        <p>Based on your latest saved assessment for {practiceFocus.scenarioTitle}, {practiceFocus.name} had
+          your lowest recorded {practiceFocus.basis}: {practiceFocus.score}/100.</p>
+        {practiceFocus.incompleteHistory && <p>Some older attempts have no saved scores, so this is based on the available history.</p>}
+        <p>{practiceFocus.action}</p>
+        <Link to={`/dashboard/engagements/${practiceFocus.engagementId}/assessment`}>Open the review behind this recommendation</Link>
+      </section>}
 
       {portfolio.competencyTrends.length > 0 && (
         <section className={styles.section}>
@@ -332,23 +467,44 @@ export default function PortfolioPage() {
             ))}
           </div>
           {portfolio.completedEngagements >= 2 ? (
-            <CompetencyTrendGraph trends={portfolio.competencyTrends} />
+            <CompetencyTrendGraph trends={portfolio.competencyTrends} history={sortedHistory} />
           ) : (
             <div className={styles.chartCard}>
-              <h3>Progress Across Attempts</h3>
+              <h3>Progress Across Engagements</h3>
               <p>Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.</p>
             </div>
           )}
         </section>
       )}
 
-      <section className={styles.section}>
+      <section className={styles.section} aria-label="Completed engagement history">
         {sortedHistory.length > 0 ? (
           <>
             <h2>Completed engagements ({portfolio.completedEngagements} of {portfolio.totalEngagements})</h2>
-            <div className={styles.history}>
-              {sortedHistory.map((h) => <EngagementHistoryRow key={h.engagementId} engagement={h} />)}
+            <div className={styles.historyControls}>
+              <TextInput id="portfolio-history-search" labelText="Search completed engagements" size="sm"
+                placeholder="Search scenario or industry" value={historySearch}
+                onChange={(event) => { setHistorySearch(event.target.value); setHistoryPage(1) }} />
+              <Choice id="portfolio-history-difficulty" label="Difficulty" size="sm" value={historyDifficulty}
+                options={[{ value: 'ALL', label: 'All difficulties' }, { value: 'EASY', label: 'Easy' },
+                  { value: 'MEDIUM', label: 'Medium' }, { value: 'HARD', label: 'Hard' },
+                  { value: 'UNKNOWN', label: 'Difficulty unavailable' }]}
+                onChange={(value) => { setHistoryDifficulty(value); setHistoryPage(1) }} />
+              <Choice id="portfolio-history-outcome" label="Outcome" size="sm" value={historyOutcome} options={outcomeOptions}
+                onChange={(value) => { setHistoryOutcome(value); setHistoryPage(1) }} />
             </div>
+            {(historySearch || historyDifficulty !== 'ALL' || historyOutcome !== 'ALL')
+              && <Button kind="ghost" size="sm" onClick={clearHistoryFilters}>Clear history filters</Button>}
+            {visibleHistory.length > 0 ? <>
+              <div className={styles.history}>
+                {visibleHistory.map((h) => <EngagementHistoryRow key={h.engagementId} engagement={h} />)}
+              </div>
+              <Pagination page={currentHistoryPage} pageSize={historyPageSize} pageSizes={[6, 12, 24]}
+                totalItems={filteredHistory.length} onChange={({ page, pageSize }) => {
+                  setHistoryPageSize(pageSize)
+                  setHistoryPage(pageSize !== historyPageSize ? 1 : page)
+                }} />
+            </> : <p className={styles.emptyState} role="status">No completed engagements match these filters.</p>}
           </>
         ) : (
           <>

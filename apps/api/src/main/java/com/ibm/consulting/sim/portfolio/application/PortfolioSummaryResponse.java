@@ -3,6 +3,7 @@ package com.ibm.consulting.sim.portfolio.application;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.ibm.consulting.sim.scenario.domain.DifficultyLevel;
 
 /**
  * Aggregate view of a learner's training history: overall stats plus how each
@@ -12,9 +13,11 @@ import java.util.UUID;
 public record PortfolioSummaryResponse(
         int totalEngagements,
         int completedEngagements,
+        int inProgressEngagements,
+        int failedEngagements,
         int contractsWon,
         int contractsLost,
-        double averageOverallScore,
+        Double averageOverallScore,
         List<CompetencyTrend> competencyTrends,
         List<CompletedEngagementView> completedEngagementsHistory) {
 
@@ -27,7 +30,13 @@ public record PortfolioSummaryResponse(
             UUID scenarioId,
             String scenarioTitle,
             String industry,
+            DifficultyLevel difficulty,
             String outcome,
-            int overallScore,
-            Instant completedAt) {}
+            Integer overallScore,
+            Instant completedAt,
+            List<StageScoreView> stageScores) {}
+
+    public record StageScoreView(String stage, int bestScore, Integer attemptCount,
+                                 Integer currentCycleAttempts, Integer checkpointResets,
+                                 Boolean scoreHistoryComplete) {}
 }

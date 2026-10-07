@@ -2,6 +2,7 @@ package com.ibm.consulting.sim.portfolio.application;
 
 import java.util.List;
 import java.util.UUID;
+import com.ibm.consulting.sim.scenario.domain.DifficultyLevel;
 
 /**
  * Side-by-side comparison of two of a learner's completed engagements, used by the
@@ -14,6 +15,7 @@ public record ReplayComparisonResponse(EngagementSnapshot engagementA, Engagemen
             UUID engagementId,
             String scenarioTitle,
             String personaName,
+            DifficultyLevel difficulty,
             String outcome,
             int overallScore,
             List<CompetencyScoreView> competencyScores) {}

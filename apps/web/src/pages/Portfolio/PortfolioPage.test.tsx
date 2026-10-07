@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render as renderRaw, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
@@ -7,6 +7,7 @@ import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { useAuthStore } from '@/store/authStore'
 import PortfolioPage from './PortfolioPage'
 import type { CompetencyTrend } from '@/api/types'
+import userEvent from '@testing-library/user-event'
 
 // The page links to each engagement's review, so it renders inside a router.
 const render = (ui: ReactElement) => renderRaw(<MemoryRouter>{ui}</MemoryRouter>)
@@ -23,7 +24,6 @@ vi.mock('@/api/hooks/useAchievements', () => ({ useMyAchievements: vi.fn()}))
 vi.mock('@/store/authStore', () => ({ useAuthStore: vi.fn() }))
 vi.mock('@/lifecycle/components/PageHeader', () => ({ default: () => <div>Page Header</div> }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
-vi.mock('@/components/shared/ErrorState', () => ({ default: () => <div>Error...</div>}))
 
 // typed mock references
 const mockedUsePortfolioSummary = vi.mocked(usePortfolioSummary)
@@ -97,7 +97,7 @@ describe('PortfolioPage competency progression', () => {
     vi.clearAllMocks()
   })
 
-  it('competency progression shows most recent attempt by default', () => {
+  it('competency progression shows most recent engagement by default', () => {
     setupPortfolio([
       makeTrend('Communication', [
       {
@@ -124,12 +124,14 @@ describe('PortfolioPage competency progression', () => {
 
     expect(screen.getByText('Competency Progression')).toBeInTheDocument()
     expect(within(section).getByText('85')).toBeInTheDocument()
+    expect(within(section).getByText('+25 since first engagement')).toBeInTheDocument()
+    expect(within(section).queryByText(/since first attempt/)).not.toBeInTheDocument()
     expect(within(section).queryByText('60')).not.toBeInTheDocument()
     expect(within(section).queryByText('75')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'View history' })).toBeInTheDocument()
   })
 
-  it('competency progression shows all attempts when View history is clicked', () => {
+  it('competency progression shows all engagements when View history is clicked', () => {
     setupPortfolio([
       makeTrend('Communication', [
         {
@@ -276,7 +278,7 @@ describe('PortfolioPage competency progression', () => {
     expect(within(section).getByText('85')).toBeInTheDocument()
   })
 
-  it('utilises generatedAt to calculate the latest attempt', () => {
+  it('utilises generatedAt to calculate the latest engagement', () => {
     setupPortfolio([
       makeTrend('Communication', [
         {
@@ -301,7 +303,7 @@ describe('PortfolioPage competency progression', () => {
 
     const section = getCompetencySection()
 
-    // shows the latest attempt
+    // shows the latest engagement
     expect(within(section).getByText('90')).toBeInTheDocument()
     expect(within(section).queryByText('60')).not.toBeInTheDocument()
     expect(within(section).queryByText('75')).not.toBeInTheDocument()
@@ -365,7 +367,7 @@ describe('PortfolioPage competency progression', () => {
 
     render(<PortfolioPage />)
 
-    expect(screen.getByText('Progress Across Attempts')).toBeInTheDocument()
+    expect(screen.getByText('Progress Across Engagements')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Communication' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Negotiation' })).toBeInTheDocument()
   })
@@ -373,10 +375,10 @@ describe('PortfolioPage competency progression', () => {
   it('does not render the progression graph when there is no competency data', () => {
     setupPortfolio([])
     render(<PortfolioPage />)
-    expect(screen.queryByText('Progress Across Attempts')).not.toBeInTheDocument()
+    expect(screen.queryByText('Progress Across Engagements')).not.toBeInTheDocument()
   })
 
-  it('renders a history toggle only when a competency has multiple attempts', () => {
+  it('renders a history toggle only when a competency has multiple engagements', () => {
     setupPortfolio([
       makeTrend('Negotiation', [
         {
@@ -407,7 +409,7 @@ describe('PortfolioPage competency progression', () => {
     render(<PortfolioPage />)
  
     expect(screen.getByText('Competency Progression')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Progress Across Attempts' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Progress Across Engagements' })).toBeInTheDocument()
     expect(screen.getByText('Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.'),).toBeInTheDocument()
  
     // graph elements and history toggle should not be rendered
@@ -428,13 +430,417 @@ describe('PortfolioPage competency progression', () => {
  
     render(<PortfolioPage />)
  
-    expect(screen.getByText('Progress Across Attempts')).toBeInTheDocument()
+    expect(screen.getByText('Progress Across Engagements')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Communication' })).toBeInTheDocument()
     expect(screen.queryByText('Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.'),).not.toBeInTheDocument()
   })
 })
+describe('PortfolioPage replay comparison', () => {
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+  const comparison = {
+    engagementA: { engagementId: 'a', scenarioTitle: 'Scenario A', personaName: 'Client A',
+      outcome: 'REVISION_REQUESTED', overallScore: 60, competencyScores: [
+        { competencyName: 'Discovery', score: 40, evidenceNote: null },
+        { competencyName: 'Communication', score: 80, evidenceNote: null },
+        { competencyName: 'Commercial', score: 0, evidenceNote: null },
+      ] },
+    engagementB: { engagementId: 'b', scenarioTitle: 'Scenario B', personaName: 'Client B',
+      outcome: 'PILOT_APPROVED', overallScore: 80, competencyScores: [
+        { competencyName: 'Commercial', score: 0, evidenceNote: null },
+        { competencyName: 'Discovery', score: 70, evidenceNote: null },
+        { competencyName: 'Communication', score: 65, evidenceNote: null },
+        { competencyName: 'Negotiation', score: 75, evidenceNote: null },
+      ] },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: ['a', 'b', 'c'].map((id) => ({
+        engagementId: id, scenarioId: 'scenario', scenarioTitle: `Scenario ${id.toUpperCase()}`,
+        industry: 'Healthcare', outcome: 'PILOT_APPROVED', overallScore: 80,
+        completedAt: '2026-10-01T10:00:00Z',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    mockedUseReplayComparison.mockReturnValue({ data: comparison, isFetching: false, isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useReplayComparison>)
+  })
+
+  async function select(label: string, scenario: string) {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: label }))
+    await user.click(screen.getByRole('option', { name: `${scenario} — 80/100 · 01/10/2026` }))
+  }
+
+  function configureScenarioGroups() {
+    const query = mockedUsePortfolioSummary()
+    const history = query.data!.completedEngagementsHistory.map((engagement) => ({ ...engagement,
+      scenarioId: engagement.engagementId === 'c' ? 'other' : 'repeated',
+    }))
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: [...history, { ...history[0], engagementId: 'pending',
+        overallScore: null, outcome: 'ASSESSMENT_PENDING' }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+  }
+
+  async function selectScenario(option: string) {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Compare within a scenario' }))
+    await user.click(screen.getByRole('option', { name: option }))
+  }
+
+  it('groups assessed replays by scenario and excludes other scenarios and pending assessments', async () => {
+    configureScenarioGroups()
+    render(<PortfolioPage />)
+    await selectScenario('Scenario B (2 assessed engagements)')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    expect(screen.getByRole('option', { name: 'Scenario A — 80/100 · 01/10/2026' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Scenario C/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /null\/100/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('option', { name: 'Scenario A — 80/100 · 01/10/2026' }))
+    await select('Engagement B', 'Scenario B')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+  })
+
+  it('clears the selected pair when changing scenario and explains a single assessed result', async () => {
+    configureScenarioGroups()
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+
+    await selectScenario('Scenario C (1 assessed engagement)')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByText('1 assessed engagement is available for this scenario.')).toBeInTheDocument()
+    expect(screen.getByText(/Complete another engagement for this scenario/)).toBeInTheDocument()
+    expect(mockedUseReplayComparison).toHaveBeenLastCalledWith('', '')
+  })
+
+  it('restores cross-scenario comparisons when All scenarios is selected', async () => {
+    configureScenarioGroups()
+    mockedUseReplayComparison.mockReturnValue({ data: { engagementA: comparison.engagementA,
+      engagementB: { ...comparison.engagementB, engagementId: 'c', scenarioTitle: 'Scenario C' },
+    }, isFetching: false, isError: false } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await selectScenario('Scenario B (2 assessed engagements)')
+    await selectScenario('All scenarios')
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario C')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+  })
+
+  it('keeps scenarios with identical titles separate by their IDs', async () => {
+    configureScenarioGroups()
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: query.data!.completedEngagementsHistory.map((engagement) => ({
+        ...engagement, scenarioTitle: 'Shared title',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+    await selectScenario('Shared title (2 assessed engagements)')
+    await userEvent.setup().click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    // Two eligible replays plus the unselected placeholder; the other scenario remains excluded.
+    expect(within(screen.getByRole('listbox', { name: 'Engagement A' })).getAllByRole('option')).toHaveLength(3)
+  })
+
+  it('matches competencies by name and shows positive, negative, zero and unavailable differences', async () => {
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    const table = screen.getByRole('table', { name: 'Score changes from Engagement A to Engagement B' })
+    expect(within(table).getByRole('row', { name: /Overall score/ })).toHaveTextContent('+20 points')
+    expect(within(table).getByRole('row', { name: /Discovery/ })).toHaveTextContent('+30 points')
+    expect(within(table).getByRole('row', { name: /Communication/ })).toHaveTextContent('-15 points')
+    expect(within(table).getByRole('row', { name: /Commercial/ })).toHaveTextContent('0 points')
+    expect(within(table).getByRole('row', { name: /Negotiation/ })).toHaveTextContent('Not assessed75Not comparable')
+    expect(screen.getByText('revision requested')).toBeInTheDocument()
+    expect(screen.getByText('pilot approved')).toBeInTheDocument()
+    expect(screen.getAllByText('01/10/2026')).toHaveLength(5)
+    expect(screen.getAllByRole('link', { name: 'Open review' })).toHaveLength(2)
+  })
+
+  it('explains why selecting the same engagement cannot produce a comparison', async () => {
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario A')
+
+    expect(screen.getByText('Select two different engagements to compare.')).toHaveAttribute('role', 'alert')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('shows recorded difficulty and gives context for comparing different tiers', async () => {
+    mockedUseReplayComparison.mockReturnValue({ data: {
+      engagementA: { ...comparison.engagementA, difficulty: 'EASY' },
+      engagementB: { ...comparison.engagementB, difficulty: 'HARD' },
+    }, isFetching: false, isError: false } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    expect(screen.getByText('Easy')).toBeInTheDocument()
+    expect(screen.getByText('Hard')).toBeInTheDocument()
+    expect(screen.getByText(/These engagements used different difficulty levels/)).toBeInTheDocument()
+  })
+
+  it('offers retry when comparison fails and does not show old results', async () => {
+    const retry = vi.fn()
+    mockedUseReplayComparison.mockReturnValue({ data: comparison, isFetching: false, isError: true,
+      refetch: retry,
+    } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    expect(screen.getByText('Comparison could not be loaded')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    expect(retry).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('hides a previous comparison when the selected pair changes', async () => {
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+
+    await select('Engagement B', 'Scenario C')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('shows loading instead of old scores while a comparison refreshes', async () => {
+    mockedUseReplayComparison.mockReturnValue({ data: comparison, isFetching: true, isError: false,
+    } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+})
+
+describe('PortfolioPage history browsing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Element.prototype.scrollIntoView = vi.fn()
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      totalEngagements: 8, completedEngagements: 8,
+      completedEngagementsHistory: Array.from({ length: 8 }, (_, index) => ({
+        engagementId: `run-${index + 1}`, scenarioId: 'scenario', scenarioTitle: `Client ${index + 1}`,
+        industry: index < 4 ? 'Retail' : 'Healthcare', difficulty: index % 2 === 0 ? null : 'HARD',
+        outcome: index === 0 ? 'ASSESSMENT_PENDING' : index === 1 ? 'REJECTED' : 'PILOT_APPROVED',
+        overallScore: index === 0 ? null : 80, completedAt: '2026-10-01T10:00:00Z',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+  })
+
+  function historySection() {
+    return screen.getByRole('region', { name: 'Completed engagement history' })
+  }
+
+  async function filter(name: string, option: string) {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name }))
+    await user.click(screen.getByRole('option', { name: option }))
+  }
+
+  it('paginates newest-first history and resets the page when searching', async () => {
+    render(<PortfolioPage />)
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
+    expect(within(historySection()).queryByRole('link', { name: 'Open the review of Client 1' })).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(2)
+
+    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), '  CLIENT 8 ')
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 8' })).toBeInTheDocument()
+  })
+
+  it('combines industry search, difficulty and outcome filters and can clear them', async () => {
+    render(<PortfolioPage />)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Search completed engagements'), 'retail')
+    await filter('Difficulty', 'Hard')
+    await filter('Outcome', 'Rejected')
+
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 2' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Clear history filters' }))
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
+    expect(screen.getByLabelText('Search completed engagements')).toHaveValue('')
+  })
+
+  it('filters unavailable difficulty and pending assessments without changing portfolio totals or comparisons', async () => {
+    render(<PortfolioPage />)
+    await filter('Difficulty', 'Difficulty unavailable')
+    await filter('Outcome', 'Assessment pending')
+
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Completed engagements (8 of 8)' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Replay comparison' })).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    expect(screen.getByRole('option', { name: 'Client 8 — 80/100 · 01/10/2026' })).toBeInTheDocument()
+  })
+
+  it('shows a recoverable empty result rather than the first-engagement empty state', async () => {
+    render(<PortfolioPage />)
+    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), 'no matching client')
+
+    expect(within(historySection()).getByRole('status')).toHaveTextContent('No completed engagements match these filters.')
+    expect(within(historySection()).queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Complete your first engagement/)).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Clear history filters' }))
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
+  })
+
+  it('returns to the first page when the page size increases', async () => {
+    render(<PortfolioPage />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
+    fireEvent.change(screen.getByRole('combobox', { name: /Items per page/ }), { target: { value: '12' } })
+
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(8)
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+  })
+})
+
+describe('PortfolioPage recommended practice', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('explains its saved-score basis, links the supporting review and remains stable when history is filtered', async () => {
+    setupPortfolio([makeTrend('Meeting', [{ engagementId: 'latest', generatedAt: '2026-10-02T10:00:00Z', score: 60 }])])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: [{ engagementId: 'latest', scenarioId: 'scenario', scenarioTitle: 'Pilot rollout',
+        industry: 'Retail', difficulty: 'HARD', outcome: 'PILOT_APPROVED', overallScore: 75, completedAt: null,
+        stageScores: [{ stage: 'MEETING', bestScore: 60, attemptCount: 2, currentCycleAttempts: 1,
+          checkpointResets: 1, scoreHistoryComplete: false }],
+      }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const focus = screen.getByRole('region', { name: 'Recommended practice' })
+    expect(within(focus).getByRole('heading', { name: 'Focus next: Meeting' })).toBeInTheDocument()
+    expect(focus).toHaveTextContent('lowest recorded best stage score: 60/100')
+    expect(focus).toHaveTextContent('Pilot rollout')
+    expect(focus).toHaveTextContent('Some older attempts have no saved scores')
+    expect(within(focus).getByRole('link', { name: 'Open the review behind this recommendation' }))
+      .toHaveAttribute('href', '/dashboard/engagements/latest/assessment')
+    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), 'nothing matches')
+    expect(screen.getByRole('region', { name: 'Recommended practice' })).toHaveTextContent('Focus next: Meeting')
+  })
+
+  it('does not show a fabricated recommendation before assessment evidence is available', () => {
+    setupPortfolio([])
+    render(<PortfolioPage />)
+    expect(screen.queryByRole('region', { name: 'Recommended practice' })).not.toBeInTheDocument()
+  })
+})
+
 describe('PortfolioPage completed engagements', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('shows saved best stage scores, total attempts, checkpoint counts and incomplete history', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: [{ engagementId: 'run', scenarioId: 'scenario', scenarioTitle: 'Stage results',
+        industry: 'Retail', outcome: 'PILOT_APPROVED', overallScore: 75, completedAt: null,
+        stageScores: [
+          { stage: 'OUTREACH', bestScore: 0, attemptCount: 1, currentCycleAttempts: 1, checkpointResets: 0, scoreHistoryComplete: true },
+          { stage: 'MEETING', bestScore: 85, attemptCount: 5, currentCycleAttempts: 2, checkpointResets: 1, scoreHistoryComplete: true },
+          { stage: 'PROPOSAL', bestScore: 90, attemptCount: 3, currentCycleAttempts: 1, checkpointResets: 2, scoreHistoryComplete: false },
+        ],
+      }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const card = screen.getByRole('link', { name: 'Open the review of Stage results' })
+    expect(within(card).getByText('Best scores by stage')).toBeInTheDocument()
+    const outreach = within(card).getByText('Outreach').parentElement!
+    expect(within(outreach).getByText('0/100')).toBeInTheDocument()
+    expect(within(outreach).getByText('1 completed attempt total')).toBeInTheDocument()
+    const meeting = within(card).getByText('Meeting').parentElement!
+    expect(within(meeting).getByText('85/100')).toBeInTheDocument()
+    expect(within(meeting).getByText('5 completed attempts total')).toBeInTheDocument()
+    expect(within(meeting).getByText('2 in the final checkpoint cycle')).toBeInTheDocument()
+    expect(within(meeting).getByText('1 checkpoint reset')).toBeInTheDocument()
+    const proposal = within(card).getByText('Proposal').parentElement!
+    expect(within(proposal).getByText('2 checkpoint resets')).toBeInTheDocument()
+    expect(within(proposal).getByText(/Best available score; some older attempts/)).toBeInTheDocument()
+  })
+
+  it('does not invent attempt counts when stage metadata is incomplete', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: [{ engagementId: 'run', scenarioId: 'scenario', scenarioTitle: 'Partial metadata',
+        industry: 'Retail', outcome: 'PILOT_APPROVED', overallScore: 75, completedAt: null,
+        stageScores: [{ stage: 'MEETING', bestScore: 80, attemptCount: null, currentCycleAttempts: null,
+          checkpointResets: null, scoreHistoryComplete: null }],
+      }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const card = screen.getByRole('link', { name: 'Open the review of Partial metadata' })
+    expect(within(card).getByText('80/100')).toBeInTheDocument()
+    expect(within(card).queryByText(/completed attempts? total/)).not.toBeInTheDocument()
+    expect(within(card).queryByText(/checkpoint resets?/)).not.toBeInTheDocument()
+  })
+
+  it('shows a recorded zero average and counts failed meetings separately from active work', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: {
+      ...basePortfolio, averageOverallScore: 0, inProgressEngagements: 0, failedEngagements: 1,
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const totals = screen.getByRole('region', { name: 'Totals' })
+    expect(within(totals).getByText('Average score').parentElement).toHaveTextContent('Average score0')
+    expect(within(totals).getByText('0 still in progress')).toBeInTheDocument()
+    expect(within(totals).getByText('1 ended after a failed meeting')).toBeInTheDocument()
+  })
+
+  it('shows an unavailable average separately from a recorded zero', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio, averageOverallScore: null } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    expect(screen.getByText('Average score').parentElement).toHaveTextContent('Average score—')
+  })
+
+  it('shows pending assessments without a placeholder score or a replay comparison', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: ['pending', 'scored'].map((id) => ({
+        engagementId: id, scenarioId: 'scenario', scenarioTitle: id, industry: 'Healthcare',
+        outcome: id === 'pending' ? 'ASSESSMENT_PENDING' : 'REJECTED',
+        overallScore: id === 'pending' ? null : 0, completedAt: '2026-10-07T10:00:00Z',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const pending = screen.getByRole('link', { name: 'Open the review of pending' })
+    expect(within(pending).getByText('Assessment pending')).toBeInTheDocument()
+    expect(within(pending).queryByText(/\/100/)).not.toBeInTheDocument()
+    expect(within(pending).queryByText(/Stage breakdown unavailable/)).not.toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Open the review of scored' })).getByText('0/100')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Replay comparison' })).not.toBeInTheDocument()
+  })
 
   it('opens the review of a completed engagement', () => {
     setupPortfolio([])
@@ -446,6 +852,7 @@ describe('PortfolioPage completed engagements', () => {
           scenarioId: 'scn-7',
           scenarioTitle: 'MediCare Digital Transformation',
           industry: 'Healthcare',
+          difficulty: 'MEDIUM',
           outcome: 'PROPOSAL_ACCEPTED',
           overallScore: 82,
           completedAt: '2026-09-28T10:00:00Z',
@@ -459,5 +866,7 @@ describe('PortfolioPage completed engagements', () => {
 
     expect(screen.getByRole('link', { name: 'Open the review of MediCare Digital Transformation' }))
       .toHaveAttribute('href', '/dashboard/engagements/eng-7/assessment')
+    expect(screen.getByText('Medium')).toBeInTheDocument()
+    expect(screen.getByText('Stage breakdown unavailable for this assessment.')).toBeInTheDocument()
   })
 })

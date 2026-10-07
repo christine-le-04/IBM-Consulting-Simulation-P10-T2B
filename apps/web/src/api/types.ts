@@ -732,22 +732,35 @@ export interface CompetencyTrend {
   points: CompetencyTrendPoint[]
 }
 
+export interface PortfolioStageScore {
+  stage: 'OUTREACH' | 'MEETING' | 'PROPOSAL'
+  bestScore: number
+  attemptCount: number | null
+  currentCycleAttempts: number | null
+  checkpointResets: number | null
+  scoreHistoryComplete: boolean | null
+}
+
 export interface CompletedEngagementView {
   engagementId: string
   scenarioId: string
   scenarioTitle: string
   industry: string
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | null
   outcome: string
-  overallScore: number
+  overallScore: number | null
   completedAt: string | null
+  stageScores?: PortfolioStageScore[]
 }
 
 export interface PortfolioSummary {
   totalEngagements: number
   completedEngagements: number
+  inProgressEngagements?: number
+  failedEngagements?: number
   contractsWon: number
   contractsLost: number
-  averageOverallScore: number
+  averageOverallScore: number | null
   competencyTrends: CompetencyTrend[]
   completedEngagementsHistory: CompletedEngagementView[]
 }
@@ -762,6 +775,7 @@ export interface ReplayEngagementSnapshot {
   engagementId: string
   scenarioTitle: string
   personaName: string
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | null
   outcome: string
   overallScore: number
   competencyScores: ReplayCompetencyScore[]

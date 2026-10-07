@@ -188,6 +188,28 @@ describe('Office: engagements on the floor', () => {
   })
 })
 
+describe('Office: completed scores', () => {
+  it('shows a pending assessment separately from a recorded zero score', () => {
+    setup([makeEngagement({})])
+    mockedPortfolio.mockReturnValue({
+      data: {
+        totalEngagements: 3, completedEngagements: 2, contractsWon: 0, contractsLost: 1,
+        completedEngagementsHistory: ['pending', 'scored'].map((id) => ({
+          engagementId: id, scenarioId: 'scn-1', scenarioTitle: id, industry: 'Healthcare',
+          outcome: id === 'pending' ? 'ASSESSMENT_PENDING' : 'REJECTED',
+          overallScore: id === 'pending' ? null : 0, completedAt: '2026-10-07T10:00:00Z',
+        })),
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof usePortfolioSummary>)
+    renderPage()
+
+    expect(screen.getByText('Assessment pending')).toBeInTheDocument()
+    expect(screen.getByText('0/100')).toBeInTheDocument()
+    expect(screen.queryByText('null/100')).not.toBeInTheDocument()
+  })
+})
+
 describe('Office: first visit', () => {
   it('offers one starter client and opens its briefing', async () => {
     const user = userEvent.setup()
