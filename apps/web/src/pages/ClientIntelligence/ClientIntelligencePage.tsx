@@ -91,6 +91,13 @@ export default function ClientIntelligencePage() {
   // A new source opens at its top, like turning to a new document.
   useEffect(() => { readingRef.current?.scrollTo({ top: 0 }) }, [source?.id])
 
+  // The learner is usually scrolled down to the takeaway when they press Save
+  // on another passage; a warning above the fold read as Save doing nothing.
+  const clipSwitchRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (pendingClip) clipSwitchRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [pendingClip])
+
   const toContact = () => navigate(`/dashboard/engagements/${engagementId}/contact`)
   
   const proceed = () => {
@@ -238,7 +245,7 @@ export default function ClientIntelligencePage() {
           {clip && source ? (
             <div className={styles.panelBody}>
               {pendingClip && (
-                <div className={styles.clipSwitch} role="alert">
+                <div className={styles.clipSwitch} role="alert" ref={clipSwitchRef}>
                   <p>You have not added this evidence yet. Opening the new passage will discard your takeaway.</p>
                   <div className={styles.clipActions}>
                     <Button kind="secondary" size="sm" onClick={() => setPendingClip(null)}>Keep this draft</Button>

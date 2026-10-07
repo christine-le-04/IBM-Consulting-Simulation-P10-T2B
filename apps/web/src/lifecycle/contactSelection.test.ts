@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ContactsResponse, Engagement, OutreachAttempt } from '@/api/types'
 import {
-  contactStatus, currentContactOf, emailsToContact, isBackFromFailedOutreach,
+  contactStatus, currentContactOf, emailsToContact, firstName, initials, isBackFromFailedOutreach,
   statusFromContacts, type CurrentContact,
 } from './contactSelection'
 
@@ -84,5 +84,17 @@ describe('contact selection backend state', () => {
     expect(isBackFromFailedOutreach({ ...engagement, outreachRound: 1 })).toBe(false)
     expect(isBackFromFailedOutreach({ ...engagement, contactPersonaId: 'p-2' })).toBe(false)
     expect(isBackFromFailedOutreach({ ...engagement, state: 'OUTREACHING' })).toBe(false)
+  })
+})
+
+describe('contact names', () => {
+  it.each([
+    ['Captain James Okafor', 'James', 'JO'],
+    ['Dr. Elena Vargas', 'Elena', 'EV'],
+    ['Prof Ana Lim', 'Ana', 'AL'],
+    ['Sofia Marchetti', 'Sofia', 'SM'],
+  ])('reads %s as %s (%s), leaving the title out', (name, first, letters) => {
+    expect(firstName(name)).toBe(first)
+    expect(initials(name)).toBe(letters)
   })
 })

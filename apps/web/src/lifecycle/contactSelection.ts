@@ -62,7 +62,10 @@ export function isResearchDone(engagement: Engagement): boolean {
   return engagement.state !== 'QUALIFYING' && engagement.state !== 'CLIENT_INTELLIGENCE'
 }
 
-const stripTitle = (name: string) => name.replace(/^(Dr|Mr|Ms|Mrs)\.?\s+/i, '')
+// Scenario contacts include ranks and honorifics ("Captain James Okafor"); a
+// button reading "Choose Captain" names the title, not the person.
+const stripTitle = (name: string) =>
+  name.replace(/^((Dr|Mr|Ms|Mrs|Mx|Miss|Prof|Professor|Capt|Captain|Sir|Dame|Lady|Lord)\.?\s+)+/i, '')
 export const firstName = (name: string) => stripTitle(name).split(/\s+/)[0]
 export const initials = (name: string) =>
   stripTitle(name).split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()

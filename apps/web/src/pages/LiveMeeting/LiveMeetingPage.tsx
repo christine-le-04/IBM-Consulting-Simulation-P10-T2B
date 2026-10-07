@@ -26,6 +26,8 @@ import { currentContactOf } from '@/lifecycle/contactSelection'
 import styles from './LiveMeetingPage.module.scss'
 
 const DEFAULT_MEETING_THRESHOLD = 70
+/** MeetingClosingPolicy.MINIMUM_LEARNER_TURNS on the backend. */
+const MINIMUM_LEARNER_TURNS = 3
 
 const LIVE_MEETING_OBJECTIVES = [
   {
@@ -131,7 +133,13 @@ export default function LiveMeetingPage() {
   const meetingGateMet = Boolean(currentState
     && currentState.trust >= meetingThreshold && currentState.interest >= meetingThreshold && currentState.patience >= meetingThreshold)
   const clientReadyToClose = latestSignals.includes('client_ready_to_close') || latestSignals.includes('client_committed_next_step')
-  const readyToClose = !isCompleted && (meetingGateMet || clientReadyToClose)
+  const learnerTurns = turns.filter((turn) => turn.actor === 'LEARNER').length
+  // Mirrors the backend's MeetingClosingPolicy: the meeting only closes once
+  // every score has passed and three turns are done. Promising "closes after
+  // their reply" on the model's signal alone left learners stuck in a meeting
+  // the client had already said goodbye to.
+  const readyToClose = !isCompleted && meetingGateMet && learnerTurns >= MINIMUM_LEARNER_TURNS
+  const clientWantsToClose = !isCompleted && !readyToClose && clientReadyToClose
 
   // Keep the latest message in view; once the meeting ends, bring the debrief
   // up instead. Scrolls the chat only, never the page around it.
@@ -159,7 +167,9 @@ export default function LiveMeetingPage() {
         : 'That one got away from you. Read the debrief before you try again — it is short.'
       : readyToClose
         ? 'They are ready to wrap up. Confirm one next step, with a date and an owner.'
-        : feedback?.nextBestAction ?? 'Open with a question about their priorities, not a pitch.',
+        : clientWantsToClose
+          ? 'They are trying to wrap up, but they are not convinced yet. Answer their last concern with something specific.'
+          : feedback?.nextBestAction ?? 'Open with a question about their priorities, not a pitch.',
     isCompleted && passed ? { label: 'Continue to the proposal', to: `/dashboard/engagements/${engagementId}/proposal`, ready: true } : null,
   )
 
@@ -310,6 +320,9 @@ export default function LiveMeetingPage() {
               {isStreaming && <p className={styles.typing}>{clientName} is typing<span>.</span><span>.</span><span>.</span></p>}
               {readyToClose && (
                 <p className={styles.closeBanner}><strong>{clientName} is ready to wrap up.</strong> Confirm one concrete next step — the meeting closes after their reply.</p>
+              )}
+              {clientWantsToClose && (
+                <p className={styles.notConvincedBanner}><strong>{clientName} is trying to wrap up, but is not convinced yet.</strong> Answer their last concern with something specific. The meeting can only close once they are.</p>
               )}
 
               <div className={styles.composeBox}>

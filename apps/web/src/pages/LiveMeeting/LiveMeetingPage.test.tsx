@@ -354,3 +354,42 @@ describe('LiveMeetingPage client name', () => {
     expect(screen.queryByText('The client')).not.toBeInTheDocument()
   })
 })
+
+describe('LiveMeetingPage wrap-up', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const learnerTurns = (count: number): ConversationTurn[] => Array.from({ length: count }, (_, index) => ({
+    id: `turn-${index}`, meetingId: 'meeting-1', actor: 'LEARNER', content: `Question ${index + 1}`,
+    sequence: index * 2, signals: null, createdAt: '2026-10-07T05:30:00Z',
+  }))
+
+  function withSocket(signals: string[], state: PersonaState | null = null) {
+    mockedMeetingSocket.mockReturnValue({
+      streamingText: '', isStreaming: false, error: null, personaState: state, latestSignals: signals,
+      termination: null, guidedOptionsPending: false, guidedOptionsError: null, behaviourFeedback: null, sendMessage: vi.fn(),
+    } as unknown as ReturnType<typeof useMeetingSocket>)
+  }
+
+  it('promises the meeting will close only once the scores pass and three turns are done', () => {
+    setup(makeMeeting({}), learnerTurns(3))
+    renderPage()
+
+    expect(screen.getByText('Sarah Chen is ready to wrap up.')).toBeInTheDocument()
+  })
+
+  it('does not promise a close before the third turn, even with passing scores', () => {
+    setup(makeMeeting({}), learnerTurns(2))
+    renderPage()
+
+    expect(screen.queryByText('Sarah Chen is ready to wrap up.')).not.toBeInTheDocument()
+  })
+
+  it('says the client is not convinced when they signal a close the scores do not allow', () => {
+    setup(makeMeeting({}), learnerTurns(5))
+    withSocket(['client_ready_to_close'], { ...personaState, trust: 55 })
+    renderPage()
+
+    expect(screen.queryByText('Sarah Chen is ready to wrap up.')).not.toBeInTheDocument()
+    expect(screen.getByText('Sarah Chen is trying to wrap up, but is not convinced yet.')).toBeInTheDocument()
+  })
+})
