@@ -20,7 +20,7 @@ import IndustryArt from '@/components/shell/IndustryArt'
 import styles from './PortfolioPage.module.scss'
 import { achievementDescription } from '@/features/achievement/achievementPresentation'
 import { useAuthStore } from '@/store/authStore'
-import { portfolioDifficultyLabel, portfolioTooltipLabel } from '@/features/portfolio/portfolioPresentation'
+import { portfolioDifficultyLabel, portfolioPracticeFocus, portfolioTooltipLabel } from '@/features/portfolio/portfolioPresentation'
 
 /** Lightweight competency trend visualisation: one row per historical score,
  *  avoiding a chart-library dependency while still showing progression clearly. */
@@ -412,6 +412,7 @@ export default function PortfolioPage() {
   if (isError || !portfolio) return <LoadError title="Portfolio could not be opened" error={error} onRetry={() => void refetch()} />
 
   const initials = (displayName ?? '').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+  const practiceFocus = portfolioPracticeFocus(sortedHistory, portfolio.competencyTrends)
 
   return (
     <div className={styles.page}>
@@ -439,6 +440,16 @@ export default function PortfolioPage() {
         <div><span>Contracts lost</span><strong className={styles.bad}>{portfolio.contractsLost}</strong></div>
         <div><span>Average score</span><strong>{portfolio.averageOverallScore ?? '—'}</strong></div>
       </section>
+
+      {practiceFocus && <section className={styles.practiceFocus} aria-label="Recommended practice">
+        <h2>Focus next: {practiceFocus.name}</h2>
+        <Tag type="gray" size="sm">{portfolioDifficultyLabel(practiceFocus.difficulty)}</Tag>
+        <p>Based on your latest saved assessment for {practiceFocus.scenarioTitle}, {practiceFocus.name} had
+          your lowest recorded {practiceFocus.basis}: {practiceFocus.score}/100.</p>
+        {practiceFocus.incompleteHistory && <p>Some older attempts have no saved scores, so this is based on the available history.</p>}
+        <p>{practiceFocus.action}</p>
+        <Link to={`/dashboard/engagements/${practiceFocus.engagementId}/assessment`}>Open the review behind this recommendation</Link>
+      </section>}
 
       {portfolio.competencyTrends.length > 0 && (
         <section className={styles.section}>

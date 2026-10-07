@@ -437,3 +437,21 @@
 
   span { color: var(--sim-ink-2); }
 }
+
+.practiceFocus {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--sim-line);
+  border-left: 4px solid var(--sim-blue);
+
+  h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  p {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+}

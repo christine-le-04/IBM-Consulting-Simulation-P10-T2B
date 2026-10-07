@@ -715,6 +715,39 @@ describe('PortfolioPage history browsing', () => {
   })
 })
 
+describe('PortfolioPage recommended practice', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('explains its saved-score basis, links the supporting review and remains stable when history is filtered', async () => {
+    setupPortfolio([makeTrend('Meeting', [{ engagementId: 'latest', generatedAt: '2026-10-02T10:00:00Z', score: 60 }])])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: [{ engagementId: 'latest', scenarioId: 'scenario', scenarioTitle: 'Pilot rollout',
+        industry: 'Retail', difficulty: 'HARD', outcome: 'PILOT_APPROVED', overallScore: 75, completedAt: null,
+        stageScores: [{ stage: 'MEETING', bestScore: 60, attemptCount: 2, currentCycleAttempts: 1,
+          checkpointResets: 1, scoreHistoryComplete: false }],
+      }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const focus = screen.getByRole('region', { name: 'Recommended practice' })
+    expect(within(focus).getByRole('heading', { name: 'Focus next: Meeting' })).toBeInTheDocument()
+    expect(focus).toHaveTextContent('lowest recorded best stage score: 60/100')
+    expect(focus).toHaveTextContent('Pilot rollout')
+    expect(focus).toHaveTextContent('Some older attempts have no saved scores')
+    expect(within(focus).getByRole('link', { name: 'Open the review behind this recommendation' }))
+      .toHaveAttribute('href', '/dashboard/engagements/latest/assessment')
+    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), 'nothing matches')
+    expect(screen.getByRole('region', { name: 'Recommended practice' })).toHaveTextContent('Focus next: Meeting')
+  })
+
+  it('does not show a fabricated recommendation before assessment evidence is available', () => {
+    setupPortfolio([])
+    render(<PortfolioPage />)
+    expect(screen.queryByRole('region', { name: 'Recommended practice' })).not.toBeInTheDocument()
+  })
+})
+
 describe('PortfolioPage completed engagements', () => {
   beforeEach(() => vi.clearAllMocks())
 
