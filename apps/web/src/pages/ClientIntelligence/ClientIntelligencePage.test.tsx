@@ -155,9 +155,13 @@ describe('ClientIntelligencePage research desk', () => {
     const [first, second] = screen.getAllByRole('button', { name: 'Save this passage as evidence' })
     await user.click(first)
     await user.type(screen.getByLabelText('Your consulting takeaway'), 'Clinical time, not IT cost.')
+    vi.mocked(Element.prototype.scrollIntoView).mockClear()
     await user.click(second)
 
-    expect(screen.getByText('You have not added this evidence yet. Opening the new passage will discard your takeaway.')).toBeInTheDocument()
+    const warning = screen.getByText('You have not added this evidence yet. Opening the new passage will discard your takeaway.')
+    expect(warning).toBeInTheDocument()
+    // Scrolled into view, since the learner is usually down at the takeaway
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toContain(warning.closest('[role="alert"]'))
     await user.click(screen.getByRole('button', { name: 'Keep this draft' }))
     expect(screen.getByLabelText('Your consulting takeaway')).toHaveValue('Clinical time, not IT cost.')
     expect(screen.getByText('Staff at two sites re-enter patient details into three systems.', { selector: 'blockquote' })).toBeInTheDocument()
