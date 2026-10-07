@@ -291,13 +291,22 @@ final class MeetingTurnProgressionPolicy {
 
     private static String positiveExplanation(TurnQuality quality, PersonaStateDelta delta, List<String> behaviours) {
         if (quality == TurnQuality.LOW_SIGNAL) {
-            return "This response did not contain enough client-specific substance to change the relationship state.";
+            return "Your response needs a more specific client fact or question to build confidence.";
         }
         if (delta.trust() == 0 && delta.interest() == 0 && delta.patience() == 0) {
-            return "The response was neutral: no verified client-specific behaviour justified a relationship change.";
+            return "Your response kept the conversation steady. Add a concrete detail to build more confidence.";
         }
-        String evidence = behaviours.isEmpty() ? "the focused, client-relevant response" : String.join(", ", behaviours);
-        return "The Simulation Director credited " + evidence + "; the relationship change is capped by the turn-quality policy.";
+        List<String> observations = behaviours.stream().map(behaviour -> switch (behaviour) {
+            case "directly_addresses_concern", "addresses_client_concern" -> "addressed the client's concern directly";
+            case "acknowledges_constraint" -> "acknowledged a client constraint";
+            case "uses_client_fact", "uses_disclosed_evidence" -> "used evidence the client shared";
+            case "quantifies_business_impact", "uses_specific_metric" -> "made the business impact concrete";
+            case "asks_focused_question" -> "asked a focused question";
+            case "grounded_recommendation" -> "grounded your recommendation in evidence";
+            default -> "";
+        }).filter(observation -> !observation.isEmpty()).distinct().toList();
+        return observations.isEmpty() ? "Your focused response helped build the client's confidence."
+                : "You " + String.join(" and ", observations) + ". This helped build the client's confidence.";
     }
 
     private static String nextAction(TurnQuality quality, PersonaStateDelta delta) {

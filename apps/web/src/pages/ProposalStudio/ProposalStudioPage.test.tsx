@@ -230,6 +230,21 @@ describe('ProposalStudioPage document', () => {
     expect(screen.getByDisplayValue('Outcome A')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Outcome D')).toBeInTheDocument()
   })
+
+  it('wraps long table cells instead of cutting them off, and keeps Enter out of a cell', async () => {
+    const user = userEvent.setup()
+    setupSection('OUTCOMES', {
+      businessOutcomes: [{ outcome: 'Reduce avoidable unplanned downtime on the critical asset group', metric: '', target: '' }],
+    })
+    renderPage()
+
+    const cell = screen.getByLabelText('Business outcome 1')
+    expect(cell.tagName).toBe('TEXTAREA')
+
+    await user.type(cell, '{Enter}')
+    const updateDraft = mockedUseProposalStudio.mock.results[0].value.updateDraft
+    expect(updateDraft).not.toHaveBeenCalled()
+  })
 })
 
 describe('ProposalStudioPage submit and review', () => {
@@ -347,6 +362,33 @@ describe('ProposalStudioPage after submission', () => {
 
 describe('ProposalStudioPage checklist and editing', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('uses the frozen scenario threshold rather than requiring full coverage', () => {
+    setup(['a', 'b', 'c', 'd'].map(makeSource))
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({
+      ...studio,
+      workspace: { ...studio.workspace, data: { ...studio.workspace.data!, evidenceCoverageThreshold: 50 } },
+      draft: { ...createEmptyProposalDraft(), evidenceLinks: [{ section: 'PROBLEM', sourceId: 'a' }] },
+    } as ReturnType<typeof useProposalStudio>)
+    renderPage()
+    expect(screen.getAllByText('Attach 1 more different source to meet the 50% evidence requirement')).not.toHaveLength(0)
+  })
+
+  it('matches backend rounding when two of three sources satisfy a 67 percent threshold', () => {
+    setup(['a', 'b', 'c'].map(makeSource))
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({
+      ...studio,
+      workspace: { ...studio.workspace, data: { ...studio.workspace.data!, evidenceCoverageThreshold: 67 } },
+      draft: { ...createEmptyProposalDraft(), evidenceLinks: [
+        { section: 'PROBLEM', sourceId: 'a' }, { section: 'SOLUTION', sourceId: 'b' },
+      ] },
+    } as ReturnType<typeof useProposalStudio>)
+    renderPage()
+    expect(screen.getAllByText('Evidence draws on enough different sources')).not.toHaveLength(0)
+    expect(screen.queryByText(/Attach .* more different/)).not.toBeInTheDocument()
+  })
 
   it('says how many more different sources full evidence coverage needs', () => {
     setup(['a', 'b', 'c', 'd', 'e'].map(makeSource))

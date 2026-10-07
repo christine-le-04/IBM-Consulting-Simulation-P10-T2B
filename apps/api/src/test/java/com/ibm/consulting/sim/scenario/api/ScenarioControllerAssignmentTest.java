@@ -142,12 +142,13 @@ class ScenarioControllerAssignmentTest {
     void scenarioDetailUsedDuringARunIsNotFilteredByAssignment() throws Exception {
         signInAs(consultant);
         UUID scenarioId = UUID.randomUUID();
-        when(scenarios.getActiveById(scenarioId)).thenReturn(liveSummary("In progress"));
+        when(scenarios.getForLearner(scenarioId, consultant.getId())).thenReturn(liveSummary("In progress"));
 
         mockMvc.perform(get("/api/v1/scenarios/{id}", scenarioId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("In progress"));
 
+        verify(scenarios).getForLearner(scenarioId, consultant.getId());
         verifyNoInteractions(assignments);
     }
 

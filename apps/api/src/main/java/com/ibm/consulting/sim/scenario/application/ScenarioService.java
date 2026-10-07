@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ibm.consulting.sim.knowledge.application.KnowledgeIngestionService;
+import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.lead.application.LeadSummary;
 import com.ibm.consulting.sim.lead.domain.Lead;
 import com.ibm.consulting.sim.lead.domain.LeadRepository;
@@ -46,16 +47,19 @@ public class ScenarioService {
     private final LeadRepository leadRepository;
     private final KnowledgeIngestionService knowledgeIngestionService;
     private final AuditLogger auditLogger;
+    private final EngagementRepository engagementRepository;
 
     public ScenarioService(ScenarioRepository scenarioRepository, DifficultyProfileService difficultyProfileService,
                            ScenarioAuthoringConfigService authoringConfigService, LeadRepository leadRepository,
-                           KnowledgeIngestionService knowledgeIngestionService, AuditLogger auditLogger) {
+                           KnowledgeIngestionService knowledgeIngestionService, AuditLogger auditLogger,
+                           EngagementRepository engagementRepository) {
         this.scenarioRepository = scenarioRepository;
         this.difficultyProfileService = difficultyProfileService;
         this.authoringConfigService = authoringConfigService;
         this.leadRepository = leadRepository;
         this.knowledgeIngestionService = knowledgeIngestionService;
         this.auditLogger = auditLogger;
+        this.engagementRepository = engagementRepository;
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +110,20 @@ public class ScenarioService {
         return scenarioRepository.findByIdAndStatus(id, ScenarioStatus.ACTIVE)
                 .map(this::summary)
                 .orElseThrow(() -> new NotFoundException("Scenario", id));
+    }
+
+    /** A retired revision remains readable only by learners who already have a run using it. */
+    @Transactional(readOnly = true)
+    public ScenarioSummary getForLearner(UUID id, UUID userId) {
+        Scenario scenario = scenarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Scenario", id));
+        boolean ownsRun = scenario.getStatus() == ScenarioStatus.ARCHIVED
+                && engagementRepository.findByUserId(userId).stream()
+                .anyMatch(engagement -> engagement.getScenarioId().equals(id));
+        if (scenario.getStatus() != ScenarioStatus.ACTIVE && !ownsRun) {
+            throw new NotFoundException("Scenario", id);
+        }
+        return summary(scenario);
     }
 
     /** Admin capability: list every scenario regardless of status (DRAFT/ACTIVE/ARCHIVED). */

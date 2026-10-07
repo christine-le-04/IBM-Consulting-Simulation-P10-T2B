@@ -27,13 +27,37 @@ import static org.mockito.Mockito.when;
 class LearnerScenarioAvailabilityTest {
 
     @Test
+    void archivedScenarioRemainsReadableOnlyForItsExistingPlayer() {
+        ScenarioRepository scenarios = mock(ScenarioRepository.class);
+        EngagementRepository engagements = mock(EngagementRepository.class);
+        DifficultyProfileService difficulty = mock(DifficultyProfileService.class);
+        ScenarioService service = new ScenarioService(scenarios, difficulty,
+                mock(ScenarioAuthoringConfigService.class), mock(LeadRepository.class),
+                mock(KnowledgeIngestionService.class), mock(AuditLogger.class), engagements);
+        Scenario archived = Scenario.create("Pinned revision", "Retail", "Existing run", 3);
+        archived.archive();
+        UUID owner = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        var run = com.ibm.consulting.sim.engagement.domain.Engagement.start(owner, archived.getId(), UUID.randomUUID());
+        when(scenarios.findById(archived.getId())).thenReturn(Optional.of(archived));
+        when(engagements.findByUserId(owner)).thenReturn(List.of(run));
+        when(difficulty.forScenario(archived)).thenReturn(DifficultyProfile.defaults(3, 3, 3, 3));
+        assertThat(service.getForLearner(archived.getId(), owner).id()).isEqualTo(archived.getId());
+        assertThatThrownBy(() -> service.getForLearner(archived.getId(), other)).isInstanceOf(NotFoundException.class);
+
+        Scenario draft = Scenario.create("Unpublished", "Retail", "Not available", 3);
+        when(scenarios.findById(draft.getId())).thenReturn(Optional.of(draft));
+        assertThatThrownBy(() -> service.getForLearner(draft.getId(), owner)).isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
     void learnerLookupsRequireActiveScenarioWhileAuthoringRetainsDraftAccess() {
         ScenarioRepository scenarios = mock(ScenarioRepository.class);
         LeadRepository leads = mock(LeadRepository.class);
         DifficultyProfileService difficulty = mock(DifficultyProfileService.class);
         ScenarioAuthoringConfigService authoring = mock(ScenarioAuthoringConfigService.class);
         ScenarioService scenarioService = new ScenarioService(
-                scenarios, difficulty, authoring, leads, mock(KnowledgeIngestionService.class), mock(AuditLogger.class));
+                scenarios, difficulty, authoring, leads, mock(KnowledgeIngestionService.class), mock(AuditLogger.class), mock(EngagementRepository.class));
         LeadService leadService = new LeadService(
                 leads, mock(ResearchEvidenceRepository.class), mock(EngagementRepository.class), difficulty,
                 scenarios, authoring);

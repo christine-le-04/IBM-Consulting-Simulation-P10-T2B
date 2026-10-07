@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AxiosError, type AxiosResponse } from 'axios'
@@ -36,6 +36,8 @@ vi.mock('@/components/shared/ErrorState', () => ({
 // mock scrollIntoView / scrollTo for dropdowns and the reading pane
 Element.prototype.scrollIntoView = vi.fn()
 Element.prototype.scrollTo = vi.fn() as unknown as typeof Element.prototype.scrollTo
+// jsdom does not lay out text, so a highlight has no box of its own
+Range.prototype.getBoundingClientRect = () => new DOMRect(200, 300, 100, 20)
 
 const mockedResearch = vi.mocked(useResearch)
 const mockedSaveResearch = vi.mocked(useSaveResearch)
@@ -135,6 +137,71 @@ describe('ClientIntelligencePage research desk', () => {
         note: 'Staff at two sites re-enter patient details into three systems.\n\nConsulting takeaway: Clinical time, not IT cost.',
       }),
       expect.anything(),
+    )
+  })
+
+  it('asks before another passage replaces a written takeaway', async () => {
+    const user = userEvent.setup()
+    setup([])
+    const twoPassages = {
+      ...newsSource,
+      blocks: [...newsSource.blocks, { ...newsSource.blocks[0], id: 'b2', content: 'Discharge summaries reach GPs four days late.' }],
+    }
+    mockedResearchSourceDeck.mockReturnValue({
+      data: { sourcesByType: { COMPANY_NEWS: [twoPassages] }, enrichmentPending: false },
+      isFetching: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useResearchSourceDeck>)
+    renderPage()
+
+    const [first, second] = screen.getAllByRole('button', { name: 'Save this passage as evidence' })
+    await user.click(first)
+    await user.type(screen.getByLabelText('Your consulting takeaway'), 'Clinical time, not IT cost.')
+    vi.mocked(Element.prototype.scrollIntoView).mockClear()
+    await user.click(second)
+
+    const warning = screen.getByText('You have not added this evidence yet. Opening the new passage will discard your takeaway.')
+    expect(warning).toBeInTheDocument()
+    // Scrolled into view, since the learner is usually down at the takeaway
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toContain(warning.closest('[role="alert"]'))
+    await user.click(screen.getByRole('button', { name: 'Keep this draft' }))
+    expect(screen.getByLabelText('Your consulting takeaway')).toHaveValue('Clinical time, not IT cost.')
+    expect(screen.getByText('Staff at two sites re-enter patient details into three systems.', { selector: 'blockquote' })).toBeInTheDocument()
+
+    await user.click(second)
+    await user.click(screen.getByRole('button', { name: 'Discard and open new passage' }))
+    expect(screen.getByLabelText('Your consulting takeaway')).toHaveValue('')
+    expect(screen.getByText('Discharge summaries reach GPs four days late.', { selector: 'blockquote' })).toBeInTheDocument()
+  })
+
+  it('leaves the Save buttons out of a highlight that spans several paragraphs', async () => {
+    const user = userEvent.setup()
+    setup([])
+    const twoPassages = {
+      ...newsSource,
+      blocks: [...newsSource.blocks, { ...newsSource.blocks[0], id: 'b2', content: 'Discharge summaries reach GPs four days late.' }],
+    }
+    mockedResearchSourceDeck.mockReturnValue({
+      data: { sourcesByType: { COMPANY_NEWS: [twoPassages] }, enrichmentPending: false },
+      isFetching: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useResearchSourceDeck>)
+    renderPage()
+
+    const first = screen.getByText('Staff at two sites re-enter patient details into three systems.')
+    const second = screen.getByText('Discharge summaries reach GPs four days late.')
+    const range = document.createRange()
+    range.setStart(first.firstChild!, 0)
+    range.setEnd(second.firstChild!, second.textContent!.length)
+    act(() => {
+      document.getSelection()!.removeAllRanges()
+      document.getSelection()!.addRange(range)
+      document.dispatchEvent(new Event('selectionchange'))
+    })
+    await user.click(screen.getByRole('button', { name: 'Save as evidence' }))
+
+    expect(screen.getByText(/^Staff at two sites/, { selector: 'blockquote' })).toHaveTextContent(
+      /^Staff at two sites re-enter patient details into three systems\. Discharge summaries reach GPs four days late\.$/,
     )
   })
 

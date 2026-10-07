@@ -85,6 +85,18 @@ function renderPage() {
 describe('AssessmentReviewPage strengths and improvement areas list', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('renders saved outcome identifiers as natural wording in coaching', () => {
+    setup(makeAssessment({
+      feedbackSummary: 'Congratulations on achieving a PILOT_APPROVED outcome.',
+      strengths: ['Your evidence supported PROPOSAL_ACCEPTED.'],
+      improvementAreas: ['Address the concerns behind REVISION_REQUESTED.'],
+    }))
+    renderPage()
+    expect(screen.getByText('Congratulations on achieving a pilot approved outcome.')).toBeInTheDocument()
+    expect(screen.getByText('Your evidence supported proposal accepted.')).toBeInTheDocument()
+    expect(screen.getByText('Address the concerns behind revision requested.')).toBeInTheDocument()
+  })
+
   it('renders every strength and improvement item as a numbered list item, in order', () => {
     setup(makeAssessment({}))
     renderPage()

@@ -65,7 +65,7 @@ public class ScenarioController {
      * so a run in progress keeps working if the consultant is later unassigned.
      */
     @GetMapping("/{id}")
-    ScenarioSummary getById(@PathVariable UUID id) {
-        return scenarioService.getActiveById(id);
+    ScenarioSummary getById(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        return scenarioService.getForLearner(id, user.getId());
     }
 }
