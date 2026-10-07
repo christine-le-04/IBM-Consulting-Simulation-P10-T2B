@@ -183,6 +183,7 @@ function CompetencyTrendGraph({ trends, history }: { trends: CompetencyTrend[]; 
 }
 
 function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementView }) {
+  const stageLabels = { OUTREACH: 'Outreach', MEETING: 'Meeting', PROPOSAL: 'Proposal' }
   const won = ['PILOT_APPROVED', 'PROPOSAL_ACCEPTED', 'STRATEGIC_PARTNERSHIP', 'WON']
     .includes(engagement.outcome)
   const rejected = ['REJECTED', 'PROPOSAL_REJECTED', 'LOST'].includes(engagement.outcome)
@@ -201,6 +202,23 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
         <span>{engagement.completedAt ? new Date(engagement.completedAt).toLocaleDateString('en-GB') : 'In review'}</span>
         {engagement.overallScore != null && <strong>{engagement.overallScore}/100</strong>}
       </div>
+      {engagement.stageScores && engagement.stageScores.length > 0 ? (
+        <div className={styles.stageScores}>
+          <strong>Best scores by stage</strong>
+          <dl>
+            {engagement.stageScores.map((score) => <div key={score.stage}>
+              <dt>{stageLabels[score.stage]}</dt>
+              <dd>
+                <strong>{score.bestScore}/100</strong>
+                {score.attemptCount != null && <span>{score.attemptCount} completed {score.attemptCount === 1 ? 'attempt' : 'attempts'} total</span>}
+                {score.currentCycleAttempts != null && <span>{score.currentCycleAttempts} in the final checkpoint cycle</span>}
+                {score.checkpointResets != null && <span>{score.checkpointResets} checkpoint {score.checkpointResets === 1 ? 'reset' : 'resets'}</span>}
+                {score.scoreHistoryComplete === false && <span>Best available score; some older attempts have no saved score.</span>}
+              </dd>
+            </div>)}
+          </dl>
+        </div>
+      ) : engagement.overallScore != null && <p className={styles.emptyState}>Stage breakdown unavailable for this assessment.</p>}
       <span className={styles.historyOpen}>Open review <ArrowRight size={16} /></span>
     </Link>
   )

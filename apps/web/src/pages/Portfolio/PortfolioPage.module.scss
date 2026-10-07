@@ -414,3 +414,26 @@
     grid-template-columns: 1fr;
   }
 }
+
+.stageScores {
+  font-size: 0.8125rem;
+
+  dl { margin: 0.5rem 0 0; }
+
+  dl > div {
+    display: grid;
+    grid-template-columns: 5rem 1fr;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--sim-line);
+  }
+
+  dd {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  span { color: var(--sim-ink-2); }
+}

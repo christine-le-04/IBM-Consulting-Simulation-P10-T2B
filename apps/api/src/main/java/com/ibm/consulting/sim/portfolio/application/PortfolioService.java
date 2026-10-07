@@ -15,6 +15,7 @@ import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.portfolio.application.PortfolioSummaryResponse.CompetencyTrend;
 import com.ibm.consulting.sim.portfolio.application.PortfolioSummaryResponse.CompetencyTrend.TrendPoint;
 import com.ibm.consulting.sim.portfolio.application.PortfolioSummaryResponse.CompletedEngagementView;
+import com.ibm.consulting.sim.portfolio.application.PortfolioSummaryResponse.StageScoreView;
 import com.ibm.consulting.sim.portfolio.application.ReplayComparisonResponse.CompetencyScoreView;
 import com.ibm.consulting.sim.portfolio.application.ReplayComparisonResponse.EngagementSnapshot;
 import com.ibm.consulting.sim.scenario.domain.Persona;
@@ -109,7 +110,7 @@ public class PortfolioService {
                             e.getId(), e.getScenarioId(), scenario.getTitle(), scenario.getIndustry(), recordedDifficulty(e),
                             assessment != null ? assessment.getOutcome() : "ASSESSMENT_PENDING",
                             assessment != null ? Integer.valueOf(assessment.getOverallScore()) : null,
-                            e.getCompletedAt());
+                            e.getCompletedAt(), stageScores(assessment));
                 })
                 .sorted(Comparator.comparing(CompletedEngagementView::completedAt,
                         Comparator.nullsLast(Comparator.naturalOrder())))
@@ -147,6 +148,17 @@ public class PortfolioService {
 
     private CompetencyScoreView toView(CompetencyScore score) {
         return new CompetencyScoreView(score.getCompetencyName(), score.getScore(), score.getEvidenceNote());
+    }
+
+    private List<StageScoreView> stageScores(Assessment assessment) {
+        if (assessment == null) return List.of();
+        List<String> stages = List.of("OUTREACH", "MEETING", "PROPOSAL");
+        return assessment.getCompetencyScores().stream()
+                .filter(score -> score.getStage() != null && stages.contains(score.getStage()))
+                .sorted(Comparator.comparingInt(score -> stages.indexOf(score.getStage())))
+                .map(score -> new StageScoreView(score.getStage(), score.getScore(), score.getAttemptCount(),
+                        score.getCurrentCycleAttempts(), score.getCheckpointResets(), score.getScoreHistoryComplete()))
+                .toList();
     }
 
     private List<CompetencyTrend> buildCompetencyTrends(Map<UUID, Assessment> assessmentByEngagement) {

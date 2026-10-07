@@ -645,6 +645,54 @@ describe('PortfolioPage history browsing', () => {
 describe('PortfolioPage completed engagements', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('shows saved best stage scores, total attempts, checkpoint counts and incomplete history', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: [{ engagementId: 'run', scenarioId: 'scenario', scenarioTitle: 'Stage results',
+        industry: 'Retail', outcome: 'PILOT_APPROVED', overallScore: 75, completedAt: null,
+        stageScores: [
+          { stage: 'OUTREACH', bestScore: 0, attemptCount: 1, currentCycleAttempts: 1, checkpointResets: 0, scoreHistoryComplete: true },
+          { stage: 'MEETING', bestScore: 85, attemptCount: 5, currentCycleAttempts: 2, checkpointResets: 1, scoreHistoryComplete: true },
+          { stage: 'PROPOSAL', bestScore: 90, attemptCount: 3, currentCycleAttempts: 1, checkpointResets: 2, scoreHistoryComplete: false },
+        ],
+      }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const card = screen.getByRole('link', { name: 'Open the review of Stage results' })
+    expect(within(card).getByText('Best scores by stage')).toBeInTheDocument()
+    const outreach = within(card).getByText('Outreach').parentElement!
+    expect(within(outreach).getByText('0/100')).toBeInTheDocument()
+    expect(within(outreach).getByText('1 completed attempt total')).toBeInTheDocument()
+    const meeting = within(card).getByText('Meeting').parentElement!
+    expect(within(meeting).getByText('85/100')).toBeInTheDocument()
+    expect(within(meeting).getByText('5 completed attempts total')).toBeInTheDocument()
+    expect(within(meeting).getByText('2 in the final checkpoint cycle')).toBeInTheDocument()
+    expect(within(meeting).getByText('1 checkpoint reset')).toBeInTheDocument()
+    const proposal = within(card).getByText('Proposal').parentElement!
+    expect(within(proposal).getByText('2 checkpoint resets')).toBeInTheDocument()
+    expect(within(proposal).getByText(/Best available score; some older attempts/)).toBeInTheDocument()
+  })
+
+  it('does not invent attempt counts when stage metadata is incomplete', () => {
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: [{ engagementId: 'run', scenarioId: 'scenario', scenarioTitle: 'Partial metadata',
+        industry: 'Retail', outcome: 'PILOT_APPROVED', overallScore: 75, completedAt: null,
+        stageScores: [{ stage: 'MEETING', bestScore: 80, attemptCount: null, currentCycleAttempts: null,
+          checkpointResets: null, scoreHistoryComplete: null }],
+      }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+
+    const card = screen.getByRole('link', { name: 'Open the review of Partial metadata' })
+    expect(within(card).getByText('80/100')).toBeInTheDocument()
+    expect(within(card).queryByText(/completed attempts? total/)).not.toBeInTheDocument()
+    expect(within(card).queryByText(/checkpoint resets?/)).not.toBeInTheDocument()
+  })
+
   it('shows a recorded zero average and counts failed meetings separately from active work', () => {
     setupPortfolio([])
     const query = mockedUsePortfolioSummary()
@@ -683,6 +731,7 @@ describe('PortfolioPage completed engagements', () => {
     const pending = screen.getByRole('link', { name: 'Open the review of pending' })
     expect(within(pending).getByText('Assessment pending')).toBeInTheDocument()
     expect(within(pending).queryByText(/\/100/)).not.toBeInTheDocument()
+    expect(within(pending).queryByText(/Stage breakdown unavailable/)).not.toBeInTheDocument()
     expect(within(screen.getByRole('link', { name: 'Open the review of scored' })).getByText('0/100')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Replay comparison' })).not.toBeInTheDocument()
   })
@@ -712,5 +761,6 @@ describe('PortfolioPage completed engagements', () => {
     expect(screen.getByRole('link', { name: 'Open the review of MediCare Digital Transformation' }))
       .toHaveAttribute('href', '/dashboard/engagements/eng-7/assessment')
     expect(screen.getByText('Medium')).toBeInTheDocument()
+    expect(screen.getByText('Stage breakdown unavailable for this assessment.')).toBeInTheDocument()
   })
 })

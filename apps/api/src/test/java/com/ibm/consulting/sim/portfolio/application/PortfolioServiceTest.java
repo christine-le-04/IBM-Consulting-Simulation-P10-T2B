@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.ibm.consulting.sim.assessment.domain.AssessmentRepository;
 import com.ibm.consulting.sim.assessment.domain.Assessment;
+import com.ibm.consulting.sim.assessment.domain.CompetencyScore;
+import com.ibm.consulting.sim.assessment.domain.AssessmentFeedbackStatus;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
 import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.engagement.domain.EngagementState;
@@ -52,6 +54,7 @@ class PortfolioServiceTest {
         assertThat(summary.completedEngagementsHistory().getFirst().overallScore()).isNull();
         assertThat(summary.completedEngagementsHistory().getFirst().outcome()).isEqualTo("ASSESSMENT_PENDING");
         assertThat(summary.completedEngagementsHistory().getFirst().difficulty()).isEqualTo(DifficultyLevel.HARD);
+        assertThat(summary.completedEngagementsHistory().getFirst().stageScores()).isEmpty();
         assertThat(summary.completedEngagementsHistory())
                 .extracting(PortfolioSummaryResponse.CompletedEngagementView::engagementId)
                 .containsExactly(completed.getId());
@@ -76,6 +79,7 @@ class PortfolioServiceTest {
         when(scoredAssessment.getEngagementId()).thenReturn(scoredId);
         when(scoredAssessment.getOverallScore()).thenReturn(80);
         when(scoredAssessment.getOutcome()).thenReturn("PROPOSAL_ACCEPTED");
+        when(scoredAssessment.getCompetencyScores()).thenReturn(List.of(new CompetencyScore("Discovery", 80, "Legacy evidence")));
         when(engagements.findByUserId(userId)).thenReturn(List.of(zero, scored, pending));
         when(assessments.findAllByEngagementIdIn(List.of(zero.getId(), scored.getId(), pending.getId())))
                 .thenReturn(List.of(zeroAssessment, scoredAssessment));
@@ -91,6 +95,37 @@ class PortfolioServiceTest {
         assertThat(summary.contractsWon()).isEqualTo(1);
         assertThat(summary.contractsLost()).isEqualTo(1);
         assertThat(summary.completedEngagementsHistory()).allSatisfy(item -> assertThat(item.difficulty()).isNull());
+        assertThat(summary.completedEngagementsHistory()).allSatisfy(item -> assertThat(item.stageScores()).isEmpty());
+    }
+
+    @Test
+    void historyExposesSavedStageScoresAndAttemptMetadataWithoutRecalculatingResults() {
+        UUID userId = UUID.randomUUID();
+        UUID scenarioId = UUID.randomUUID();
+        Engagement completed = engagementInState(scenarioId, EngagementState.COMPLETED);
+        Assessment assessment = Assessment.create(completed.getId(), List.of(
+                CompetencyScore.stage("Proposal", "PROPOSAL", 90, 3, 1, 2, false),
+                new CompetencyScore("Legacy competency", 100, "Legacy evidence"),
+                CompetencyScore.stage("Meeting", "MEETING", 70, 5, 2, 1, true),
+                CompetencyScore.stage("Outreach", "OUTREACH", 0, 4, 1, 2, true)),
+                60, "REVISION_REQUESTED", "Feedback", List.of(), List.of(), AssessmentFeedbackStatus.READY);
+        EngagementRepository engagements = mock(EngagementRepository.class);
+        AssessmentRepository assessments = mock(AssessmentRepository.class);
+        ScenarioRepository scenarios = mock(ScenarioRepository.class);
+        when(engagements.findByUserId(userId)).thenReturn(List.of(completed));
+        when(assessments.findAllByEngagementIdIn(List.of(completed.getId()))).thenReturn(List.of(assessment));
+        when(scenarios.findById(scenarioId))
+                .thenReturn(Optional.of(Scenario.create("Scenario", "Retail", "Description", 3)));
+
+        var summary = new PortfolioService(engagements, assessments, scenarios, mock(PersonaRepository.class),
+                new ObjectMapper()).getSummary(userId);
+
+        assertThat(summary.completedEngagementsHistory().getFirst().stageScores()).containsExactly(
+                new PortfolioSummaryResponse.StageScoreView("OUTREACH", 0, 4, 1, 2, true),
+                new PortfolioSummaryResponse.StageScoreView("MEETING", 70, 5, 2, 1, true),
+                new PortfolioSummaryResponse.StageScoreView("PROPOSAL", 90, 3, 1, 2, false));
+        assertThat(summary.completedEngagementsHistory().getFirst().overallScore()).isEqualTo(60);
+        assertThat(summary.averageOverallScore()).isEqualTo(60.0);
     }
 
     @Test

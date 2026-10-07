@@ -732,6 +732,15 @@ export interface CompetencyTrend {
   points: CompetencyTrendPoint[]
 }
 
+export interface PortfolioStageScore {
+  stage: 'OUTREACH' | 'MEETING' | 'PROPOSAL'
+  bestScore: number
+  attemptCount: number | null
+  currentCycleAttempts: number | null
+  checkpointResets: number | null
+  scoreHistoryComplete: boolean | null
+}
+
 export interface CompletedEngagementView {
   engagementId: string
   scenarioId: string
@@ -741,6 +750,7 @@ export interface CompletedEngagementView {
   outcome: string
   overallScore: number | null
   completedAt: string | null
+  stageScores?: PortfolioStageScore[]
 }
 
 export interface PortfolioSummary {

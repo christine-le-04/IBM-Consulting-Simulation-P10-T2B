@@ -33,5 +33,10 @@ public record PortfolioSummaryResponse(
             DifficultyLevel difficulty,
             String outcome,
             Integer overallScore,
-            Instant completedAt) {}
+            Instant completedAt,
+            List<StageScoreView> stageScores) {}
+
+    public record StageScoreView(String stage, int bestScore, Integer attemptCount,
+                                 Integer currentCycleAttempts, Integer checkpointResets,
+                                 Boolean scoreHistoryComplete) {}
 }
