@@ -477,6 +477,79 @@ describe('PortfolioPage replay comparison', () => {
     await user.click(screen.getByRole('option', { name: `${scenario} — 80/100 · 01/10/2026` }))
   }
 
+  function configureScenarioGroups() {
+    const query = mockedUsePortfolioSummary()
+    const history = query.data!.completedEngagementsHistory.map((engagement) => ({ ...engagement,
+      scenarioId: engagement.engagementId === 'c' ? 'other' : 'repeated',
+    }))
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: [...history, { ...history[0], engagementId: 'pending',
+        overallScore: null, outcome: 'ASSESSMENT_PENDING' }],
+    } } as ReturnType<typeof usePortfolioSummary>)
+  }
+
+  async function selectScenario(option: string) {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Compare within a scenario' }))
+    await user.click(screen.getByRole('option', { name: option }))
+  }
+
+  it('groups assessed replays by scenario and excludes other scenarios and pending assessments', async () => {
+    configureScenarioGroups()
+    render(<PortfolioPage />)
+    await selectScenario('Scenario B (2 assessed engagements)')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    expect(screen.getByRole('option', { name: 'Scenario A — 80/100 · 01/10/2026' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Scenario C/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /null\/100/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('option', { name: 'Scenario A — 80/100 · 01/10/2026' }))
+    await select('Engagement B', 'Scenario B')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+  })
+
+  it('clears the selected pair when changing scenario and explains a single assessed result', async () => {
+    configureScenarioGroups()
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+
+    await selectScenario('Scenario C (1 assessed engagement)')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByText('1 assessed engagement is available for this scenario.')).toBeInTheDocument()
+    expect(screen.getByText(/Complete another engagement for this scenario/)).toBeInTheDocument()
+    expect(mockedUseReplayComparison).toHaveBeenLastCalledWith('', '')
+  })
+
+  it('restores cross-scenario comparisons when All scenarios is selected', async () => {
+    configureScenarioGroups()
+    mockedUseReplayComparison.mockReturnValue({ data: { engagementA: comparison.engagementA,
+      engagementB: { ...comparison.engagementB, engagementId: 'c', scenarioTitle: 'Scenario C' },
+    }, isFetching: false, isError: false } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await selectScenario('Scenario B (2 assessed engagements)')
+    await selectScenario('All scenarios')
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario C')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+  })
+
+  it('keeps scenarios with identical titles separate by their IDs', async () => {
+    configureScenarioGroups()
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: query.data!.completedEngagementsHistory.map((engagement) => ({
+        ...engagement, scenarioTitle: 'Shared title',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+    await selectScenario('Shared title (2 assessed engagements)')
+    await userEvent.setup().click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    // Two eligible replays plus the unselected placeholder; the other scenario remains excluded.
+    expect(within(screen.getByRole('listbox', { name: 'Engagement A' })).getAllByRole('option')).toHaveLength(3)
+  })
+
   it('matches competencies by name and shows positive, negative, zero and unavailable differences', async () => {
     render(<PortfolioPage />)
     await select('Engagement A', 'Scenario A')

@@ -225,18 +225,29 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
 }
 
 function ReplayComparisonSection({ history }: { history: CompletedEngagementView[] }) {
+  const [replayScenario, setReplayScenario] = useState('ALL')
   const [engagementA, setEngagementA] = useState('')
   const [engagementB, setEngagementB] = useState('')
   const { data: comparison, isFetching, isError, refetch } = useReplayComparison(engagementA, engagementB)
 
   const assessedHistory = history.filter((engagement) => engagement.overallScore != null)
   if (assessedHistory.length < 2) return null
+  const scenarioGroups = new Map<string, { title: string; count: number }>()
+  assessedHistory.forEach((engagement) => {
+    const group = scenarioGroups.get(engagement.scenarioId)
+    if (group) group.count++
+    else scenarioGroups.set(engagement.scenarioId, { title: engagement.scenarioTitle, count: 1 })
+  })
+  const replayHistory = replayScenario === 'ALL' ? assessedHistory
+    : assessedHistory.filter((engagement) => engagement.scenarioId === replayScenario)
   const options = [
     { value: '', label: 'Select an engagement…' },
-    ...assessedHistory.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100${h.completedAt ? ` · ${new Date(h.completedAt).toLocaleDateString('en-GB')}` : ''}` })),
+    ...replayHistory.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100${h.completedAt ? ` · ${new Date(h.completedAt).toLocaleDateString('en-GB')}` : ''}` })),
   ]
   const sameEngagement = !!engagementA && engagementA === engagementB
   const selectionReady = !!engagementA && !!engagementB && !sameEngagement
+    && replayHistory.some((engagement) => engagement.engagementId === engagementA)
+    && replayHistory.some((engagement) => engagement.engagementId === engagementB)
   const currentComparison = selectionReady && !isFetching && !isError
     && comparison?.engagementA.engagementId === engagementA
     && comparison?.engagementB.engagementId === engagementB ? comparison : undefined
@@ -256,6 +267,20 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
     <section className={styles.section}>
       <h2>Replay comparison</h2>
       <div className={styles.replay}>
+        <Choice id="replay-scenario" label="Compare within a scenario" value={replayScenario}
+          options={[{ value: 'ALL', label: 'All scenarios' }, ...[...scenarioGroups].map(([id, group]) => ({
+            value: id, label: `${group.title} (${group.count} assessed ${group.count === 1 ? 'engagement' : 'engagements'})`,
+          }))]}
+          onChange={(value) => {
+            setReplayScenario(value)
+            setEngagementA('')
+            setEngagementB('')
+          }} />
+        <p>{replayScenario === 'ALL'
+          ? 'Choose a scenario to compare repeated practice, or compare any two engagements across scenarios.'
+          : `${replayHistory.length} assessed ${replayHistory.length === 1 ? 'engagement is' : 'engagements are'} available for this scenario.`}</p>
+        {replayScenario !== 'ALL' && replayHistory.length < 2
+          && <p>Complete another engagement for this scenario, or choose All scenarios to compare with other practice.</p>}
         <div className={styles.replayPickers}>
           <Choice id="replay-a" label="Engagement A" value={engagementA} onChange={setEngagementA} options={options} />
           <Choice id="replay-b" label="Engagement B" value={engagementB} onChange={setEngagementB} options={options} />
