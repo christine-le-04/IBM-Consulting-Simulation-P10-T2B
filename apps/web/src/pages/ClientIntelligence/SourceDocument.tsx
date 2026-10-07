@@ -31,6 +31,15 @@ export interface SourceDocumentProps {
   onMove: (direction: -1 | 1) => void
 }
 
+/** The part of `node`'s text that `range` covers. */
+function selectedText(range: Range, node: HTMLElement) {
+  const part = document.createRange()
+  part.selectNodeContents(node)
+  if (range.compareBoundaryPoints(Range.START_TO_START, part) > 0) part.setStart(range.startContainer, range.startOffset)
+  if (range.compareBoundaryPoints(Range.END_TO_END, part) < 0) part.setEnd(range.endContainer, range.endOffset)
+  return part.toString()
+}
+
 export default function SourceDocument({ source, index, total, savedBlockIds, onSaveBlock, onSelection, onMove }: SourceDocumentProps) {
   const ref = useRef<HTMLElement>(null)
   const template = TEMPLATE[source.evidenceType as keyof typeof TEMPLATE] ?? TEMPLATE.COMPANY_NEWS
@@ -52,7 +61,9 @@ export default function SourceDocument({ source, index, total, savedBlockIds, on
       const range = selection.getRangeAt(0)
       if (!reader.contains(range.commonAncestorContainer)) return onSelection('', null)
       const blocks = Array.from(reader.querySelectorAll<HTMLElement>('[data-evidence-block="true"]')).filter((node) => range.intersectsNode(node))
-      const text = selection.toString().replace(/\s+/g, ' ').trim()
+      // Read only the passage text the range covers. selection.toString() also
+      // picked up the "Save" buttons between paragraphs and put them in the evidence.
+      const text = blocks.map((node) => selectedText(range, node)).join(' ').replace(/\s+/g, ' ').trim()
       if (!blocks.length || text.length < 8) return onSelection('', null)
       onSelection(text, range.getBoundingClientRect())
     }

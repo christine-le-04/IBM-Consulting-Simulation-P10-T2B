@@ -827,6 +827,8 @@
   font-weight: 500;
   padding: 0.25rem 0.6rem;
   cursor: pointer;
+  // Highlighting across paragraphs (or copying) must not pick up the button.
+  user-select: none;
 
   &:hover {
     border-color: var(--sim-blue);
