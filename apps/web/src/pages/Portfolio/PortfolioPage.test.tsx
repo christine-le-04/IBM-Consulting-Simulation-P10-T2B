@@ -97,7 +97,7 @@ describe('PortfolioPage competency progression', () => {
     vi.clearAllMocks()
   })
 
-  it('competency progression shows most recent attempt by default', () => {
+  it('competency progression shows most recent engagement by default', () => {
     setupPortfolio([
       makeTrend('Communication', [
       {
@@ -124,12 +124,14 @@ describe('PortfolioPage competency progression', () => {
 
     expect(screen.getByText('Competency Progression')).toBeInTheDocument()
     expect(within(section).getByText('85')).toBeInTheDocument()
+    expect(within(section).getByText('+25 since first engagement')).toBeInTheDocument()
+    expect(within(section).queryByText(/since first attempt/)).not.toBeInTheDocument()
     expect(within(section).queryByText('60')).not.toBeInTheDocument()
     expect(within(section).queryByText('75')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'View history' })).toBeInTheDocument()
   })
 
-  it('competency progression shows all attempts when View history is clicked', () => {
+  it('competency progression shows all engagements when View history is clicked', () => {
     setupPortfolio([
       makeTrend('Communication', [
         {
@@ -276,7 +278,7 @@ describe('PortfolioPage competency progression', () => {
     expect(within(section).getByText('85')).toBeInTheDocument()
   })
 
-  it('utilises generatedAt to calculate the latest attempt', () => {
+  it('utilises generatedAt to calculate the latest engagement', () => {
     setupPortfolio([
       makeTrend('Communication', [
         {
@@ -301,7 +303,7 @@ describe('PortfolioPage competency progression', () => {
 
     const section = getCompetencySection()
 
-    // shows the latest attempt
+    // shows the latest engagement
     expect(within(section).getByText('90')).toBeInTheDocument()
     expect(within(section).queryByText('60')).not.toBeInTheDocument()
     expect(within(section).queryByText('75')).not.toBeInTheDocument()
@@ -365,7 +367,7 @@ describe('PortfolioPage competency progression', () => {
 
     render(<PortfolioPage />)
 
-    expect(screen.getByText('Progress Across Attempts')).toBeInTheDocument()
+    expect(screen.getByText('Progress Across Engagements')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Communication' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Negotiation' })).toBeInTheDocument()
   })
@@ -373,10 +375,10 @@ describe('PortfolioPage competency progression', () => {
   it('does not render the progression graph when there is no competency data', () => {
     setupPortfolio([])
     render(<PortfolioPage />)
-    expect(screen.queryByText('Progress Across Attempts')).not.toBeInTheDocument()
+    expect(screen.queryByText('Progress Across Engagements')).not.toBeInTheDocument()
   })
 
-  it('renders a history toggle only when a competency has multiple attempts', () => {
+  it('renders a history toggle only when a competency has multiple engagements', () => {
     setupPortfolio([
       makeTrend('Negotiation', [
         {
@@ -407,7 +409,7 @@ describe('PortfolioPage competency progression', () => {
     render(<PortfolioPage />)
  
     expect(screen.getByText('Competency Progression')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Progress Across Attempts' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Progress Across Engagements' })).toBeInTheDocument()
     expect(screen.getByText('Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.'),).toBeInTheDocument()
  
     // graph elements and history toggle should not be rendered
@@ -428,7 +430,7 @@ describe('PortfolioPage competency progression', () => {
  
     render(<PortfolioPage />)
  
-    expect(screen.getByText('Progress Across Attempts')).toBeInTheDocument()
+    expect(screen.getByText('Progress Across Engagements')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Communication' })).toBeInTheDocument()
     expect(screen.queryByText('Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.'),).not.toBeInTheDocument()
   })

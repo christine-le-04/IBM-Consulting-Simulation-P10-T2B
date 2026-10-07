@@ -36,7 +36,7 @@ function CompetencyTrendCard({ trend, showHistory }: { trend: CompetencyTrend, s
         <strong>{trend.competencyName}</strong>
         {trend.points.length > 1 && (
           <Tag type={delta >= 0 ? 'green' : 'red'} size="sm">
-            {delta >= 0 ? '+' : ''}{delta} since first attempt
+            {delta >= 0 ? '+' : ''}{delta} since first engagement
           </Tag>
         )}
       </div>
@@ -74,7 +74,7 @@ function CompetencyGraphLegend({ trends, hiddenCompetencies, toggleCompetency } 
   )
 }
 
-// responsive graph to show progress over attempts
+// Responsive graph to show progress across completed engagements.
 function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
   const [hoveredCompetency, setHoveredCompetency] = useState<string | null>(null)
   const [hiddenCompetencies, setHiddenCompetencies] = useState<Set<string>>(new Set())
@@ -107,7 +107,7 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
       .sort((a, b) => new Date(a.generatedAt).getTime() - new Date(b.generatedAt).getTime())
       .map((point, index) => ({
         ...point,
-        attempt: `Attempt ${index + 1}`,
+        engagement: `Engagement ${index + 1}`,
       }))
   }, [trends])
 
@@ -129,13 +129,13 @@ function CompetencyTrendGraph({ trends }: { trends: CompetencyTrend[] }) {
 
   return (
     <div className={styles.chartCard}>
-      <h3>Progress Across Attempts</h3>
+      <h3>Progress Across Engagements</h3>
       <p>Track how each competency has changed across your completed engagements.</p>
       <div className={styles.chart}>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis dataKey="attempt" tick={{ fill: '#525252', fontSize: 12 }} axisLine={{ stroke: '#8d8d8d' }} tickLine={{ stroke: '#8d8d8d' }} />
+              <XAxis dataKey="engagement" tick={{ fill: '#525252', fontSize: 12 }} axisLine={{ stroke: '#8d8d8d' }} tickLine={{ stroke: '#8d8d8d' }} />
               <YAxis domain={[0, 100]} tick={{ fill: '#525252', fontSize: 12 }} axisLine={{ stroke: '#8d8d8d' }} tickLine={{ stroke: '#8d8d8d' }} />
               <Tooltip
                 formatter={(value, _name, item) => {
@@ -335,7 +335,7 @@ export default function PortfolioPage() {
             <CompetencyTrendGraph trends={portfolio.competencyTrends} />
           ) : (
             <div className={styles.chartCard}>
-              <h3>Progress Across Attempts</h3>
+              <h3>Progress Across Engagements</h3>
               <p>Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.</p>
             </div>
           )}
