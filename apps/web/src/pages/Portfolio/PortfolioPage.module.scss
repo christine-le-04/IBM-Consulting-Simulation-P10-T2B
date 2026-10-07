@@ -302,6 +302,32 @@
   margin-bottom: 0.5rem;
 }
 
+.comparisonTable {
+  margin-top: 1rem;
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+
+  caption {
+    text-align: left;
+    padding-bottom: 0.75rem;
+  }
+
+  th, td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--sim-line);
+  }
+}
+
+@media (max-width: 640px) {
+  .replayGrid { grid-template-columns: 1fr; }
+}
+
 .snapshotRow {
   display: flex;
   justify-content: space-between;

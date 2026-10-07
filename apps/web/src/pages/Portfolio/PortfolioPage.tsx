@@ -13,6 +13,7 @@ import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import LoadingState from '@/components/shared/LoadingState'
 import LoadError from '@/components/shared/LoadError'
+import ErrorState from '@/components/shared/ErrorState'
 import type { AchievementSummary, CompetencyTrend, CompletedEngagementView } from '@/api/types'
 import Choice from '@/components/shell/Choice'
 import IndustryArt from '@/components/shell/IndustryArt'
@@ -203,14 +204,30 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
 function ReplayComparisonSection({ history }: { history: CompletedEngagementView[] }) {
   const [engagementA, setEngagementA] = useState('')
   const [engagementB, setEngagementB] = useState('')
-  const { data: comparison, isFetching } = useReplayComparison(engagementA, engagementB)
+  const { data: comparison, isFetching, isError, refetch } = useReplayComparison(engagementA, engagementB)
 
   const assessedHistory = history.filter((engagement) => engagement.overallScore != null)
   if (assessedHistory.length < 2) return null
   const options = [
     { value: '', label: 'Select an engagement…' },
-    ...assessedHistory.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100` })),
+    ...assessedHistory.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100${h.completedAt ? ` · ${new Date(h.completedAt).toLocaleDateString('en-GB')}` : ''}` })),
   ]
+  const sameEngagement = !!engagementA && engagementA === engagementB
+  const selectionReady = !!engagementA && !!engagementB && !sameEngagement
+  const currentComparison = selectionReady && !isFetching && !isError
+    && comparison?.engagementA.engagementId === engagementA
+    && comparison?.engagementB.engagementId === engagementB ? comparison : undefined
+  const competencyNames = currentComparison ? [...new Set([
+    ...currentComparison.engagementA.competencyScores.map((score) => score.competencyName),
+    ...currentComparison.engagementB.competencyScores.map((score) => score.competencyName),
+  ])] : []
+  const scoreChange = (scoreA: number | undefined, scoreB: number | undefined) => {
+    if (scoreA == null || scoreB == null) return 'Not comparable'
+    const delta = scoreB - scoreA
+    return <Tag type={delta > 0 ? 'green' : delta < 0 ? 'red' : 'gray'} size="sm">
+      {delta > 0 ? '+' : ''}{delta} {Math.abs(delta) === 1 ? 'point' : 'points'}
+    </Tag>
+  }
 
   return (
     <section className={styles.section}>
@@ -221,22 +238,48 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
           <Choice id="replay-b" label="Engagement B" value={engagementB} onChange={setEngagementB} options={options} />
         </div>
 
-        {isFetching && <LoadingState description="Loading comparison…" />}
+        {sameEngagement && <p role="alert">Select two different engagements to compare.</p>}
+        {selectionReady && isFetching && <LoadingState description="Loading comparison…" />}
+        {selectionReady && isError && <ErrorState title="Comparison could not be loaded"
+          message="Try again, or select another pair of assessed engagements."
+          actionLabel="Try again" onAction={() => void refetch()} />}
 
-        {comparison && (
+        {currentComparison && <>
           <div className={styles.replayGrid}>
-            {[comparison.engagementA, comparison.engagementB].map((snapshot, idx) => (
-              <div key={idx} className={styles.snapshot}>
+            {[currentComparison.engagementA, currentComparison.engagementB].map((snapshot, idx) => {
+              const completedAt = history.find((item) => item.engagementId === snapshot.engagementId)?.completedAt
+              return (
+              <div key={snapshot.engagementId} className={styles.snapshot}>
+                <p>Engagement {idx === 0 ? 'A' : 'B'}</p>
                 <h3>{snapshot.scenarioTitle}</h3>
                 <p>vs. {snapshot.personaName}</p>
+                <p>{snapshot.outcome.replaceAll('_', ' ').toLowerCase()}</p>
+                <p>{completedAt
+                  ? new Date(completedAt).toLocaleDateString('en-GB')
+                  : 'Completion date unavailable'}</p>
                 <strong className={styles.snapshotScore}>{snapshot.overallScore}/100</strong>
-                {snapshot.competencyScores.map((c) => (
-                  <div key={c.competencyName} className={styles.snapshotRow}><span>{c.competencyName}</span><span>{c.score}</span></div>
-                ))}
+                <Link to={`/dashboard/engagements/${snapshot.engagementId}/assessment`}>Open review</Link>
               </div>
-            ))}
+              )
+            })}
           </div>
-        )}
+          <div className={styles.comparisonTable}>
+            <table>
+              <caption>Score changes from Engagement A to Engagement B</caption>
+              <thead><tr><th scope="col">Competency</th><th scope="col">A</th><th scope="col">B</th><th scope="col">Change (B − A)</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Overall score</th><td>{currentComparison.engagementA.overallScore}</td><td>{currentComparison.engagementB.overallScore}</td>
+                  <td>{scoreChange(currentComparison.engagementA.overallScore, currentComparison.engagementB.overallScore)}</td></tr>
+                {competencyNames.map((name) => {
+                  const scoreA = currentComparison.engagementA.competencyScores.find((score) => score.competencyName === name)?.score
+                  const scoreB = currentComparison.engagementB.competencyScores.find((score) => score.competencyName === name)?.score
+                  return <tr key={name}><th scope="row">{name}</th><td>{scoreA ?? 'Not assessed'}</td><td>{scoreB ?? 'Not assessed'}</td>
+                    <td>{scoreChange(scoreA, scoreB)}</td></tr>
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>}
       </div>
     </section>
   )

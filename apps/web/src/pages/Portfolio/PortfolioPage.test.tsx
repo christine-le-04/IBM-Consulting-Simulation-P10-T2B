@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render as renderRaw, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
@@ -7,6 +7,7 @@ import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { useAuthStore } from '@/store/authStore'
 import PortfolioPage from './PortfolioPage'
 import type { CompetencyTrend } from '@/api/types'
+import userEvent from '@testing-library/user-event'
 
 // The page links to each engagement's review, so it renders inside a router.
 const render = (ui: ReactElement) => renderRaw(<MemoryRouter>{ui}</MemoryRouter>)
@@ -23,7 +24,6 @@ vi.mock('@/api/hooks/useAchievements', () => ({ useMyAchievements: vi.fn()}))
 vi.mock('@/store/authStore', () => ({ useAuthStore: vi.fn() }))
 vi.mock('@/lifecycle/components/PageHeader', () => ({ default: () => <div>Page Header</div> }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
-vi.mock('@/components/shared/ErrorState', () => ({ default: () => <div>Error...</div>}))
 
 // typed mock references
 const mockedUsePortfolioSummary = vi.mocked(usePortfolioSummary)
@@ -435,6 +435,111 @@ describe('PortfolioPage competency progression', () => {
     expect(screen.queryByText('Track your competency across your completed engagements. Complete at least 2 engagements to see your progress.'),).not.toBeInTheDocument()
   })
 })
+describe('PortfolioPage replay comparison', () => {
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+  const comparison = {
+    engagementA: { engagementId: 'a', scenarioTitle: 'Scenario A', personaName: 'Client A',
+      outcome: 'REVISION_REQUESTED', overallScore: 60, competencyScores: [
+        { competencyName: 'Discovery', score: 40, evidenceNote: null },
+        { competencyName: 'Communication', score: 80, evidenceNote: null },
+        { competencyName: 'Commercial', score: 0, evidenceNote: null },
+      ] },
+    engagementB: { engagementId: 'b', scenarioTitle: 'Scenario B', personaName: 'Client B',
+      outcome: 'PILOT_APPROVED', overallScore: 80, competencyScores: [
+        { competencyName: 'Commercial', score: 0, evidenceNote: null },
+        { competencyName: 'Discovery', score: 70, evidenceNote: null },
+        { competencyName: 'Communication', score: 65, evidenceNote: null },
+        { competencyName: 'Negotiation', score: 75, evidenceNote: null },
+      ] },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setupPortfolio([])
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
+      completedEngagementsHistory: ['a', 'b', 'c'].map((id) => ({
+        engagementId: id, scenarioId: 'scenario', scenarioTitle: `Scenario ${id.toUpperCase()}`,
+        industry: 'Healthcare', outcome: 'PILOT_APPROVED', overallScore: 80,
+        completedAt: '2026-10-01T10:00:00Z',
+      })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    mockedUseReplayComparison.mockReturnValue({ data: comparison, isFetching: false, isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useReplayComparison>)
+  })
+
+  async function select(label: string, scenario: string) {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: label }))
+    await user.click(screen.getByRole('option', { name: `${scenario} — 80/100 · 01/10/2026` }))
+  }
+
+  it('matches competencies by name and shows positive, negative, zero and unavailable differences', async () => {
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    const table = screen.getByRole('table', { name: 'Score changes from Engagement A to Engagement B' })
+    expect(within(table).getByRole('row', { name: /Overall score/ })).toHaveTextContent('+20 points')
+    expect(within(table).getByRole('row', { name: /Discovery/ })).toHaveTextContent('+30 points')
+    expect(within(table).getByRole('row', { name: /Communication/ })).toHaveTextContent('-15 points')
+    expect(within(table).getByRole('row', { name: /Commercial/ })).toHaveTextContent('0 points')
+    expect(within(table).getByRole('row', { name: /Negotiation/ })).toHaveTextContent('Not assessed75Not comparable')
+    expect(screen.getByText('revision requested')).toBeInTheDocument()
+    expect(screen.getByText('pilot approved')).toBeInTheDocument()
+    expect(screen.getAllByText('01/10/2026')).toHaveLength(5)
+    expect(screen.getAllByRole('link', { name: 'Open review' })).toHaveLength(2)
+  })
+
+  it('explains why selecting the same engagement cannot produce a comparison', async () => {
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario A')
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Select two different engagements')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('offers retry when comparison fails and does not show old results', async () => {
+    const retry = vi.fn()
+    mockedUseReplayComparison.mockReturnValue({ data: comparison, isFetching: false, isError: true,
+      refetch: retry,
+    } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    expect(screen.getByText('Comparison could not be loaded')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    expect(retry).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('hides a previous comparison when the selected pair changes', async () => {
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+
+    await select('Engagement B', 'Scenario C')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('shows loading instead of old scores while a comparison refreshes', async () => {
+    mockedUseReplayComparison.mockReturnValue({ data: comparison, isFetching: true, isError: false,
+    } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    await select('Engagement A', 'Scenario A')
+    await select('Engagement B', 'Scenario B')
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+})
+
 describe('PortfolioPage completed engagements', () => {
   beforeEach(() => vi.clearAllMocks())
 
