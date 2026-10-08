@@ -15,14 +15,15 @@ public record MeetingResponse(UUID id, UUID engagementId, UUID personaId, String
                                String completionOutcome, String debriefFeedback, java.util.List<String> debriefTips,
                                String terminationReason, String terminationMessage,
                                boolean meetingRetryAvailable, int meetingRetriesRemaining,
-                               java.util.List<MeetingBehaviourFeedbackResponse> behaviourLedger) {
+                               java.util.List<MeetingBehaviourFeedbackResponse> behaviourLedger,
+                               String difficulty, Integer meetingTurnLimit) {
     /** Source-compatible constructor for callers compiled against the pre-termination response shape. */
     public MeetingResponse(UUID id, UUID engagementId, UUID personaId, String status,
                            Instant completedAt, String transcriptStorageReference,
                            String completionOutcome, String debriefFeedback, java.util.List<String> debriefTips) {
         this(id, engagementId, personaId, status, MeetingInteractionMode.FREEFORM.name(), MeetingCompletionPolicy.REQUIRED_SCORE,
                 completedAt, transcriptStorageReference,
-                completionOutcome, debriefFeedback, debriefTips, null, null, false, 0, List.of());
+                completionOutcome, debriefFeedback, debriefTips, null, null, false, 0, List.of(), null, null);
     }
 
     public static MeetingResponse from(Meeting m) {
@@ -41,7 +42,8 @@ public record MeetingResponse(UUID id, UUID engagementId, UUID personaId, String
                 m.getDebriefFeedback(), List.copyOf(m.getDebriefTips()),
                 m.getTerminationReason() == null ? null : m.getTerminationReason().name(),
                 m.getTerminationMessage(), meetingRetryAvailable, meetingRetriesRemaining,
-                m.getBehaviourLedger().stream().map(MeetingBehaviourFeedbackResponse::from).toList());
+                m.getBehaviourLedger().stream().map(MeetingBehaviourFeedbackResponse::from).toList(),
+                profile == null ? null : profile.level().name(), profile == null ? null : profile.meetingTurnLimit());
     }
 
     public static MeetingResponse from(Meeting m, boolean meetingRetryAvailable, int meetingRetriesRemaining) {

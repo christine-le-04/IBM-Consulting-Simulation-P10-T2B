@@ -84,10 +84,14 @@ public class StartEngagementUseCase {
 
         Persona persona = resolveClient(scenario, personaId);
 
-        Engagement engagement = Engagement.start(userId, scenarioId, persona.getId(),
-                difficultyProfileService.snapshot(difficultyProfileService.forScenario(scenario)));
-
         Optional<Lead> companyProfile = companyProfileOf(scenario);
+        var profile = difficultyProfileService.forScenario(scenario);
+        if (companyProfile.isPresent()) {
+            profile = difficultyProfileService.forLeadDifficulty(profile, companyProfile.get().getDifficulty(), scenario);
+        }
+        Engagement engagement = Engagement.start(userId, scenarioId, persona.getId(),
+                difficultyProfileService.snapshot(profile));
+
         companyProfile.ifPresent(lead -> engagement.selectLead(lead.getId()));
         engagementRepository.save(engagement);
         companyProfile.ifPresent(lead -> addStartingEvidence(engagement.getId(), lead));
@@ -170,7 +174,7 @@ public class StartEngagementUseCase {
 
         Engagement engagement = Engagement.start(userId, scenario.getId(), persona.getId(),
             difficultyProfileService.snapshot(difficultyProfileService.forLeadDifficulty(
-                difficultyProfileService.forScenario(scenario), lead.getDifficulty())));
+                difficultyProfileService.forScenario(scenario), lead.getDifficulty(), scenario)));
         engagement.selectLead(lead.getId());
         engagementRepository.save(engagement);
         return EngagementResponse.from(engagement);

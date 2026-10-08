@@ -63,7 +63,7 @@ public class MeetingService {
 
     private static final Logger log = LoggerFactory.getLogger(MeetingService.class);
     private static final int PROMPT_TRANSCRIPT_WINDOW = 8;
-    private static final int PROMPT_VERSION = 1;
+    private static final int PROMPT_VERSION = 2;
     private static final java.time.Duration DUPLICATE_WINDOW = java.time.Duration.ofSeconds(20);
 
     private final MeetingRepository meetingRepository;
@@ -289,6 +289,9 @@ public class MeetingService {
 
         turnRepository.save(learnerTurn);
 
+        if (!conclusionRequired) {
+            aiResponse = MeetingClosingResponsePolicy.keepOpen(aiResponse);
+        }
         List<String> priorLearnerMessages = existingTurns.stream()
                 .filter(turn -> turn.getActor() == ConversationActor.LEARNER)
                 .map(ConversationTurn::getContent)
@@ -303,6 +306,9 @@ public class MeetingService {
         // passed meeting alive by asking another question or omitting a signal.
         if (MeetingClosingPolicy.canConclude(state, profile, conclusionRequired, (int) learnerTurnCount + 1)) {
             aiResponse = MeetingClosingResponsePolicy.conclude(aiResponse);
+        } else if (!MeetingNaturalCompletionPolicy.shouldConclude(
+                state, profile, aiResponse.meetingSignals(), (int) learnerTurnCount + 1)) {
+            aiResponse = MeetingClosingResponsePolicy.keepOpen(aiResponse);
         }
 
         String signals = String.join(",", combineSignals(aiResponse));
@@ -319,6 +325,8 @@ public class MeetingService {
         MeetingResponse completedMeeting = null;
         if (relationshipTermination.isEmpty() && MeetingNaturalCompletionPolicy.shouldConclude(
                 state, profile, aiResponse.meetingSignals(), (int) learnerTurnCount + 1)) {
+            completedMeeting = completeMeeting(meeting, engagement, state, profile);
+        } else if (relationshipTermination.isEmpty() && learnerTurnCount + 1 >= profile.meetingTurnLimit()) {
             completedMeeting = completeMeeting(meeting, engagement, state, profile);
         }
         MeetingResponseOptionsResponse nextResponseOptions = completedMeeting == null && relationshipTermination.isEmpty()

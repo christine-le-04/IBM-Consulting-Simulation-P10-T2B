@@ -86,6 +86,9 @@ class MeetingMessageReplayServiceTest {
         when(knowledgeRetrievalService.retrieveRelevantPassages(
                 eq(KnowledgeCollection.SCENARIO_TRUTH), eq(data.engagement().getScenarioId()),
                 eq(data.meeting().getPersonaId()), anyString())).thenReturn(List.of());
+    }
+
+    private void stubDiscoveryReply() {
         doReturn(PersonaTurnResponse.safeFallback("Let us discuss that."))
                 .when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
                         anyString(), anyInt(), any(), any());
@@ -93,6 +96,7 @@ class MeetingMessageReplayServiceTest {
 
     @Test
     void sameClientMessageIdReplaysOneTurnPairWithoutApplyingStateTwice() {
+        stubDiscoveryReply();
         MeetingTurnResult first = service.sendMessage(
                 data.meeting().getId(), data.userId(), "What are your main concerns?", "msg-123");
         MeetingTurnResult replay = service.sendMessage(
@@ -110,6 +114,7 @@ class MeetingMessageReplayServiceTest {
 
     @Test
     void sameTrimmedTextInsideDuplicateWindowReplaysEvenWithANewRequestId() {
+        stubDiscoveryReply();
         MeetingTurnResult first = service.sendMessage(
                 data.meeting().getId(), data.userId(), "What are your main concerns?", "msg-123");
         MeetingTurnResult replay = service.sendMessage(
@@ -124,6 +129,7 @@ class MeetingMessageReplayServiceTest {
 
     @Test
     void sameTextOutsideDuplicateWindowCreatesANewTurnPair() {
+        stubDiscoveryReply();
         service.sendMessage(data.meeting().getId(), data.userId(), "What are your main concerns?", "msg-123");
         ReflectionTestUtils.setField(turnRepository.turns.getFirst(), "createdAt", Instant.now().minusSeconds(21));
 
@@ -135,6 +141,71 @@ class MeetingMessageReplayServiceTest {
                 eq(data.engagement().getId()), anyString(), anyInt(), any(), any());
         verify(personaStateRepository, times(2)).save(data.personaState());
         assertThat(data.meeting().getBehaviourLedger()).hasSize(2);
+    }
+
+    @Test
+    void prematureClientCloseKeepsMeetingOpenBelowGate() {
+        doReturn(new PersonaTurnResponse("I'll see you on Friday.", List.of(),
+                com.ibm.consulting.sim.ai.domain.PersonaStateDelta.zero(), List.of(), null,
+                List.of("client_ready_to_close"), new PersonaTurnResponse.SafetyCheck(true, null)))
+                .when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
+                        anyString(), anyInt(), any(), any());
+
+        MeetingTurnResult result = service.sendMessage(data.meeting().getId(), data.userId(), "Hello", "early-close");
+
+        assertThat(result.personaTurn().content()).doesNotContain("Friday");
+        assertThat(result.meetingSignals()).doesNotContain("client_ready_to_close");
+        assertThat(result.completedMeeting()).isNull();
+        assertThat(data.meeting().getStatus().name()).isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    void lastAllowedResponseCompletesWithFailedDebriefAndRetry() {
+        stubDiscoveryReply();
+        for (int i = 0; i < data.profile().meetingTurnLimit() - 1; i++) {
+            turnRepository.save(ConversationTurn.learnerTurn(data.meeting().getId(), i * 2 + 1,
+                    "Previous question " + i));
+            turnRepository.save(ConversationTurn.personaTurn(data.meeting().getId(), i * 2 + 2, "Reply", ""));
+        }
+        when(meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(data.engagement().getId()))
+                .thenReturn(List.of(data.meeting()));
+        when(engagementRepository.findById(data.engagement().getId())).thenReturn(Optional.of(data.engagement()));
+        doReturn(MeetingDebriefNarrative.fallback(false, List.of("Trust below target")))
+                .when(aiOrchestrationService).execute(eq("meeting_debrief"), eq(data.engagement().getId()),
+                        anyString(), anyInt(), any(), any());
+
+        MeetingTurnResult result = service.sendMessage(data.meeting().getId(), data.userId(), "Hello", "last-turn");
+
+        assertThat(result.completedMeeting()).isNotNull();
+        assertThat(result.completedMeeting().completionOutcome()).isEqualTo("FAILED");
+        assertThat(result.completedMeeting().meetingRetryAvailable()).isTrue();
+        assertThat(result.completedMeeting().debriefFeedback()).isNotBlank();
+        assertThat(data.meeting().getStatus().name()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void gatePassedMeetingConcludesEvenWhenProviderKeepsDiscoveryOpen() {
+        stubDiscoveryReply();
+        for (int i = 0; i < 3; i++) {
+            turnRepository.save(ConversationTurn.learnerTurn(data.meeting().getId(), i * 2 + 1, "Earlier discovery " + i));
+            turnRepository.save(ConversationTurn.personaTurn(data.meeting().getId(), i * 2 + 2, "Client fact", ""));
+        }
+        ReflectionTestUtils.setField(data.personaState(), "trust", 70);
+        ReflectionTestUtils.setField(data.personaState(), "interest", 70);
+        ReflectionTestUtils.setField(data.personaState(), "patience", 70);
+        when(meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(data.engagement().getId()))
+                .thenReturn(List.of(data.meeting()));
+        when(engagementRepository.findById(data.engagement().getId())).thenReturn(Optional.of(data.engagement()));
+        doReturn(MeetingDebriefNarrative.fallback(true, List.of()))
+                .when(aiOrchestrationService).execute(eq("meeting_debrief"), eq(data.engagement().getId()),
+                        anyString(), anyInt(), any(), any());
+
+        MeetingTurnResult result = service.sendMessage(data.meeting().getId(), data.userId(),
+                "We will confirm the pilot scope and success metrics with the stakeholders next week.", "confirm");
+
+        assertThat(result.completedMeeting().completionOutcome()).isEqualTo("PASSED");
+        assertThat(result.meetingSignals()).contains("client_ready_to_close");
+        assertThat(data.engagement().getState()).isEqualTo(EngagementState.DISCOVERY_COMPLETE);
     }
 
     private TestData inProgressMeeting() {

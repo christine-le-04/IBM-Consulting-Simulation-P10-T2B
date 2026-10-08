@@ -482,6 +482,8 @@ export interface MeetingPreparation {
 export type MeetingStatus = 'IN_PROGRESS' | 'COMPLETED'
 
 export interface Meeting {
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | null
+  meetingTurnLimit?: number | null
   id: string
   engagementId: string
   personaId: string

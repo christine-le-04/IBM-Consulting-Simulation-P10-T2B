@@ -1,12 +1,12 @@
 package com.ibm.consulting.sim.meeting.domain;
 
-import com.ibm.consulting.sim.ai.domain.PersonaStateDelta;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import com.ibm.consulting.sim.ai.domain.PersonaStateDelta;
 
 /**
  * Hybrid, auditable turn scoring for live discovery. The AI classifies observed
@@ -24,7 +24,8 @@ final class MeetingTurnProgressionPolicy {
             "impact", "outcome", "outcomes", "mentioned", "shared", "said", "current", "existing",
             "scope", "metric", "metrics", "acceptance", "owner", "owners", "approval", "approvals",
             "proposal", "pilot", "milestone", "tranche", "mobilisation", "mobilization", "accuracy",
-            "data", "source", "stockout", "stockouts", "exception", "exceptions", "rollout");
+            "data", "source", "stockout", "stockouts", "exception", "exceptions", "rollout",
+            "challenge", "challenges", "success");
     private static final Set<String> GENERIC_PROMPTS = Set.of(
             "what do you need to know", "what do you want to know", "tell me more",
             "can you explain", "please explain", "can you elaborate", "hello", "hi", "hey");
@@ -81,6 +82,18 @@ final class MeetingTurnProgressionPolicy {
                                               List<String> detectedLearnerBehaviours,
                                               String clientResponse, List<String> meetingSignals,
                                               List<String> previousLearnerMessages) {
+        // Opening discovery is not a refusal to pitch. Require a focused question
+        // and retain every other negative label and deterministic penalty.
+        if ((previousLearnerMessages == null || previousLearnerMessages.size() < 2)
+                && learnerMessage != null && learnerMessage.contains("?")
+                && (classify(learnerMessage, List.of(), previousLearnerMessages) == TurnQuality.FOCUSED_DISCOVERY
+                || classify(learnerMessage, List.of(), previousLearnerMessages) == TurnQuality.GROUNDED_DISCOVERY)) {
+            detectedLearnerBehaviours = normalizedBehaviours(detectedLearnerBehaviours).stream()
+                    .filter(behaviour -> !behaviour.equals("evasive") && !behaviour.equals("does_not_answer"))
+                    .toList();
+            proposed = new PersonaStateDelta(Math.max(0, proposed.trust()),
+                    Math.max(0, proposed.interest()), Math.max(0, proposed.patience()));
+        }
         TurnQuality quality = classify(learnerMessage, detectedLearnerBehaviours, previousLearnerMessages);
         List<String> verifiedBehaviours = normalizedBehaviours(detectedLearnerBehaviours).stream()
                 .filter(SCOREABLE_BEHAVIOURS::contains)

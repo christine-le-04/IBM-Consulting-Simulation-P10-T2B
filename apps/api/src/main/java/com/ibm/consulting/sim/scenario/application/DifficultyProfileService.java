@@ -13,8 +13,6 @@ import com.ibm.consulting.sim.shared.domain.NotFoundException;
 import com.ibm.consulting.sim.shared.domain.DomainException;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
-
 /** Central resolver for persisted scenario profiles and immutable engagement snapshots. */
 @Service
 public class DifficultyProfileService {
@@ -35,25 +33,29 @@ public class DifficultyProfileService {
 
     public DifficultyProfile forEngagement(Engagement engagement) {
         String snapshot = engagement.getDifficultyProfileSnapshot();
-        DifficultyProfile profile = snapshot != null && !snapshot.isBlank()
-            ? decode(snapshot)
-            : forScenario(scenarioRepository.findById(engagement.getScenarioId())
-                .orElseThrow(() -> new NotFoundException("Scenario", engagement.getScenarioId())));
+        if (snapshot != null && !snapshot.isBlank()) return decode(snapshot);
+
+        // Legacy runs without a snapshot must resolve from their scenario and lead.
+        Scenario scenario = scenarioRepository.findById(engagement.getScenarioId())
+                .orElseThrow(() -> new NotFoundException("Scenario", engagement.getScenarioId()));
+        DifficultyProfile profile = forScenario(scenario);
         return engagement.getSelectedLeadId() == null
             ? profile
             : leadRepository.findById(engagement.getSelectedLeadId())
-                .map(lead -> forLeadDifficulty(profile, lead.getDifficulty()))
+                .map(lead -> forLeadDifficulty(profile, lead.getDifficulty(), scenario))
                 .orElse(profile);
     }
 
-        public DifficultyProfile forLeadDifficulty(DifficultyProfile profile, LeadDifficulty leadDifficulty) {
+    public DifficultyProfile forLeadDifficulty(DifficultyProfile profile, LeadDifficulty leadDifficulty,
+                                               Scenario scenario) {
         DifficultyLevel level = switch (leadDifficulty == null ? LeadDifficulty.MEDIUM : leadDifficulty) {
             case EASY -> DifficultyLevel.EASY;
             case MEDIUM -> DifficultyLevel.MEDIUM;
             case HARD -> DifficultyLevel.HARD;
         };
-        return profile.withLevel(level);
-        }
+        return profile.forTier(level, scenario.getInformationAmbiguity(),
+                scenario.getStakeholderComplexity(), scenario.getCommercialPressure());
+    }
 
     public String snapshot(DifficultyProfile profile) { return encode(profile); }
 
