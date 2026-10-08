@@ -45,6 +45,11 @@ public record DifficultyProfile(
                                              int commercialPressure) {
         DifficultyLevel level = overallDifficulty <= 2 ? DifficultyLevel.EASY
                 : overallDifficulty >= 4 ? DifficultyLevel.HARD : DifficultyLevel.MEDIUM;
+        return defaults(level, ambiguity, stakeholderComplexity, commercialPressure);
+    }
+
+    public static DifficultyProfile defaults(DifficultyLevel level, int ambiguity, int stakeholderComplexity,
+                                             int commercialPressure) {
         return switch (level) {
             case EASY -> new DifficultyProfile(level, 4, 1, 0, 50, 50, 50, 14,
                     true, 30, 2, 40, 65, 50, 20, 115);
@@ -54,6 +59,39 @@ public record DifficultyProfile(
                     false, commercialPressure >= 4 ? 10 : 14, 4, 80, 82, 75,
                     Math.max(65, stakeholderComplexity * 15), 85);
         };
+    }
+
+    /**
+     * Applies selected-tier defaults while retaining values that differ from the
+     * configured tier's defaults as scenario overrides. Scenario dimensions are
+     * used for both baselines so dimension-sensitive Hard defaults are not
+     * mistaken for author overrides.
+     */
+    public DifficultyProfile forTier(DifficultyLevel selectedLevel, int ambiguity, int stakeholderComplexity,
+                                     int commercialPressure) {
+        if (selectedLevel == level) return this;
+        DifficultyProfile baseline = defaults(level, ambiguity, stakeholderComplexity, commercialPressure);
+        DifficultyProfile selected = defaults(selectedLevel, ambiguity, stakeholderComplexity, commercialPressure);
+        return new DifficultyProfile(selectedLevel,
+                resolved(researchArtifactsPerAction, baseline.researchArtifactsPerAction, selected.researchArtifactsPerAction),
+                resolved(distractorArtifactsPerAction, baseline.distractorArtifactsPerAction, selected.distractorArtifactsPerAction),
+                resolved(contradictionCount, baseline.contradictionCount, selected.contradictionCount),
+                resolved(initialTrust, baseline.initialTrust, selected.initialTrust),
+                resolved(initialInterest, baseline.initialInterest, selected.initialInterest),
+                resolved(initialPatience, baseline.initialPatience, selected.initialPatience),
+                resolved(meetingTurnLimit, baseline.meetingTurnLimit, selected.meetingTurnLimit),
+                budgetVisible == baseline.budgetVisible ? selected.budgetVisible : budgetVisible,
+                resolved(timelinePressureDays, baseline.timelinePressureDays, selected.timelinePressureDays),
+                resolved(requiredEvidenceCount, baseline.requiredEvidenceCount, selected.requiredEvidenceCount),
+                resolved(requiredConfidencePercent, baseline.requiredConfidencePercent, selected.requiredConfidencePercent),
+                resolved(outreachAcceptanceThreshold, baseline.outreachAcceptanceThreshold, selected.outreachAcceptanceThreshold),
+                resolved(proposalEvidenceCoverageThreshold, baseline.proposalEvidenceCoverageThreshold, selected.proposalEvidenceCoverageThreshold),
+                resolved(personaResistance, baseline.personaResistance, selected.personaResistance),
+                resolved(scoringTolerance, baseline.scoringTolerance, selected.scoringTolerance));
+    }
+
+    private static int resolved(int configured, int baseline, int selected) {
+        return configured == baseline ? selected : configured;
     }
 
         /** Keeps author-configured tuning while applying the tier selected from the lead catalogue. */

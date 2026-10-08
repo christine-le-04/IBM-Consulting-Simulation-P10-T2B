@@ -7,6 +7,59 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DifficultyProfileTest {
 
     @Test
+    void switchingTiersAppliesAllSelectedDefaultsForAnUntunedProfile() {
+        for (DifficultyLevel source : DifficultyLevel.values()) {
+            DifficultyProfile profile = DifficultyProfile.defaults(source, 5, 5, 5);
+            for (DifficultyLevel target : DifficultyLevel.values()) {
+                assertThat(profile.forTier(target, 5, 5, 5))
+                        .as("%s to %s", source, target)
+                        .isEqualTo(DifficultyProfile.defaults(target, 5, 5, 5));
+            }
+        }
+    }
+
+    @Test
+    void customSettingsStayFixedWhileUntunedSettingsFollowTheSelectedTier() {
+        DifficultyProfile custom = new DifficultyProfile(DifficultyLevel.MEDIUM, 5, 2, 1,
+                55, 50, 50, 16, false, 18, 3, 60, 75, 65, 50, 105);
+
+        DifficultyProfile easy = custom.forTier(DifficultyLevel.EASY, 3, 3, 3);
+        DifficultyProfile hard = custom.forTier(DifficultyLevel.HARD, 3, 3, 3);
+
+        assertThat(easy.initialTrust()).isEqualTo(55);
+        assertThat(hard.initialTrust()).isEqualTo(55);
+        assertThat(easy.meetingTurnLimit()).isEqualTo(16);
+        assertThat(hard.meetingTurnLimit()).isEqualTo(16);
+        assertThat(easy.scoringTolerance()).isEqualTo(105);
+        assertThat(hard.scoringTolerance()).isEqualTo(105);
+        assertThat(easy.personaResistance()).isEqualTo(20);
+        assertThat(hard.personaResistance()).isEqualTo(65);
+        assertThat(easy.requiredConfidencePercent()).isEqualTo(40);
+        assertThat(hard.requiredConfidencePercent()).isEqualTo(80);
+        assertThat(easy.budgetVisible()).isTrue();
+        assertThat(hard.budgetVisible()).isFalse();
+    }
+
+    @Test
+    void dimensionSensitiveHardDefaultsAreNotRetainedAsOverridesOnEasy() {
+        DifficultyProfile hard = DifficultyProfile.defaults(DifficultyLevel.HARD, 5, 5, 5);
+
+        DifficultyProfile easy = hard.forTier(DifficultyLevel.EASY, 5, 5, 5);
+
+        assertThat(easy.contradictionCount()).isZero();
+        assertThat(easy.personaResistance()).isEqualTo(20);
+        assertThat(easy.timelinePressureDays()).isEqualTo(30);
+    }
+
+    @Test
+    void reapplyingTheSameTierDoesNotChangeCustomSettings() {
+        DifficultyProfile custom = new DifficultyProfile(DifficultyLevel.HARD, 8, 7, 6,
+                100, 99, 98, 20, true, 90, 8, 90, 95, 95, 100, 130);
+
+        assertThat(custom.forTier(DifficultyLevel.HARD, 5, 5, 5)).isSameAs(custom);
+    }
+
+    @Test
     void resolvesCanonicalEasyMediumAndHardDefaults() {
         DifficultyProfile easy = DifficultyProfile.defaults(1, 1, 1, 1);
         DifficultyProfile medium = DifficultyProfile.defaults(3, 3, 3, 3);
