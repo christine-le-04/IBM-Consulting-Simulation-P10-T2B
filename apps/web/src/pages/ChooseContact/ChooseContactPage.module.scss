@@ -9,11 +9,22 @@
   margin-top: 1.5rem;
 }
 
-.card { background: #fff; border: 1px solid #e0e0e0; display: flex; flex-direction: column; min-width: 0; }
+/* Each card spans three rows of the shared grid (head, body, foot), so cards
+   side by side keep their heads the same height even when a name or job title
+   wraps onto a second line. */
+.card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  min-width: 0;
+}
 .chosen { outline: 3px solid #0f62fe; outline-offset: -1px; }
 .locked { background: #f4f4f4; color: #6f6f6f; }
 
-.cardHead { display: flex; gap: 1rem; align-items: center; padding: 1.25rem; border-bottom: 3px solid #161616; }
+.cardHead { display: flex; gap: 1rem; align-items: flex-start; padding: 1.25rem; border-bottom: 3px solid #161616; }
 .locked .cardHead { border-bottom-color: #8d8d8d; }
 .avatar {
   flex: 0 0 3rem;
@@ -29,7 +40,7 @@
 .role { margin: 0.25rem 0 0; }
 .org { font-family: var(--sim-mono); font-size: 0.75rem; color: #6f6f6f; margin: 0.25rem 0 0; }
 
-.cardBody { padding: 1.25rem; flex: 1; }
+.cardBody { padding: 1.25rem; }
 .cardBody p { margin: 0 0 1rem; }
 .eyebrow { font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: #6f6f6f; margin-bottom: 0.5rem !important; }
 
