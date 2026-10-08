@@ -58,7 +58,7 @@ export default function StepBrief() {
         </p>
         {line && (
           <p className={styles.thresholdNow}>
-            <span>Right now</span>
+            <span className={styles.thresholdNowLabel}>Right now</span>
             <em>“{line}”</em>
             <NextStepButton />
           </p>
