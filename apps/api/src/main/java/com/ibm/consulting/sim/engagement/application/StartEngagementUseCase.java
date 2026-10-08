@@ -3,13 +3,8 @@ package com.ibm.consulting.sim.engagement.application;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
 import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.engagement.domain.EngagementState;
-import com.ibm.consulting.sim.lead.domain.EvidenceOrigin;
-import com.ibm.consulting.sim.lead.domain.EvidenceType;
 import com.ibm.consulting.sim.lead.domain.Lead;
 import com.ibm.consulting.sim.lead.domain.LeadRepository;
-import com.ibm.consulting.sim.lead.domain.LeadSignal;
-import com.ibm.consulting.sim.lead.domain.ResearchEvidence;
-import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.scenario.domain.Persona;
 import com.ibm.consulting.sim.scenario.domain.Scenario;
 import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
@@ -22,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,20 +28,17 @@ public class StartEngagementUseCase {
     private final ScenarioRepository scenarioRepository;
     private final DifficultyProfileService difficultyProfileService;
     private final LeadRepository leadRepository;
-    private final ResearchEvidenceRepository evidenceRepository;
     private final ScenarioAccessPolicy accessPolicy;
 
     public StartEngagementUseCase(EngagementRepository engagementRepository,
                                   ScenarioRepository scenarioRepository,
                                   DifficultyProfileService difficultyProfileService,
                                   LeadRepository leadRepository,
-                                  ResearchEvidenceRepository evidenceRepository,
                                   ScenarioAccessPolicy accessPolicy) {
         this.engagementRepository = engagementRepository;
         this.scenarioRepository = scenarioRepository;
         this.difficultyProfileService = difficultyProfileService;
         this.leadRepository = leadRepository;
-        this.evidenceRepository = evidenceRepository;
         this.accessPolicy = accessPolicy;
     }
 
@@ -59,8 +50,8 @@ public class StartEngagementUseCase {
 
     /**
      * Starts a scenario straight into research: there is no "choose a lead" step.
-     * The scenario's company profile is opened automatically and
-     * its public signals become starting evidence. The AI client is the scenario's
+     * The scenario's company profile is opened automatically, and
+     * the evidence board starts empty: every item is found by the learner. The AI client is the scenario's
      * decision maker; the learner chooses who to contact after research.
      * {@code personaId} is only honoured for older clients that still send it.
      */
@@ -94,7 +85,6 @@ public class StartEngagementUseCase {
 
         companyProfile.ifPresent(lead -> engagement.selectLead(lead.getId()));
         engagementRepository.save(engagement);
-        companyProfile.ifPresent(lead -> addStartingEvidence(engagement.getId(), lead));
         return EngagementResponse.from(engagement);
     }
 
@@ -128,24 +118,6 @@ public class StartEngagementUseCase {
     /** Each scenario has exactly one company profile (enforced by the database since V53). */
     private Optional<Lead> companyProfileOf(Scenario scenario) {
         return leadRepository.findByScenarioId(scenario.getId()).stream().findFirst();
-    }
-
-    /** The briefing's public signals, as citable evidence that doesn't count toward completing research. */
-    private void addStartingEvidence(UUID engagementId, Lead lead) {
-        List<LeadSignal> signals = lead.getSignals();
-        for (int i = 0; i < signals.size(); i++) {
-            LeadSignal signal = signals.get(i);
-            evidenceRepository.save(ResearchEvidence.builder()
-                    .engagementId(engagementId)
-                    .leadId(lead.getId())
-                    .note(signal.getLabel())
-                    .evidenceType("BUSINESS_TRIGGER".equals(signal.getCategory())
-                            ? EvidenceType.COMPANY_NEWS : EvidenceType.OTHER)
-                    .sourceTitle("Scenario briefing")
-                    .origin(EvidenceOrigin.SCENARIO_GIVEN)
-                    .sequenceNo(i + 1)
-                    .build());
-        }
     }
 
     /**

@@ -7,9 +7,7 @@ import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
 import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.lead.domain.Lead;
 import com.ibm.consulting.sim.lead.domain.LeadDifficulty;
-import com.ibm.consulting.sim.lead.domain.EvidenceOrigin;
 import com.ibm.consulting.sim.lead.domain.LeadRepository;
-import com.ibm.consulting.sim.lead.domain.ResearchEvidence;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.application.ScenarioAccessPolicy;
@@ -21,7 +19,6 @@ import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import org.mockito.ArgumentCaptor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -41,13 +38,12 @@ class StartEngagementIntegrationTest {
     private final EngagementStore engagements = new EngagementStore();
     private final ScenarioRepository scenarios = mock(ScenarioRepository.class);
     private final LeadRepository leads = mock(LeadRepository.class);
-    private final ResearchEvidenceRepository evidence = mock(ResearchEvidenceRepository.class);
     private StartEngagementUseCase useCase;
 
     @BeforeEach
     void setUp() {
         useCase = new StartEngagementUseCase(engagements, scenarios,
-                new DifficultyProfileService(objectMapper, scenarios, leads), leads, evidence,
+                new DifficultyProfileService(objectMapper, scenarios, leads), leads,
                 (userId, scenario) -> true);
     }
 
@@ -188,7 +184,7 @@ class StartEngagementIntegrationTest {
     }
 
     @Test
-    void addsTheCompanySignalsAsStartingEvidenceThatDoesNotCountAsResearch() {
+    void theEvidenceBoardStartsEmptyAndTheSignalsStayOnTheCompanyProfile() {
         Scenario scenario = activeScenario("Signals");
         Lead companyProfile = Lead.create(scenario.getId(), "Example Co", "Technology",
                 "Company profile", LeadDifficulty.EASY);
@@ -199,14 +195,11 @@ class StartEngagementIntegrationTest {
 
         useCase.execute(UUID.randomUUID(), scenario.getId(), null);
 
-        ArgumentCaptor<ResearchEvidence> saved = ArgumentCaptor.forClass(ResearchEvidence.class);
-        verify(evidence, org.mockito.Mockito.times(2)).save(saved.capture());
-        assertThat(saved.getAllValues()).extracting(ResearchEvidence::getOrigin)
-                .containsOnly(EvidenceOrigin.SCENARIO_GIVEN);
-        assertThat(saved.getAllValues()).extracting(ResearchEvidence::getNote)
-                .containsExactly("Board review of reliability", "Dispatch delays are rising");
-        assertThat(saved.getAllValues()).extracting(ResearchEvidence::getSequenceNo)
-                .containsExactly(1, 2);
+        assertThat(engagements.created().getFirst().getSelectedLeadId()).isEqualTo(companyProfile.getId());
+        assertThat(companyProfile.getSignals()).hasSize(2);
+        // Starting a scenario must not write evidence: the use case has no way to.
+        assertThat(StartEngagementUseCase.class.getConstructors()[0].getParameterTypes())
+                .doesNotContain(ResearchEvidenceRepository.class);
     }
 
     @Test
@@ -240,7 +233,6 @@ class StartEngagementIntegrationTest {
 
         assertThat(response.id()).isEqualTo(inProgress.getId());
         assertThat(engagements.created()).isEmpty();
-        verify(evidence, never()).save(any());
     }
 
     @Test
@@ -270,7 +262,6 @@ class StartEngagementIntegrationTest {
                 .hasMessageContaining("not assigned");
 
         assertThat(engagements.created()).isEmpty();
-        verify(evidence, never()).save(any());
     }
 
     @Test
@@ -337,7 +328,7 @@ class StartEngagementIntegrationTest {
 
     private StartEngagementUseCase useCaseWith(ScenarioAccessPolicy policy) {
         return new StartEngagementUseCase(engagements, scenarios,
-                new DifficultyProfileService(objectMapper, scenarios, leads), leads, evidence, policy);
+                new DifficultyProfileService(objectMapper, scenarios, leads), leads, policy);
     }
 
     private Scenario activeScenario(String title) {
