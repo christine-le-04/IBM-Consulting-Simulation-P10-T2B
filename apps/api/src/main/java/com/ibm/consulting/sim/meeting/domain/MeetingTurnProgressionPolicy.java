@@ -16,6 +16,8 @@ import com.ibm.consulting.sim.ai.domain.PersonaStateDelta;
 final class MeetingTurnProgressionPolicy {
 
     private static final int[] PROGRESSION_ALLOWANCE = {0, 8, 16, 26, 36, 46, 56, 65, 72, 78, 84, 90};
+    /** Shorter turns never earn credit from AI-observed behaviour alone. */
+    private static final int MIN_WORDS_FOR_BEHAVIOUR_CREDIT = 8;
     private static final int[] PATIENCE_PROGRESSION_ALLOWANCE = {0, 12, 24, 36, 48, 60, 70, 78, 84, 90, 95, 100};
     private static final Set<String> CONTEXT_CUES = Set.of(
             "budget", "cost", "roi", "priority", "priorities", "risk", "risks", "timeline",
@@ -149,7 +151,37 @@ final class MeetingTurnProgressionPolicy {
         if ((question && wordCount >= 8 && cueCount >= 1) || (wordCount >= 16 && cueCount >= 1)) {
             return TurnQuality.FOCUSED_DISCOVERY;
         }
+        return fromVerifiedBehaviour(wordCount, question, detectedLearnerBehaviours);
+    }
+
+    /**
+     * The cue list is generic, so it misses a scenario's own vocabulary ("duty
+     * hours", "standby crew"). A substantive turn the AI recognised as focused or
+     * evidence-based is therefore not written off as low signal, which would
+     * contradict the behaviours shown with it. Negative labels have already
+     * returned a penalty above, and the quality caps still bound the score.
+     */
+    private static TurnQuality fromVerifiedBehaviour(int wordCount, boolean question, List<String> behaviours) {
+        if (wordCount < MIN_WORDS_FOR_BEHAVIOUR_CREDIT) return TurnQuality.LOW_SIGNAL;
+        Set<String> observed = normalizedBehaviours(behaviours);
+        long groundingKinds = groundingKinds(observed);
+        if (wordCount >= 14 && groundingKinds >= 2) return TurnQuality.GROUNDED_DISCOVERY;
+        if (groundingKinds >= 1 || (question && observed.contains("asks_focused_question"))) {
+            return TurnQuality.FOCUSED_DISCOVERY;
+        }
         return TurnQuality.LOW_SIGNAL;
+    }
+
+    /** Distinct kinds of grounding; synonyms for the same kind count once. */
+    private static long groundingKinds(Set<String> observed) {
+        return java.util.stream.Stream.of(
+                        Set.of("uses_client_fact", "uses_disclosed_evidence"),
+                        Set.of("quantifies_business_impact", "uses_specific_metric"),
+                        Set.of("directly_addresses_concern", "addresses_client_concern"),
+                        Set.of("acknowledges_constraint"),
+                        Set.of("grounded_recommendation"))
+                .filter(kind -> kind.stream().anyMatch(observed::contains))
+                .count();
     }
 
     /**
@@ -304,7 +336,9 @@ final class MeetingTurnProgressionPolicy {
 
     private static String positiveExplanation(TurnQuality quality, PersonaStateDelta delta, List<String> behaviours) {
         if (quality == TurnQuality.LOW_SIGNAL) {
-            return "Your response needs a more specific client fact or question to build confidence.";
+            return hasPositiveBehaviour(behaviours)
+                    ? "You were on the right track, but the response was too brief to build confidence. Add a specific client fact or detail."
+                    : "Your response needs a more specific client fact or question to build confidence.";
         }
         if (delta.trust() == 0 && delta.interest() == 0 && delta.patience() == 0) {
             return "Your response kept the conversation steady. Add a concrete detail to build more confidence.";
