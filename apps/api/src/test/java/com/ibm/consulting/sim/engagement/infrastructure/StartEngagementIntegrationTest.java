@@ -76,7 +76,7 @@ class StartEngagementIntegrationTest {
         assertThat(created.getState()).isEqualTo(EngagementState.CLIENT_INTELLIGENCE);
         DifficultyProfile frozen = objectMapper.readValue(
                 created.getDifficultyProfileSnapshot(), DifficultyProfile.class);
-        assertThat(frozen.level()).isEqualTo(DifficultyLevel.HARD);
+        assertThat(frozen).isEqualTo(DifficultyProfile.defaults(DifficultyLevel.HARD, 3, 3, 3));
         assertThat(created.getEvents()).extracting(event -> event.getState())
                 .containsExactly(EngagementState.QUALIFYING, EngagementState.CLIENT_INTELLIGENCE);
         assertThat(created.getEvents()).extracting(event -> event.getDescription())
@@ -150,7 +150,7 @@ class StartEngagementIntegrationTest {
     // ─── Starting straight into research (no "Choose a lead") ───
 
     @Test
-    void startsAScenarioStraightInResearchWithItsCompanyProfile() {
+    void startsAScenarioStraightInResearchWithItsCompanyProfile() throws Exception {
         UUID userId = UUID.randomUUID();
         Scenario scenario = activeScenario("Research first");
         Lead companyProfile = Lead.create(scenario.getId(), "Example Co", "Technology",
@@ -163,6 +163,28 @@ class StartEngagementIntegrationTest {
         Engagement created = engagements.created().getFirst();
         assertThat(created.getState()).isEqualTo(EngagementState.CLIENT_INTELLIGENCE);
         assertThat(created.getSelectedLeadId()).isEqualTo(companyProfile.getId());
+        assertThat(objectMapper.readValue(created.getDifficultyProfileSnapshot(), DifficultyProfile.class))
+                .isEqualTo(DifficultyProfile.defaults(DifficultyLevel.EASY, 3, 3, 3));
+    }
+
+    @Test
+    void resumingFromALeadDoesNotReplaceTheExistingDifficultySnapshot() {
+        UUID userId = UUID.randomUUID();
+        Scenario scenario = activeScenario("Resume saved difficulty");
+        Lead lead = Lead.create(scenario.getId(), "Example Co", "Technology", "Company profile", LeadDifficulty.HARD);
+        DifficultyProfile saved = DifficultyProfile.defaults(DifficultyLevel.EASY, 3, 3, 3);
+        String snapshot = new DifficultyProfileService(objectMapper, scenarios, leads).snapshot(saved);
+        Engagement existing = Engagement.start(userId, scenario.getId(), scenario.getPersonas().getFirst().getId(), snapshot);
+        existing.selectLead(lead.getId());
+        engagements.seed(existing);
+        when(leads.findById(lead.getId())).thenReturn(Optional.of(lead));
+        when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
+
+        var response = useCase.executeForLead(userId, lead.getId(), null);
+
+        assertThat(response.id()).isEqualTo(existing.getId());
+        assertThat(existing.getDifficultyProfileSnapshot()).isEqualTo(snapshot);
+        assertThat(engagements.created()).isEmpty();
     }
 
     @Test
