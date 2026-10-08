@@ -28,10 +28,13 @@ export function deckSources(deck: ResearchSourceDeck | undefined): ResearchArtif
  * left out: it follows from the four below.
  */
 export function readinessFor(gate: ResearchGateStatus | undefined): ReadinessItem[] {
+  const countWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight']
+  const evidenceRequired = gate ? countWords[gate.requiredEvidenceCount] ?? String(gate.requiredEvidenceCount) : null
+  const areasRequired = gate ? countWords[gate.requiredCoverageCount] ?? String(gate.requiredCoverageCount) : null
   return [
-    { label: 'Attach at least two pieces of evidence', done: Boolean(gate && gate.evidenceCount >= gate.requiredEvidenceCount) },
+    { label: evidenceRequired == null ? 'Attach the required pieces of evidence' : `Attach at least ${evidenceRequired} pieces of evidence`, done: Boolean(gate && gate.evidenceCount >= gate.requiredEvidenceCount) },
     { label: 'Attach stakeholder evidence', done: Boolean(gate?.hasStakeholderEvidence) },
-    { label: 'Evidence must cover at least two different areas', done: Boolean(gate && gate.coverageCount >= gate.requiredCoverageCount) },
+    { label: areasRequired == null ? 'Evidence must cover the required research areas' : `Evidence must cover at least ${areasRequired} different areas`, done: Boolean(gate && gate.coverageCount >= gate.requiredCoverageCount) },
     { label: 'Create a grounded hypothesis with sufficient evidence cited', done: Boolean(gate?.groundedHypothesis) },
   ]
 }

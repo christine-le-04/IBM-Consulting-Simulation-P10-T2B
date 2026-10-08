@@ -112,6 +112,54 @@ describe('ClientIntelligencePage research desk', () => {
     vi.clearAllMocks()
   })
 
+  it.each([
+    [2, 'two', 2, 'two'],
+    [3, 'three', 2, 'two'],
+    [4, 'four', 3, 'three'],
+    [8, 'eight', 4, 'four'],
+  ] as const)('uses saved requirements for %i evidence items (%s) and %i research areas (%s)', (requiredEvidenceCount, evidenceWord, requiredCoverageCount, areaWord) => {
+    setup([])
+    mockedGateStatus.mockReturnValue({
+      data: { ...gate, requiredEvidenceCount, requiredCoverageCount },
+    } as unknown as ReturnType<typeof useResearchGateStatus>)
+    renderPage()
+
+    expect(useShellStore.getState().nextStep?.checklist).toContainEqual({
+      label: `Attach at least ${evidenceWord} pieces of evidence`, done: false,
+    })
+    expect(useShellStore.getState().nextStep?.checklist).toContainEqual({
+      label: `Evidence must cover at least ${areaWord} different areas`, done: false,
+    })
+  })
+
+  it.each([3, 4])('marks a four-item requirement complete only when enough evidence is attached (%i items)', (evidenceCount) => {
+    setup([])
+    mockedGateStatus.mockReturnValue({
+      data: { ...gate, evidenceCount, requiredEvidenceCount: 4, coverageCount: 3, requiredCoverageCount: 3 },
+    } as unknown as ReturnType<typeof useResearchGateStatus>)
+    renderPage()
+
+    expect(useShellStore.getState().nextStep?.checklist).toContainEqual({
+      label: 'Attach at least four pieces of evidence', done: evidenceCount >= 4,
+    })
+    expect(useShellStore.getState().nextStep?.checklist).toContainEqual({
+      label: 'Evidence must cover at least three different areas', done: true,
+    })
+  })
+
+  it('does not invent requirement counts before the gate has loaded', () => {
+    setup([])
+    mockedGateStatus.mockReturnValue({ data: undefined } as unknown as ReturnType<typeof useResearchGateStatus>)
+    renderPage()
+
+    expect(useShellStore.getState().nextStep?.checklist).toContainEqual({
+      label: 'Attach the required pieces of evidence', done: false,
+    })
+    expect(useShellStore.getState().nextStep?.checklist).toContainEqual({
+      label: 'Evidence must cover the required research areas', done: false,
+    })
+  })
+
   it('reads the source as a document, with trust in words rather than a relevance percentage', () => {
     setup([])
     renderPage()
