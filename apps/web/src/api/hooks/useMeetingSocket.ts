@@ -27,7 +27,7 @@ type SocketEvent =
   | { type: 'turn.complete'; payload: MeetingTurnResult }
   | { type: 'turn.options'; payload: MeetingResponseOptions }
   | { type: 'turn.options.error'; payload: { message: string } }
-  | { type: 'turn.error'; payload: { message: string } }
+  | { type: 'turn.error'; payload: { message: string; code?: string } }
 
 export const meetingSocketContract = {
   endpointPath: '/ws',
@@ -175,7 +175,9 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
         } else if (event.type === 'turn.error') {
           // The server's wording is for its log; the learner needs what to do next.
           console.warn('Live meeting turn failed', event.payload.message)
-          const message = 'The client could not reply just now. Send your message again.'
+          const message = event.payload.code === 'AI_REPLY_UNAVAILABLE'
+            ? 'The client could not reply just now. Your turn was not recorded. Please try again.'
+            : 'The client could not reply just now. Send your message again.'
           setError(message)
           setStreamingText('')
           setIsStreaming(false)

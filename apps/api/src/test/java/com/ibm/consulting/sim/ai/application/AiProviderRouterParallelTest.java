@@ -17,6 +17,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AiProviderRouterParallelTest {
 
@@ -24,6 +25,29 @@ class AiProviderRouterParallelTest {
         if (!raw.startsWith("valid:")) throw new com.ibm.consulting.sim.ai.domain.AiValidationException("invalid schema");
         return raw.substring("valid:".length());
     };
+
+    @Test
+    void singleProviderCannotExceedTheConversationBudget() {
+        try (ExecutorService executor = Executors.newFixedThreadPool(1)) {
+            AiProviderRouter router = router(List.of(provider("gemini-free", "valid:late", 5_000)), executor);
+
+            assertThatThrownBy(() -> router.completeFirstValid("persona_dialogue", "prompt", VALID_PARSER, 50))
+                    .isInstanceOf(com.ibm.consulting.sim.ai.domain.AiProviderException.class)
+                    .hasMessageContaining("50ms budget");
+        }
+    }
+
+    @Test
+    void sequentialFallbackSharesTheSameDeadline() {
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            AiProviderRouter router = router(List.of(provider("gemini-free", "invalid", 5),
+                    provider("openrouter-free", "valid:late", 5_000)), executor, false);
+
+            assertThatThrownBy(() -> router.completeFirstValid("persona_dialogue", "prompt", VALID_PARSER, 50))
+                    .isInstanceOf(com.ibm.consulting.sim.ai.domain.AiProviderException.class)
+                    .hasMessageContaining("50ms budget");
+        }
+    }
 
     @Test
     void selectsFirstSchemaValidParallelResponseRatherThanFirstRawResponse() {
@@ -62,6 +86,10 @@ class AiProviderRouterParallelTest {
     }
 
     private AiProviderRouter router(List<AiProvider> providers, ExecutorService executor) {
+        return router(providers, executor, true);
+    }
+
+    private AiProviderRouter router(List<AiProvider> providers, ExecutorService executor, boolean parallelEnabled) {
         return new AiProviderRouter(
                 providers,
                 CircuitBreakerRegistry.ofDefaults(),
@@ -73,7 +101,7 @@ class AiProviderRouterParallelTest {
                 "watsonx-granite,gemini-free,openrouter-free",
                 "gemini-free,watsonx-granite,openrouter-free",
                 "gemini-free,watsonx-granite,openrouter-free",
-                1000, 1000, 1000, executor, true, 3);
+                1000, 1000, 1000, executor, parallelEnabled, 3);
     }
 
     private AiProvider provider(String id, String response, long delayMs) {

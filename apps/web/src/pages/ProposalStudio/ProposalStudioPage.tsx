@@ -68,6 +68,18 @@ function band(score: number) {
 const filled = (value: string | number) => String(value).trim().length > 0
 
 const VALIDATION_LABELS: Record<string, string> = {
+  problemStatement: 'Problem statement (Foundation)',
+  solutionStrategy: 'Recommended solution (Foundation)',
+  components: 'Solution components (Foundation)',
+  budget: 'Estimated budget (Value & commercial)',
+  budgetConfidence: 'Budget confidence (Value & commercial)',
+  budgetSource: 'Budget source / basis (Value & commercial)',
+  businessOutcomes: 'Business outcomes (Value & commercial)',
+  timelineWeeks: 'Total timeline (Delivery plan)',
+  milestones: 'Milestones (Delivery plan)',
+  risks: 'Risks (Risks & assumptions)',
+  assumptions: 'Assumptions and dependencies (Evidence & review)',
+  evidenceLinks: 'Attached evidence (Evidence & review)',
   PROBLEM_REQUIRED: 'Describe the client problem',
   SOLUTION_REQUIRED: 'Explain your recommendation',
   OUTCOME_REQUIRED: 'Add a measurable outcome',
@@ -78,6 +90,22 @@ const VALIDATION_LABELS: Record<string, string> = {
   INVALID_EVIDENCE_LINK: 'Replace an unavailable source',
   DIFFICULTY_EVIDENCE_COVERAGE: 'Support your proposal with enough evidence',
   UNSUPPORTED_CLAIM: 'Check the evidence behind your claim',
+}
+
+function validationLabel(field: string) {
+  if (VALIDATION_LABELS[field]) return VALIDATION_LABELS[field]
+  const nested = /^(\w+)\[(\d+)\](?:\.(\w+))?$/.exec(field)
+  if (nested && VALIDATION_LABELS[nested[1]]) {
+    const propertyLabels: Record<string, string> = {
+      outcome: 'Business outcome', metric: 'Metric', target: 'Target',
+      phase: 'Phase / milestone', duration: 'Timing',
+      risk: 'Risk', severity: 'Severity', mitigation: 'Mitigation',
+      section: 'Proposal section', sourceId: 'Evidence source',
+    }
+    const property = nested[3] ? ` — ${propertyLabels[nested[3]] ?? nested[3]}` : ''
+    return `${VALIDATION_LABELS[nested[1]]}, item ${Number(nested[2]) + 1}${property}`
+  }
+  return field.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ')
 }
 
 /**
@@ -334,7 +362,7 @@ export default function ProposalStudioPage() {
             <InlineNotification kind="error" lowContrast title="Proposal could not be saved or submitted" subtitle={proposalProblem.detail} hideCloseButton />
             {proposalProblem.violations && (
               <ul aria-label="Proposal validation errors">
-                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{VALIDATION_LABELS[field] ?? 'Review this part of your proposal'}</strong>: {message}</li>)}
+                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{validationLabel(field)}</strong>: {message}</li>)}
               </ul>
             )}
           </div>

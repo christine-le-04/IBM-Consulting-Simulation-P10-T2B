@@ -93,6 +93,6 @@ class AiOrchestrationTraceFailureTest {
         ObjectProvider<AiProviderRouter> routers = mock(ObjectProvider.class);
         when(routers.getIfAvailable()).thenReturn(null);
         return new AiOrchestrationService(
-                gateway, routers, traces, executor, 1_000, 1_000, 1_000, 1_000, "model");
+                gateway, routers, traces, executor, 1_000, 1_000, 1_000, 1_000, 1_000, "model");
     }
 }

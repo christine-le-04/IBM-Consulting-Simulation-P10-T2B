@@ -167,7 +167,7 @@ public class AiProviderRouter implements AiModelGateway {
             throw new AiProviderException("No available AI provider for task " + task + " (use-case " + useCase + ")");
         }
         if (!parallelEnabled || candidates.size() == 1) {
-            return completeSequentially(useCase, prompt, parser, candidates);
+            return completeSequentially(useCase, prompt, parser, candidates, timeoutMs);
         }
 
         CompletionService<ProviderAttempt<T>> completions = new ExecutorCompletionService<>(providerExecutor);
@@ -245,12 +245,31 @@ public class AiProviderRouter implements AiModelGateway {
     }
 
     private <T> AiValidatedResponse<T> completeSequentially(String useCase, String prompt, AiResponseParser<T> parser,
-                                                             List<ProviderCandidate> candidates) {
+                                                             List<ProviderCandidate> candidates, long timeoutMs) {
         AiValidationException lastValidationFailure = null;
         AiProviderException lastProviderFailure = null;
         AiTaskType task = AiTaskType.fromUseCase(useCase);
+        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
         for (ProviderCandidate candidate : candidates) {
-            ProviderAttempt<T> attempt = invokeAndValidate(candidate, task, useCase, prompt, parser);
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                throw new AiProviderException("Provider calls exceeded the " + timeoutMs + "ms budget for task " + task);
+            }
+            Future<ProviderAttempt<T>> future = providerExecutor.submit(
+                    () -> invokeAndValidate(candidate, task, useCase, prompt, parser));
+            ProviderAttempt<T> attempt;
+            try {
+                attempt = future.get(remainingNanos, TimeUnit.NANOSECONDS);
+            } catch (java.util.concurrent.TimeoutException timeout) {
+                throw new AiProviderException("Provider calls exceeded the " + timeoutMs + "ms budget for task " + task, timeout);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AiProviderException("Sequential provider execution was interrupted", interrupted);
+            } catch (java.util.concurrent.ExecutionException failure) {
+                throw new AiProviderException("Sequential provider execution failed", failure.getCause());
+            } finally {
+                future.cancel(true);
+            }
             if (attempt.succeeded()) {
                 return new AiValidatedResponse<>(attempt.value(), candidate.provider().id());
             }

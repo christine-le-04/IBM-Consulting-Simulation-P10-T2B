@@ -3,6 +3,7 @@ package com.ibm.consulting.sim.ai.infrastructure;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.net.SocketTimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -53,7 +55,7 @@ public class GeminiProvider implements AiProvider {
             @Value("${app.ai.providers.gemini.base-url:https://generativelanguage.googleapis.com}") String baseUrl,
             @Value("${app.ai.providers.gemini.api-key:}") String apiKey,
             @Value("${app.ai.providers.gemini.model-id:gemini-2.5-flash}") String modelId,
-            @Value("${app.ai.providers.gemini.timeout-ms:8000}") int timeoutMs) {
+            @Value("${app.ai.providers.gemini.timeout-ms:20000}") int timeoutMs) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(timeoutMs);
         requestFactory.setReadTimeout(timeoutMs);
@@ -124,6 +126,10 @@ public class GeminiProvider implements AiProvider {
         } catch (AiProviderException e) {
             throw e;
         } catch (Exception e) {
+            if (NestedExceptionUtils.getMostSpecificCause(e) instanceof SocketTimeoutException) {
+                log.warn("Gemini request timed out for use-case {}", useCase);
+                throw new AiProviderException("Gemini request timed out for use-case " + useCase, e);
+            }
             log.warn("Gemini call failed for use-case {}: {}", useCase, e.getMessage());
             throw new AiProviderException("Gemini call failed for use-case " + useCase, e);
         }

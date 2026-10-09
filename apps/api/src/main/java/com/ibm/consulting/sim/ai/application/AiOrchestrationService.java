@@ -39,6 +39,7 @@ public class AiOrchestrationService {
     private final ExecutorService executor;
     private final long timeoutMs;
     private final long conversationTimeoutMs;
+    private final long meetingTimeoutMs;
     private final long clientIntelligenceTimeoutMs;
     private final long classificationTimeoutMs;
     private final String modelId;
@@ -49,6 +50,7 @@ public class AiOrchestrationService {
                                    @Qualifier("aiProviderExecutor") ExecutorService executor,
                                    @Value("${app.ai.timeout-ms:15000}") long timeoutMs,
                                    @Value("${app.ai.conversation-timeout-ms:14000}") long conversationTimeoutMs,
+                                   @Value("${app.ai.meeting-timeout-ms:25000}") long meetingTimeoutMs,
                                    @Value("${app.ai.client-intelligence-timeout-ms:1200}") long clientIntelligenceTimeoutMs,
                                    @Value("${app.ai.classification-timeout-ms:2500}") long classificationTimeoutMs,
                                    @Value("${app.watsonx.model-id}") String modelId) {
@@ -58,6 +60,7 @@ public class AiOrchestrationService {
         this.executor = executor;
         this.timeoutMs = timeoutMs;
         this.conversationTimeoutMs = conversationTimeoutMs;
+        this.meetingTimeoutMs = meetingTimeoutMs;
         this.clientIntelligenceTimeoutMs = clientIntelligenceTimeoutMs;
         this.classificationTimeoutMs = classificationTimeoutMs;
         this.modelId = modelId;
@@ -72,7 +75,7 @@ public class AiOrchestrationService {
     public <T> T execute(String useCase, UUID engagementId, String prompt, int promptVersion,
                           AiResponseParser<T> parser, Supplier<T> fallback) {
         long start = System.currentTimeMillis();
-        long budgetMs = budgetFor(AiTaskType.fromUseCase(useCase));
+        long budgetMs = "persona_dialogue".equals(useCase) ? meetingTimeoutMs : budgetFor(AiTaskType.fromUseCase(useCase));
         long deadline = start + budgetMs;
         try {
             AiValidatedResponse<T> response = callValidated(useCase, prompt, parser, remainingMillis(deadline));

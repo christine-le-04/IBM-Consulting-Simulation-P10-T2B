@@ -154,6 +154,7 @@ class MeetingMessageReplayServiceTest {
         MeetingTurnResult result = service.sendMessage(data.meeting().getId(), data.userId(), "Hello", "early-close");
 
         assertThat(result.personaTurn().content()).doesNotContain("Friday");
+        assertThat(result.personaTurn().content()).contains("What would you like to confirm with me?");
         assertThat(result.meetingSignals()).doesNotContain("client_ready_to_close");
         assertThat(result.completedMeeting()).isNull();
         assertThat(data.meeting().getStatus().name()).isEqualTo("IN_PROGRESS");
@@ -161,7 +162,11 @@ class MeetingMessageReplayServiceTest {
 
     @Test
     void lastAllowedResponseCompletesWithFailedDebriefAndRetry() {
-        stubDiscoveryReply();
+        doReturn(new PersonaTurnResponse("I'll see you on Friday.", List.of(),
+                com.ibm.consulting.sim.ai.domain.PersonaStateDelta.zero(), List.of(), null,
+                List.of("client_ready_to_close"), new PersonaTurnResponse.SafetyCheck(true, null)))
+                .when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
+                        anyString(), anyInt(), any(), any());
         for (int i = 0; i < data.profile().meetingTurnLimit() - 1; i++) {
             turnRepository.save(ConversationTurn.learnerTurn(data.meeting().getId(), i * 2 + 1,
                     "Previous question " + i));
@@ -181,11 +186,16 @@ class MeetingMessageReplayServiceTest {
         assertThat(result.completedMeeting().meetingRetryAvailable()).isTrue();
         assertThat(result.completedMeeting().debriefFeedback()).isNotBlank();
         assertThat(data.meeting().getStatus().name()).isEqualTo("COMPLETED");
+        assertThat(result.personaTurn().content()).contains("end of our time").doesNotContain("?", "Friday");
+        assertThat(turnRepository.turns.getLast().getContent()).isEqualTo(result.personaTurn().content());
+        assertThat(result.meetingSignals()).doesNotContain("client_ready_to_close", "client_committed_next_step");
     }
 
     @Test
     void gatePassedMeetingConcludesEvenWhenProviderKeepsDiscoveryOpen() {
-        stubDiscoveryReply();
+        doReturn(PersonaTurnResponse.safeFallback("What would you like to confirm with me?"))
+                .when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
+                        anyString(), anyInt(), any(), any());
         for (int i = 0; i < 3; i++) {
             turnRepository.save(ConversationTurn.learnerTurn(data.meeting().getId(), i * 2 + 1, "Earlier discovery " + i));
             turnRepository.save(ConversationTurn.personaTurn(data.meeting().getId(), i * 2 + 2, "Client fact", ""));
@@ -206,6 +216,7 @@ class MeetingMessageReplayServiceTest {
         assertThat(result.completedMeeting().completionOutcome()).isEqualTo("PASSED");
         assertThat(result.meetingSignals()).contains("client_ready_to_close");
         assertThat(data.engagement().getState()).isEqualTo(EngagementState.DISCOVERY_COMPLETE);
+        assertThat(result.personaTurn().content()).doesNotContain("?");
     }
 
     private TestData inProgressMeeting() {

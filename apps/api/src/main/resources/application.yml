@@ -137,16 +137,15 @@ app:
     embedding-model-id: ${WATSONX_EMBEDDING_MODEL_ID:ibm/slate-125m-english-rtrvr}
     mock-mode: ${WATSONX_MOCK_MODE:true}
   ai:
-    # Governs the ENTIRE AiProviderRouter.complete() call, which may try more than
-    # one provider in sequence on failure (Gemini -> watsonx -> OpenRouter, each with
-    # its own shorter per-provider timeout below) — sized with headroom above the sum
-    # of two provider attempts, not just one, so a single unhealthy provider doesn't
-    # eat the whole budget and force a premature fallback ("Sorry, could you repeat
-    # that?") while a healthy next candidate would have succeeded in time.
+    # Overall budget for assessment feedback. Other tasks use their specific
+    # budgets below, including provider failover and any JSON repair attempt.
     timeout-ms: ${AI_TIMEOUT_MS:20000}
     # End-to-end budget for latency-sensitive dialogue, including provider failover
     # and any JSON repair attempt. The orchestration layer never exceeds this total.
     conversation-timeout-ms: ${AI_CONVERSATION_TIMEOUT_MS:14000}
+    # Live meetings use STOMP and can allow longer replies without exceeding
+    # the shorter HTTP timeout used by other conversation flows such as outreach.
+    meeting-timeout-ms: ${AI_MEETING_TIMEOUT_MS:25000}
     # Client Intelligence must feel immediate. If a provider cannot return a
     # schema-valid response inside this budget, the service returns deterministic
     # scenario-safe artefacts and records the fallback in ai_traces.
@@ -190,7 +189,7 @@ app:
     # candidate instead of waiting out a doomed call's full timeout.
     circuit-breaker:
       failure-rate-threshold: ${AI_CIRCUIT_FAILURE_RATE_THRESHOLD:50}
-      wait-duration-seconds: ${AI_CIRCUIT_WAIT_DURATION_SECONDS:60}
+      wait-duration-seconds: ${AI_CIRCUIT_WAIT_DURATION_SECONDS:30}
       sliding-window-size: ${AI_CIRCUIT_SLIDING_WINDOW_SIZE:10}
       minimum-calls: ${AI_CIRCUIT_MINIMUM_CALLS:5}
     providers:
@@ -204,7 +203,7 @@ app:
         api-key: ${GEMINI_API_KEY:}
         base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
         model-id: ${GEMINI_MODEL_ID:gemini-2.5-flash}
-        timeout-ms: ${GEMINI_TIMEOUT_MS:8000}
+        timeout-ms: ${GEMINI_TIMEOUT_MS:20000}
         daily-quota: ${AI_GEMINI_DAILY_QUOTA:1000}
       openrouter:
         api-key: ${OPENROUTER_API_KEY:}

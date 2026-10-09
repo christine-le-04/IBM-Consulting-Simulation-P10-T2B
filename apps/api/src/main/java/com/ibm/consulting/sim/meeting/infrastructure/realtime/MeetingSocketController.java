@@ -1,6 +1,7 @@
 package com.ibm.consulting.sim.meeting.infrastructure.realtime;
 
 import com.ibm.consulting.sim.identity.domain.User;
+import com.ibm.consulting.sim.ai.domain.AiProviderException;
 import com.ibm.consulting.sim.meeting.application.MeetingService;
 import com.ibm.consulting.sim.meeting.application.MeetingTurnResult;
 import com.ibm.consulting.sim.meeting.application.GuidedMeetingResponseService;
@@ -95,8 +96,12 @@ public class MeetingSocketController {
                 generateFallbackOptionsWhenNeeded(result, meetingId, userId, topic);
             } catch (Exception e) {
                 log.error("WebSocket meeting turn failed for meeting {}", meetingId, e);
+                Map<String, String> error = e instanceof AiProviderException
+                        ? Map.of("code", "AI_REPLY_UNAVAILABLE", "message",
+                                "The client could not reply just now. Your turn was not recorded. Please try again.")
+                        : Map.of("message", "Failed to process message");
                 messagingTemplate.convertAndSend(topic,
-                        new SocketEvent("turn.error", Map.of("message", "Failed to process message")));
+                        new SocketEvent("turn.error", error));
             }
         });
     }
