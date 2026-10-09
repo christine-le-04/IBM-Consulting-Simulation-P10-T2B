@@ -250,6 +250,46 @@ describe('ProposalStudioPage document', () => {
 describe('ProposalStudioPage submit and review', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it.each([
+    ['problemStatement', 'Problem statement (Foundation)', 'must not be blank'],
+    ['budget', 'Estimated budget (Value & commercial)', 'must be greater than or equal to 0'],
+    ['evidenceLinks[0].sourceId', 'Attached evidence (Evidence & review), item 1 — Evidence source', 'must not be blank'],
+    ['risks[1].severity', 'Risks (Risks & assumptions), item 2 — Severity', 'must match "(?:|LOW|MEDIUM|HIGH)"'],
+    ['components[2]', 'Solution components (Foundation), item 3', 'must not be null'],
+    ['PROBLEM_REQUIRED', 'Describe the client problem', 'Describe the problem in more detail.'],
+    ['futureField', 'future Field', 'invalid'],
+  ])('names the field for a %s submission violation', (field, label, message) => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, submitProposal: {
+      ...studio.submitProposal, isError: true,
+      error: { isAxiosError: true, response: { status: 400, data: {
+        detail: 'Request validation failed', violations: { [field]: message },
+      } } },
+    } } as unknown as ReturnType<typeof useProposalStudio>)
+    renderPage()
+
+    const errors = screen.getByRole('list', { name: 'Proposal validation errors' })
+    expect(within(errors).getByText(label)).toBeInTheDocument()
+    expect(errors).toHaveTextContent(`${label}: ${message}`)
+    expect(errors).not.toHaveTextContent('Review this part of your proposal')
+  })
+
+  it('names fields when draft autosave fails as well as submission', () => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, saveState: 'error', saveDraft: {
+      ...studio.saveDraft,
+      error: { isAxiosError: true, response: { status: 400, data: {
+        violations: { timelineWeeks: 'must be greater than 0' },
+      } } },
+    } } as unknown as ReturnType<typeof useProposalStudio>)
+    renderPage()
+
+    expect(screen.getByRole('list', { name: 'Proposal validation errors' }))
+      .toHaveTextContent('Total timeline (Delivery plan): must be greater than 0')
+  })
+
   it('keeps the "Before you submit" checklist in the outline', () => {
     setup([])
     renderPage()
