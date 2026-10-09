@@ -302,10 +302,18 @@ public class MeetingService {
         meeting.recordBehaviourAssessment(nextSequence, assessment);
         personaStateRepository.save(state);
 
+        var relationshipTermination = MeetingSafetyPolicy.evaluate(learnerMessage, state)
+                .filter(decision -> decision.reason() == MeetingTerminationReason.RELATIONSHIP_THRESHOLD_BREACH);
+        boolean turnLimitReached = learnerTurnCount + 1 >= profile.meetingTurnLimit();
         // The simulation engine owns lifecycle truth. A provider cannot keep a
-        // passed meeting alive by asking another question or omitting a signal.
-        if (MeetingClosingPolicy.canConclude(state, profile, conclusionRequired, (int) learnerTurnCount + 1)) {
+        // passed meeting alive or ask an unanswered question on a terminal turn.
+        if (relationshipTermination.isPresent()) {
+            aiResponse = MeetingClosingResponsePolicy.endWithoutAgreement(aiResponse, false);
+        } else if (MeetingClosingPolicy.canConclude(state, profile, conclusionRequired, (int) learnerTurnCount + 1)
+                || (turnLimitReached && MeetingCompletionPolicy.evaluate(state, profile).passed())) {
             aiResponse = MeetingClosingResponsePolicy.conclude(aiResponse);
+        } else if (turnLimitReached) {
+            aiResponse = MeetingClosingResponsePolicy.endWithoutAgreement(aiResponse, true);
         } else if (!MeetingNaturalCompletionPolicy.shouldConclude(
                 state, profile, aiResponse.meetingSignals(), (int) learnerTurnCount + 1)) {
             aiResponse = MeetingClosingResponsePolicy.keepOpen(aiResponse);
@@ -316,8 +324,6 @@ public class MeetingService {
                 meeting.getId(), nextSequence + 1, aiResponse.spokenResponse(), signals);
         turnRepository.save(personaTurn);
 
-        var relationshipTermination = MeetingSafetyPolicy.evaluate(learnerMessage, state)
-                .filter(decision -> decision.reason() == MeetingTerminationReason.RELATIONSHIP_THRESHOLD_BREACH);
         MeetingRetryEligibility retryEligibility = relationshipTermination
                 .map(decision -> completeAutomatically(meeting, engagement, state, decision))
                 .orElse(null);
@@ -326,7 +332,7 @@ public class MeetingService {
         if (relationshipTermination.isEmpty() && MeetingNaturalCompletionPolicy.shouldConclude(
                 state, profile, aiResponse.meetingSignals(), (int) learnerTurnCount + 1)) {
             completedMeeting = completeMeeting(meeting, engagement, state, profile);
-        } else if (relationshipTermination.isEmpty() && learnerTurnCount + 1 >= profile.meetingTurnLimit()) {
+        } else if (relationshipTermination.isEmpty() && turnLimitReached) {
             completedMeeting = completeMeeting(meeting, engagement, state, profile);
         }
         MeetingResponseOptionsResponse nextResponseOptions = completedMeeting == null && relationshipTermination.isEmpty()

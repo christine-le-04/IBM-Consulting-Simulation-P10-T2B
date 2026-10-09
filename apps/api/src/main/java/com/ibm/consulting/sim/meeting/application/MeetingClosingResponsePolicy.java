@@ -55,4 +55,18 @@ final class MeetingClosingResponsePolicy {
                 response.safety(),
                 List.of());
     }
+
+    static PersonaTurnResponse endWithoutAgreement(PersonaTurnResponse response, boolean timeLimitReached) {
+        String closing = timeLimitReached
+                ? "We have reached the end of our time today. I need clearer agreement on the priorities, constraints "
+                        + "and success measures before we can move forward. Thank you for the conversation."
+                : "I do not have enough confidence to continue this discussion today. Let's pause here. "
+                        + "We can revisit this when the outstanding concerns have been addressed.";
+        return new PersonaTurnResponse(closing, response.detectedLearnerBehaviours(), response.stateDelta(),
+                response.factsDisclosed(), null, response.meetingSignals().stream()
+                        .filter(signal -> !signal.equals("client_ready_to_close")
+                                && !signal.equals("client_committed_next_step")
+                                && !signal.equals("client_concern_raised")).toList(),
+                response.safety(), List.of());
+    }
 }
