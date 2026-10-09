@@ -102,4 +102,27 @@ describe('live meeting connection errors', () => {
 
     expect(result.current.error).toBe('The client could not reply just now. Send your message again.')
   })
+
+  it('explains a provider outage and allows the learner to retry', async () => {
+    const { result, client } = renderSocket()
+    act(() => client.onConnect())
+    const onFrame = (client.subscribe as unknown as { mock: { calls: [string, (frame: { body: string }) => void][] } }).mock.calls[0][1]
+    let pending: Promise<boolean>
+    act(() => { pending = result.current.sendMessage('A longer discovery question') })
+    expect(result.current.isStreaming).toBe(true)
+    await act(async () => {
+      onFrame({ body: JSON.stringify({ type: 'turn.error', payload: { code: 'AI_REPLY_UNAVAILABLE', message: 'Provider failed' } }) })
+      expect(await pending!).toBe(false)
+    })
+
+    expect(result.current.error).toBe('The client could not reply just now. Your turn was not recorded. Please try again.')
+    expect(result.current.isStreaming).toBe(false)
+    expect(result.current.streamingText).toBe('')
+    act(() => { pending = result.current.sendMessage('A longer discovery question') })
+    expect(client.publish).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      onFrame({ body: JSON.stringify({ type: 'turn.error', payload: { code: 'AI_REPLY_UNAVAILABLE', message: 'Provider failed' } }) })
+      expect(await pending!).toBe(false)
+    })
+  })
 })

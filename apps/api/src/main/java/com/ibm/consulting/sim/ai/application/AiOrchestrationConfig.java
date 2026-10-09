@@ -31,7 +31,7 @@ public class AiOrchestrationConfig {
     @Bean
     public CircuitBreakerRegistry aiCircuitBreakerRegistry(
             @Value("${app.ai.circuit-breaker.failure-rate-threshold:50}") float failureRateThreshold,
-            @Value("${app.ai.circuit-breaker.wait-duration-seconds:60}") long waitDurationSeconds,
+            @Value("${app.ai.circuit-breaker.wait-duration-seconds:30}") long waitDurationSeconds,
             @Value("${app.ai.circuit-breaker.sliding-window-size:10}") int slidingWindowSize,
             @Value("${app.ai.circuit-breaker.minimum-calls:5}") int minimumNumberOfCalls) {
         CircuitBreakerConfig config = CircuitBreakerConfig.custom()

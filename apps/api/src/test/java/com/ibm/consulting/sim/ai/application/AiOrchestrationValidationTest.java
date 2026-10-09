@@ -7,6 +7,7 @@ import com.ibm.consulting.sim.ai.domain.AiTraceStatus;
 import com.ibm.consulting.sim.ai.infrastructure.PersonaTurnResponseParser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Set;
 import java.util.UUID;
@@ -31,6 +32,29 @@ class AiOrchestrationValidationTest {
     private final AiTraceRecorder traces = mock(AiTraceRecorder.class);
     private final PersonaTurnResponseParser parser = new PersonaTurnResponseParser(
             new ObjectMapper(), Set.of("budget_signal"));
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void longerMeetingBudgetDoesNotChangeOutreachBudget() {
+        ObjectProvider<AiProviderRouter> routers = mock(ObjectProvider.class);
+        AiProviderRouter router = mock(AiProviderRouter.class);
+        when(routers.getIfAvailable()).thenReturn(router);
+        when(router.<String>completeFirstValid(anyString(), anyString(), any(), anyLong()))
+                .thenReturn(new AiValidatedResponse<>("reply", "gemini-free"));
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            AiOrchestrationService service = new AiOrchestrationService(gateway, routers, traces, executor,
+                    1_000, 2_000, 6_000, 1_000, 1_000, "model");
+            service.execute("persona_dialogue", UUID.randomUUID(), "prompt", 1, raw -> raw, () -> "fallback");
+            service.execute("outreach_evaluation", UUID.randomUUID(), "prompt", 1, raw -> raw, () -> "fallback");
+
+            ArgumentCaptor<Long> meetingBudget = ArgumentCaptor.forClass(Long.class);
+            ArgumentCaptor<Long> outreachBudget = ArgumentCaptor.forClass(Long.class);
+            verify(router).completeFirstValid(eq("persona_dialogue"), anyString(), any(), meetingBudget.capture());
+            verify(router).completeFirstValid(eq("outreach_evaluation"), anyString(), any(), outreachBudget.capture());
+            assertThat(meetingBudget.getValue()).isBetween(2_001L, 6_000L);
+            assertThat(outreachBudget.getValue()).isBetween(1L, 2_000L);
+        }
+    }
 
     @Test
     void repairsMalformedOutputBeforeReturningAValidatedTurn() {
@@ -89,6 +113,6 @@ class AiOrchestrationValidationTest {
         ObjectProvider<AiProviderRouter> routers = mock(ObjectProvider.class);
         when(routers.getIfAvailable()).thenReturn(null);
         return new AiOrchestrationService(gateway, routers, traces, executor,
-                5_000, 5_000, 5_000, 5_000, "model");
+                5_000, 5_000, 5_000, 5_000, 5_000, "model");
     }
 }
