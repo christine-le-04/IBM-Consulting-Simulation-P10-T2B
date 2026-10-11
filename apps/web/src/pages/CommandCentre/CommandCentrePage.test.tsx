@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import CommandCentrePage from './CommandCentrePage'
@@ -156,6 +156,30 @@ function withCatalogue(items: ScenarioSummary[]) {
 }
 
 describe('Office: engagements on the floor', () => {
+  it('keeps the welcome separate from Dana and places her guidance above other engagements', () => {
+    setup([makeEngagement({})])
+    renderPage()
+
+    const welcome = screen.getByRole('heading', { name: 'Welcome back, Viet.' })
+    expect(within(welcome.parentElement!).queryByText('Dana')).not.toBeInTheDocument()
+    const sidebar = screen.getByRole('complementary', { name: 'Engagement overview' })
+    const dana = within(sidebar).getByText('Dana')
+    const otherEngagements = within(sidebar).getByRole('heading', { name: 'Other engagements' })
+    expect(dana.compareDocumentPosition(otherEngagements) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('places recently completed engagements below the active client in the main column', () => {
+    setup([makeEngagement({})])
+    renderPage()
+
+    const floor = screen.getByRole('heading', { name: 'Acme Insurance' }).closest('section')!
+    const completed = screen.getByRole('heading', { name: 'Recently completed' }).closest('section')!
+    expect(completed.parentElement).toBe(floor.parentElement)
+    expect(floor.nextElementSibling).toBe(completed)
+    const sidebar = screen.getByRole('complementary', { name: 'Engagement overview' })
+    expect(within(sidebar).queryByRole('heading', { name: 'Recently completed' })).not.toBeInTheDocument()
+  })
+
   it('puts the most recent engagement on the floor with a way to continue it', () => {
     setup([
       makeEngagement({ id: 'eng-old', createdAt: '2026-07-01T10:00:00Z', leadCompanyName: 'Older Client' }),
