@@ -250,7 +250,7 @@ describe('ProposalStudioPage document', () => {
 describe('ProposalStudioPage submit and review', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('shows all completeness findings together when a blank proposal is rejected', () => {
+  it('places completeness findings beside fields and marks every affected outline section', async () => {
     setup([])
     const studio = mockedUseProposalStudio('eng-1')
     mockedUseProposalStudio.mockReturnValue({ ...studio, submitProposal: {
@@ -269,13 +269,35 @@ describe('ProposalStudioPage submit and review', () => {
     } } as unknown as ReturnType<typeof useProposalStudio>)
     renderPage()
 
-    const findings = screen.getByRole('list', { name: 'Proposal validation errors' })
-    expect(within(findings).getAllByRole('listitem')).toHaveLength(7)
-    for (const label of ['Describe the client problem', 'Explain your recommendation',
-      'Add a measurable outcome', 'Document delivery risks', 'Add delivery milestones',
-      'State your assumptions', 'Attach supporting evidence']) {
-      expect(within(findings).getByText(label)).toBeInTheDocument()
+    expect(screen.getByText('Your proposal needs attention')).toBeInTheDocument()
+    expect(screen.getByText('Describe the client problem')).toBeInTheDocument()
+    expect(screen.getByText('Explain your recommendation')).toBeInTheDocument()
+    expect(screen.getByLabelText('Problem statement')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Problem statement')).toHaveAttribute('aria-describedby', 'proposal-errors-problemStatement')
+    expect(screen.queryByRole('list', { name: 'Proposal validation errors' })).not.toBeInTheDocument()
+    for (const label of ['Foundation, 2 validation findings', 'Value & commercial, 1 validation finding',
+      'Delivery plan, 1 validation finding', 'Risks & assumptions, 1 validation finding',
+      'Evidence & review, 2 validation findings']) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
+    expect(screen.queryByLabelText('Sections with validation findings')).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Evidence & review, 2 validation findings' }))
+    expect(studio.setActiveSection).toHaveBeenCalledWith('ASSUMPTIONS')
+  })
+
+  it('keeps confidence options editable with the compact dropdown', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() })
+    setupSection('OUTCOMES', {})
+    const studio = mockedUseProposalStudio('eng-1')
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('combobox', { name: 'Confidence' }))
+    expect(screen.getByRole('option', { name: 'Unconfirmed' })).toBeInTheDocument()
+    await user.click(screen.getByRole('option', { name: 'High' }))
+
+    const updater = vi.mocked(studio.updateDraft).mock.calls.at(-1)![0]
+    expect(updater(studio.draft).budgetConfidence).toBe('HIGH')
   })
 
   it('clears only resolved findings after a typing pause and restores them if the field becomes invalid', async () => {
@@ -309,14 +331,17 @@ describe('ProposalStudioPage submit and review', () => {
       expect(screen.getByText('Describe the client problem')).toBeInTheDocument()
       await act(async () => { vi.advanceTimersByTime(1) })
 
-      const findings = screen.getByRole('list', { name: 'Proposal validation errors' })
-      expect(within(findings).getAllByRole('listitem')).toHaveLength(2)
+      const findings = screen.getByRole('list', { name: 'Recommended solution (Foundation) validation errors' })
+      expect(within(findings).getAllByRole('listitem')).toHaveLength(1)
       expect(screen.queryByText('Describe the client problem')).not.toBeInTheDocument()
       expect(within(findings).getByText('Explain your recommendation')).toBeInTheDocument()
-      expect(within(findings).getByText('Attach supporting evidence')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Evidence & review, 1 validation finding' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Foundation, 1 validation finding' })).toBeInTheDocument()
+      expect(screen.getByLabelText('Problem statement')).toHaveAttribute('aria-invalid', 'false')
       rerenderDraft('')
       await act(async () => { vi.advanceTimersByTime(300) })
       expect(screen.getByText('Describe the client problem')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Foundation, 2 validation findings' })).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }
@@ -349,24 +374,24 @@ describe('ProposalStudioPage submit and review', () => {
     )
 
     expect(screen.queryByText('Submitting proposal')).not.toBeInTheDocument()
-    expect(screen.getByRole('list', { name: 'Proposal validation errors' }))
+    expect(screen.getByRole('list', { name: 'Problem statement (Foundation) validation errors' }))
       .toHaveTextContent('Problem statement (Foundation): must not be blank')
     expect(screen.getByRole('button', { name: 'Submit to client' })).toBeEnabled()
     expect(screen.getByLabelText('Problem statement')).not.toHaveAttribute('readonly')
   })
 
   it.each([
-    ['problemStatement', 'Problem statement (Foundation)', 'must not be blank'],
-    ['budget', 'Estimated budget (Value & commercial)', 'must be greater than or equal to 0'],
-    ['evidenceLinks[0].sourceId', 'Attached evidence (Evidence & review), item 1 — Evidence source', 'must not be blank'],
-    ['risks[1].severity', 'Risks (Risks & assumptions), item 2 — Severity', 'must match "(?:|LOW|MEDIUM|HIGH)"'],
-    ['components[2]', 'Solution components (Foundation), item 3', 'must not be null'],
-    ['PROBLEM_REQUIRED', 'Describe the client problem', 'Describe the problem in more detail.'],
-    ['futureField', 'future Field', 'invalid'],
-  ])('names the field for a %s submission violation', (field, label, message) => {
+    ['problemStatement', 'Problem statement (Foundation)', 'must not be blank', 'PROBLEM'],
+    ['budget', 'Estimated budget (Value & commercial)', 'must be greater than or equal to 0', 'OUTCOMES'],
+    ['evidenceLinks[0].sourceId', 'Attached evidence (Evidence & review), item 1 — Evidence source', 'must not be blank', 'ASSUMPTIONS'],
+    ['risks[1].severity', 'Risks (Risks & assumptions), item 2 — Severity', 'must match "(?:|LOW|MEDIUM|HIGH)"', 'RISKS'],
+    ['components[2]', 'Solution components (Foundation), item 3', 'must not be null', 'PROBLEM'],
+    ['PROBLEM_REQUIRED', 'Describe the client problem', 'Describe the problem in more detail.', 'PROBLEM'],
+    ['futureField', 'future Field', 'invalid', 'PROBLEM'],
+  ] as const)('names the field in its section for a %s submission violation', (field, label, message, activeSection) => {
     setup([])
     const studio = mockedUseProposalStudio('eng-1')
-    mockedUseProposalStudio.mockReturnValue({ ...studio, submitProposal: {
+    mockedUseProposalStudio.mockReturnValue({ ...studio, activeSection, submitProposal: {
       ...studio.submitProposal, isError: true,
       error: { isAxiosError: true, response: { status: 400, data: {
         detail: 'Request validation failed', violations: { [field]: message },
@@ -374,16 +399,15 @@ describe('ProposalStudioPage submit and review', () => {
     } } as unknown as ReturnType<typeof useProposalStudio>)
     renderPage()
 
-    const errors = screen.getByRole('list', { name: 'Proposal validation errors' })
-    expect(within(errors).getByText(label)).toBeInTheDocument()
-    expect(errors).toHaveTextContent(`${label}: ${message}`)
-    expect(errors).not.toHaveTextContent('Review this part of your proposal')
+    const finding = screen.getByText(label).closest('li')!
+    expect(finding).toHaveTextContent(`${label}: ${message}`)
+    expect(finding).not.toHaveTextContent('Review this part of your proposal')
   })
 
   it('names fields when draft autosave fails as well as submission', () => {
     setup([])
     const studio = mockedUseProposalStudio('eng-1')
-    mockedUseProposalStudio.mockReturnValue({ ...studio, saveState: 'error', saveDraft: {
+    mockedUseProposalStudio.mockReturnValue({ ...studio, activeSection: 'TIMELINE', saveState: 'error', saveDraft: {
       ...studio.saveDraft,
       error: { isAxiosError: true, response: { status: 400, data: {
         violations: { timelineWeeks: 'must be greater than 0' },
@@ -391,8 +415,39 @@ describe('ProposalStudioPage submit and review', () => {
     } } as unknown as ReturnType<typeof useProposalStudio>)
     renderPage()
 
-    expect(screen.getByRole('list', { name: 'Proposal validation errors' }))
+    expect(screen.getByRole('list', { name: 'Total timeline (Delivery plan) validation errors' }))
       .toHaveTextContent('Total timeline (Delivery plan): must be greater than 0')
+  })
+
+  it('keeps network failures in the summary without marking proposal fields as invalid', () => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, saveState: 'error', saveDraft: {
+      ...studio.saveDraft,
+      error: { isAxiosError: true, response: { status: 503, data: { detail: 'Service temporarily unavailable. Try again.' } } },
+    } } as unknown as ReturnType<typeof useProposalStudio>)
+    renderPage()
+
+    expect(screen.getByText('Proposal could not be saved or submitted')).toBeInTheDocument()
+    expect(screen.getByText('Service temporarily unavailable. Try again.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Problem statement')).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.queryByRole('button', { name: /validation finding/ })).not.toBeInTheDocument()
+  })
+
+  it('shows evidence findings beside attached sources when their section is opened', () => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, activeSection: 'ASSUMPTIONS', submitProposal: {
+      ...studio.submitProposal, isError: true,
+      error: { isAxiosError: true, response: { status: 422, data: { violations: {
+        EVIDENCE_REQUIRED: 'Attach evidence.', ASSUMPTIONS: 'State assumptions.',
+      } } } },
+    } } as unknown as ReturnType<typeof useProposalStudio>)
+    renderPage()
+
+    expect(screen.getByRole('list', { name: 'Attached evidence (Evidence & review) validation errors' }))
+      .toHaveTextContent('Attach supporting evidence: Attach evidence.')
+    expect(screen.getByLabelText('Assumption or dependency 1')).toHaveAttribute('aria-describedby', 'proposal-errors-assumptions')
   })
 
   it('keeps the "Before you submit" checklist in the outline', () => {

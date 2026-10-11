@@ -32,7 +32,7 @@ import { useMentor } from '@/components/shell/useMentor'
 import { ProposalOutcomeView } from '@/features/proposal/components/ProposalOutcomeView'
 import { useProposalStudio } from '@/features/proposal/hooks/useProposalStudio'
 import { proposalSections } from '@/features/proposal/services/proposalDraftService'
-import { remainingProposalViolations } from '@/features/proposal/services/proposalValidationService'
+import { proposalViolationLocation, remainingProposalViolations } from '@/features/proposal/services/proposalValidationService'
 import { currentContactOf } from '@/lifecycle/contactSelection'
 import styles from './ProposalStudioPage.module.scss'
 
@@ -125,18 +125,19 @@ function useFocusAddedRow(count: number) {
   return { container, markAdded: () => { added.current = true } }
 }
 
-function Table<T extends object>({ columns, rows, empty, onChange, readOnly = false }: {
+function Table<T extends object>({ columns, rows, empty, onChange, readOnly = false, errorId }: {
   columns: [keyof T & string, string][]
   rows: T[]
   empty: T
   onChange: (rows: T[]) => void
   readOnly?: boolean
+  errorId?: string
 }) {
   const edit = (index: number, key: keyof T & string, value: string) =>
     onChange(rows.map((item, position) => (position === index ? { ...item, [key]: value } : item)))
   const { container, markAdded } = useFocusAddedRow(rows.length)
   return (
-    <div className={styles.table} ref={(node) => { container.current = node }}>
+    <div className={styles.table} role="group" aria-invalid={Boolean(errorId)} aria-describedby={errorId} ref={(node) => { container.current = node }}>
       <table>
         <thead><tr>{columns.map(([, label]) => <th key={label}>{label}</th>)}{!readOnly && <th aria-label="Remove" />}</tr></thead>
         <tbody>
@@ -165,13 +166,13 @@ function Table<T extends object>({ columns, rows, empty, onChange, readOnly = fa
   )
 }
 
-function Bullets({ items, label, placeholder, onChange, readOnly = false }: { items: string[]; label: string; placeholder: string; onChange: (items: string[]) => void; readOnly?: boolean }) {
+function Bullets({ items, label, placeholder, onChange, readOnly = false, errorId }: { items: string[]; label: string; placeholder: string; onChange: (items: string[]) => void; readOnly?: boolean; errorId?: string }) {
   const { container, markAdded } = useFocusAddedRow(items.length)
   return (
     <ul className={styles.bullets} ref={(node) => { container.current = node }}>
       {items.map((item, index) => (
         <li key={index} data-row>
-          <input value={item} readOnly={readOnly} placeholder={placeholder} aria-label={`${label} ${index + 1}`} onChange={(event) => onChange(items.map((value, position) => (position === index ? event.target.value : value)))} />
+          <input value={item} readOnly={readOnly} placeholder={placeholder} aria-label={`${label} ${index + 1}`} aria-invalid={Boolean(errorId)} aria-describedby={errorId} onChange={(event) => onChange(items.map((value, position) => (position === index ? event.target.value : value)))} />
           {!readOnly && <button type="button" aria-label={`Remove item ${index + 1}`} onClick={() => onChange(items.length === 1 ? [''] : items.filter((_, position) => position !== index))}><TrashCan size={14} /></button>}
         </li>
       ))}
@@ -234,6 +235,18 @@ export default function ProposalStudioPage() {
   const proposalProblem = originalProblem && (!remainingViolations || Object.keys(remainingViolations).length > 0)
     ? { ...originalProblem, violations: remainingViolations }
     : null
+  const findings = Object.entries(proposalProblem?.violations ?? {})
+  const findingsFor = (field: string) => findings.filter(([code]) => proposalViolationLocation(code)?.field === field)
+  const errorId = (field: string) => findingsFor(field).length ? `proposal-errors-${field}` : undefined
+  const fieldErrors = (field: string) => findingsFor(field).length > 0 && (
+    <ul id={errorId(field)} className={styles.fieldErrors} aria-label={`${validationLabel(field)} validation errors`}>
+      {findingsFor(field).map(([code, message]) => (
+        <li key={code}><WarningAlt size={16} aria-hidden="true" /><span><strong>{validationLabel(code)}</strong>: {message}</span></li>
+      ))}
+    </ul>
+  )
+  const sectionFindings = (section: string) => findings.filter(([code]) => proposalViolationLocation(code)?.section === section)
+  const unplacedFindings = findings.filter(([code]) => !proposalViolationLocation(code))
 
   useEffect(() => {
     setSourcePage((current) => Math.min(current, sourcePageCount - 1))
@@ -371,10 +384,10 @@ export default function ProposalStudioPage() {
 
         {proposalProblem && (
           <div className={styles.problem}>
-            <InlineNotification kind="error" lowContrast title="Proposal could not be saved or submitted" subtitle={proposalProblem.detail} hideCloseButton />
-            {proposalProblem.violations && (
-              <ul aria-label="Proposal validation errors">
-                {Object.entries(proposalProblem.violations).map(([field, message]) => <li key={field}><strong>{validationLabel(field)}</strong>: {message}</li>)}
+            <InlineNotification kind="error" lowContrast title={findings.length ? 'Your proposal needs attention' : 'Proposal could not be saved or submitted'} subtitle={findings.length > unplacedFindings.length ? 'Open a marked section to review the findings beside its fields. Your draft is kept in this workspace.' : proposalProblem.detail} hideCloseButton />
+            {unplacedFindings.length > 0 && (
+              <ul aria-label="Additional proposal validation errors">
+                {unplacedFindings.map(([field, message]) => <li key={field}><strong>{validationLabel(field)}</strong>: {message}</li>)}
               </ul>
             )}
           </div>
@@ -397,9 +410,10 @@ export default function ProposalStudioPage() {
             <p className={styles.outlineTitle}>Outline</p>
             {proposalSections.map((section, index) => {
               const linked = draft.evidenceLinks.some((link) => link.section === section.id)
+              const findingCount = sectionFindings(section.id).length
               return (
-                <button key={section.id} type="button" className={activeSection === section.id ? styles.outlineActive : styles.outlineItem} onClick={() => studio.setActiveSection(section.id)}>
-                  <span>{linked ? <CheckmarkFilled size={14} /> : index + 1}</span>
+                <button key={section.id} type="button" aria-current={activeSection === section.id ? 'step' : undefined} aria-label={findingCount ? `${section.label}, ${findingCount} validation ${findingCount === 1 ? 'finding' : 'findings'}` : section.label} className={activeSection === section.id ? styles.outlineActive : styles.outlineItem} onClick={() => studio.setActiveSection(section.id)}>
+                  <span className={findingCount ? styles.outlineFinding : undefined} aria-hidden="true">{findingCount ? <WarningAlt size={16} /> : linked ? <CheckmarkFilled size={14} /> : index + 1}</span>
                   {section.label}
                 </button>
               )
@@ -426,12 +440,15 @@ export default function ProposalStudioPage() {
                   <p className={styles.guide}>State the client problem, then make the recommendation logic clear.</p>
                   <h2>Problem framing</h2>
                   <p className={styles.fieldHelp}>Describe the observed operational, commercial or risk impact. Minimum 20 characters.</p>
-                  <textarea className={styles.prose} aria-label="Problem statement" readOnly={readOnly} value={draft.problemStatement} onChange={(event) => updateDraft((current) => ({ ...current, problemStatement: event.target.value }))} />
+                  <textarea className={styles.prose} aria-label="Problem statement" aria-invalid={Boolean(errorId('problemStatement'))} aria-describedby={errorId('problemStatement')} readOnly={readOnly} value={draft.problemStatement} onChange={(event) => updateDraft((current) => ({ ...current, problemStatement: event.target.value }))} />
+                  {fieldErrors('problemStatement')}
                   <h2>Recommended solution</h2>
                   <p className={styles.fieldHelp}>Explain how the recommendation addresses the client problem. Minimum 20 characters, plus at least one solution component.</p>
-                  <textarea className={styles.prose} aria-label="Recommended solution" readOnly={readOnly} value={draft.solutionStrategy} onChange={(event) => updateDraft((current) => ({ ...current, solutionStrategy: event.target.value }))} />
+                  <textarea className={styles.prose} aria-label="Recommended solution" aria-invalid={Boolean(errorId('solutionStrategy'))} aria-describedby={errorId('solutionStrategy')} readOnly={readOnly} value={draft.solutionStrategy} onChange={(event) => updateDraft((current) => ({ ...current, solutionStrategy: event.target.value }))} />
+                  {fieldErrors('solutionStrategy')}
                   <h2>Solution components</h2>
-                  <Bullets readOnly={readOnly} items={draft.components} label="Solution component" placeholder="e.g. Integration pilot and workflow redesign" onChange={(components) => updateDraft((current) => ({ ...current, components }))} />
+                  <Bullets readOnly={readOnly} errorId={errorId('components') ?? errorId('solutionStrategy')} items={draft.components} label="Solution component" placeholder="e.g. Integration pilot and workflow redesign" onChange={(components) => updateDraft((current) => ({ ...current, components }))} />
+                  {fieldErrors('components')}
                 </>
               )}
 
@@ -444,17 +461,27 @@ export default function ProposalStudioPage() {
                   <Table
                     readOnly={readOnly}
                     columns={[['outcome', 'Business outcome'], ['metric', 'Metric'], ['target', 'Target']]}
+                    errorId={errorId('businessOutcomes')}
                     rows={draft.businessOutcomes}
                     empty={{ outcome: '', metric: '', target: '' }}
                     onChange={(businessOutcomes) => updateDraft((current) => ({ ...current, businessOutcomes }))}
                   />
+                  {fieldErrors('businessOutcomes')}
                   <h2>Commercials</h2>
                   <div className={styles.commercial}>
-                    <label>Estimated budget (USD)<input type="number" min={0} readOnly={readOnly} value={draft.budget} onChange={(event) => updateDraft((current) => ({ ...current, budget: Number(event.target.value) || 0 }))} /></label>
-                    <div className={styles.choiceCell}>
-                      <Choice id="budget-confidence" label="Confidence" disabled={readOnly} value={draft.budgetConfidence} options={BUDGET_CONFIDENCE} onChange={(budgetConfidence) => updateDraft((current) => ({ ...current, budgetConfidence }))} />
+                    <div>
+                      <label>Estimated budget (USD)<input type="number" min={0} aria-invalid={Boolean(errorId('budget'))} aria-describedby={errorId('budget')} readOnly={readOnly} value={draft.budget} onChange={(event) => updateDraft((current) => ({ ...current, budget: Number(event.target.value) || 0 }))} /></label>
+                      {fieldErrors('budget')}
                     </div>
-                    <label>Source / basis<input readOnly={readOnly} value={draft.budgetSource} onChange={(event) => updateDraft((current) => ({ ...current, budgetSource: event.target.value }))} /></label>
+                    <div className={styles.choiceCell} role="group" aria-label="Budget confidence" aria-describedby={errorId('budgetConfidence')}>
+                      <span className={styles.choiceLabel}>Confidence</span>
+                      <Choice id="budget-confidence" label="Confidence" hideLabel size="sm" disabled={readOnly} value={draft.budgetConfidence} options={BUDGET_CONFIDENCE} onChange={(budgetConfidence) => updateDraft((current) => ({ ...current, budgetConfidence }))} />
+                      {fieldErrors('budgetConfidence')}
+                    </div>
+                    <div>
+                      <label>Source / basis<input aria-invalid={Boolean(errorId('budgetSource'))} aria-describedby={errorId('budgetSource')} readOnly={readOnly} value={draft.budgetSource} onChange={(event) => updateDraft((current) => ({ ...current, budgetSource: event.target.value }))} /></label>
+                      {fieldErrors('budgetSource')}
+                    </div>
                   </div>
                 </>
               )}
@@ -464,16 +491,21 @@ export default function ProposalStudioPage() {
                   <h1>3. Timeline and milestones</h1>
                   <p className={styles.guide}>Translate the delivery window into observable milestones the client can evaluate.</p>
                   <div className={styles.commercial}>
-                    <label>Total timeline (weeks)<input type="number" min={1} readOnly={readOnly} value={draft.timelineWeeks} onChange={(event) => updateDraft((current) => ({ ...current, timelineWeeks: Number(event.target.value) || 1 }))} /></label>
+                    <div>
+                      <label>Total timeline (weeks)<input type="number" min={1} aria-invalid={Boolean(errorId('timelineWeeks'))} aria-describedby={errorId('timelineWeeks')} readOnly={readOnly} value={draft.timelineWeeks} onChange={(event) => updateDraft((current) => ({ ...current, timelineWeeks: Number(event.target.value) || 1 }))} /></label>
+                      {fieldErrors('timelineWeeks')}
+                    </div>
                   </div>
                   <h2>Milestones</h2>
                   <Table
                     readOnly={readOnly}
                     columns={[['phase', 'Phase / milestone'], ['duration', 'Timing']]}
+                    errorId={errorId('milestones')}
                     rows={draft.milestones}
                     empty={{ phase: '', duration: '' }}
                     onChange={(milestones) => updateDraft((current) => ({ ...current, milestones }))}
                   />
+                  {fieldErrors('milestones')}
                 </>
               )}
 
@@ -484,10 +516,12 @@ export default function ProposalStudioPage() {
                   <Table
                     readOnly={readOnly}
                     columns={[['risk', 'Risk'], ['severity', 'Severity'], ['mitigation', 'Mitigation']]}
+                    errorId={errorId('risks')}
                     rows={draft.risks}
                     empty={{ risk: '', severity: 'MEDIUM', mitigation: '' }}
                     onChange={(risks) => updateDraft((current) => ({ ...current, risks }))}
                   />
+                  {fieldErrors('risks')}
                 </>
               )}
 
@@ -496,7 +530,8 @@ export default function ProposalStudioPage() {
                   <h1>5. Evidence and assumptions</h1>
                   <p className={styles.guide}>Make the conditions behind the recommendation explicit. Attached evidence stays traceable by section.</p>
                   <h2>Assumptions and dependencies</h2>
-                  <Bullets readOnly={readOnly} items={draft.assumptions} label="Assumption or dependency" placeholder="e.g. Client SMEs are available for targeted validation" onChange={(assumptions) => updateDraft((current) => ({ ...current, assumptions }))} />
+                  <Bullets readOnly={readOnly} errorId={errorId('assumptions')} items={draft.assumptions} label="Assumption or dependency" placeholder="e.g. Client SMEs are available for targeted validation" onChange={(assumptions) => updateDraft((current) => ({ ...current, assumptions }))} />
+                  {fieldErrors('assumptions')}
                   <h2>Attached sources</h2>
                   {draft.evidenceLinks.length ? (
                     <ul className={styles.attachedList}>
@@ -508,6 +543,7 @@ export default function ProposalStudioPage() {
                       ))}
                     </ul>
                   ) : <p className={styles.fieldHelp}>No sources attached yet. Attach at least one source to the proposal. This scenario requires {coverageThreshold}% evidence coverage across up to {coverageTarget} available sources.</p>}
+                  {fieldErrors('evidenceLinks')}
                 </>
               )}
 

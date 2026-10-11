@@ -1,4 +1,26 @@
 import type { ProposalDraftRequest } from '@/api/hooks/useProposal'
+import type { ProposalSection } from './proposalDraftService'
+
+const FIELD_SECTIONS: Record<string, ProposalSection> = {
+  problemStatement: 'PROBLEM', solutionStrategy: 'PROBLEM', components: 'PROBLEM',
+  businessOutcomes: 'OUTCOMES', budget: 'OUTCOMES', budgetConfidence: 'OUTCOMES', budgetSource: 'OUTCOMES',
+  timelineWeeks: 'TIMELINE', milestones: 'TIMELINE', risks: 'RISKS',
+  assumptions: 'ASSUMPTIONS', evidenceLinks: 'ASSUMPTIONS',
+}
+
+const ISSUE_FIELDS: Record<string, string> = {
+  PROBLEM_REQUIRED: 'problemStatement', SOLUTION_REQUIRED: 'solutionStrategy', OUTCOME_REQUIRED: 'businessOutcomes',
+  RISK_COVERAGE: 'risks', TIMELINE_DETAIL: 'milestones', ASSUMPTIONS: 'assumptions',
+  EVIDENCE_REQUIRED: 'evidenceLinks', INVALID_EVIDENCE_LINK: 'evidenceLinks',
+  DIFFICULTY_EVIDENCE_COVERAGE: 'evidenceLinks', UNSUPPORTED_CLAIM: 'evidenceLinks',
+}
+
+/** Both completeness codes and nested request fields lead to the relevant editor section. */
+export function proposalViolationLocation(code: string) {
+  const field = ISSUE_FIELDS[code] ?? code.split(/[.\[]/)[0]
+  const section = FIELD_SECTIONS[field]
+  return section ? { field, section } : null
+}
 
 const filled = (value: string) => value.trim().length > 0
 

@@ -66,7 +66,7 @@ public final class ProposalValidationEngine {
             int coverage = clamp(Math.round(distinctLinks * 100f / requiredSourceCount));
             if (coverage < profile.proposalEvidenceCoverageThreshold()) {
                 issues.add(blocking("DIFFICULTY_EVIDENCE_COVERAGE",
-                        "This scenario requires %d%% evidence coverage; the current proposal covers %d%%."
+                        "This scenario requires %d%% evidence coverage. The current proposal covers %d%%."
                                 .formatted(profile.proposalEvidenceCoverageThreshold(), coverage), "EVIDENCE"));
             }
         }

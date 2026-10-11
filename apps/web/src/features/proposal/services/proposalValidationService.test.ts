@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createEmptyProposalDraft } from './proposalDraftService'
-import { remainingProposalViolations } from './proposalValidationService'
+import { proposalViolationLocation, remainingProposalViolations } from './proposalValidationService'
 
 const completeness = {
   PROBLEM_REQUIRED: 'Problem', SOLUTION_REQUIRED: 'Solution', OUTCOME_REQUIRED: 'Outcome',
@@ -8,6 +8,13 @@ const completeness = {
 }
 
 describe('proposal validation after edits', () => {
+  it('locates completeness and nested field findings without hiding unknown findings', () => {
+    expect(proposalViolationLocation('SOLUTION_REQUIRED')).toEqual({ field: 'solutionStrategy', section: 'PROBLEM' })
+    expect(proposalViolationLocation('risks[1].severity')).toEqual({ field: 'risks', section: 'RISKS' })
+    expect(proposalViolationLocation('budget')).toEqual({ field: 'budget', section: 'OUTCOMES' })
+    expect(proposalViolationLocation('INVALID_EVIDENCE_LINK')).toEqual({ field: 'evidenceLinks', section: 'ASSUMPTIONS' })
+    expect(proposalViolationLocation('FUTURE_RULE')).toBeNull()
+  })
   it('retains all findings for a blank draft or a single character', () => {
     const draft = createEmptyProposalDraft()
     expect(remainingProposalViolations(completeness, draft)).toEqual(completeness)

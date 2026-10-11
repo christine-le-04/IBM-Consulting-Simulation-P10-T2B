@@ -15,6 +15,14 @@
   display: flex;
   flex-direction: column;
   background: #f1f3f4;
+  font-family: var(--sim-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+
+  :where(p) {
+    font-size: inherit;
+    line-height: inherit;
+  }
 }
 
 @media (min-width: 82rem) and (min-height: 43.75rem) {
@@ -66,6 +74,18 @@
   padding: 0.5rem 1rem;
   background: #fff;
   border-bottom: 1px solid #dadce0;
+}
+
+.fieldErrors {
+  margin: 0.35rem 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #a2191f;
+
+  li { display: flex; align-items: flex-start; gap: 0.35rem; }
+  svg { flex: none; margin-top: 1px; fill: currentColor; }
 }
 
 .docName {
@@ -121,8 +141,18 @@
 
   @media (max-width: 1180px) {
     grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: auto minmax(0, 1fr);
 
-    .outline { display: none; }
+    .outline {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      overflow: visible;
+
+      .outlineTitle { margin: 0 0.5rem 0 0; }
+      .health { display: none; }
+    }
   }
 
   @media (max-width: 820px) {
@@ -173,6 +203,13 @@
   &:hover { background: #e8eaed; }
 }
 
+.outlineItem .outlineFinding,
+.outlineActive .outlineFinding {
+  color: #da1e28;
+
+  svg { fill: currentColor; }
+}
+
 .outlineActive {
   background: #d3e3fd;
   color: #041e49;
@@ -202,7 +239,32 @@
   max-width: 816px;
   width: 100%;
   margin: 0 auto;
-  font-family: var(--sim-serif);
+  font-family: inherit;
+  font-size: 0.875rem;
+
+  input,
+  textarea,
+  select,
+  :global(.cds--list-box__label) {
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: #6f6f6f;
+    opacity: 1;
+  }
+
+  input[aria-invalid='true'],
+  textarea[aria-invalid='true'] {
+    border-color: #da1e28;
+    box-shadow: inset 0 -1px #da1e28;
+  }
 
   h1 {
     margin: 0 0 0.3rem;
@@ -214,7 +276,7 @@
   h2 {
     margin: 1.5rem 0 0.2rem;
     font-family: var(--sim-sans);
-    font-size: 1rem;
+    font-size: 1.125rem;
     font-weight: 600;
   }
 
@@ -247,14 +309,15 @@
   font-family: var(--sim-sans);
   font-size: 0.875rem;
   color: #5f6368;
-  font-style: italic;
+  line-height: 1.5;
 }
 
 .fieldHelp {
   margin: 0 0 0.35rem;
   font-family: var(--sim-sans);
   font-size: 0.75rem;
-  color: #80868b;
+  color: #6f6f6f;
+  line-height: 1.5;
 }
 
 .prose {
@@ -264,8 +327,8 @@
   padding: 0.35rem 0.4rem;
   margin-left: -0.4rem;
   font: inherit;
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: 0.875rem;
+  line-height: 1.5;
   resize: vertical;
   outline: none;
 
@@ -290,7 +353,8 @@
     border: 0;
     border-bottom: 1px solid transparent;
     font: inherit;
-    font-size: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
     outline: none;
     padding: 0.2rem 0;
 
@@ -342,7 +406,6 @@
 
   :global(.cds--dropdown) {
     border-bottom: 0;
-    background: transparent;
   }
 
   input,
@@ -384,6 +447,24 @@
 
 .choiceCell {
   font-family: var(--sim-sans);
+
+  :global(.cds--dropdown) {
+    border: 1px solid #dadce0;
+  }
+}
+
+.choiceLabel {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.table,
+.choiceCell {
+  :global(.cds--dropdown) {
+    background: transparent;
+  }
 }
 
 .commercial {
@@ -401,12 +482,26 @@
     gap: 0.25rem;
   }
 
+  :global(.cds--label) {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  input,
+  select,
+  :global(.cds--dropdown) {
+    box-sizing: border-box;
+    block-size: 2.5rem;
+    max-block-size: 2.5rem;
+  }
+
   input,
   select {
     border: 1px solid #dadce0;
     padding: 0.45rem 0.5rem;
     font: inherit;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
     color: #202124;
   }
 
@@ -418,8 +513,8 @@
 .attachedList {
   margin: 0;
   padding-left: 1.2rem;
-  font-size: 0.9375rem;
-  line-height: 1.6;
+  font-size: 0.875rem;
+  line-height: 1.5;
 
   span {
     font-family: var(--sim-sans);
@@ -440,7 +535,7 @@
   p {
     margin: 0 0 0.3rem;
     font-family: var(--sim-sans);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #5f6368;
@@ -478,8 +573,7 @@
     color: #5f6368;
 
     span {
-      font-family: var(--sim-mono);
-      font-size: 0.6875rem;
+      font-size: 0.75rem;
     }
   }
 
@@ -516,7 +610,6 @@
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  font-family: var(--sim-mono);
 
   button {
     border: 0;
