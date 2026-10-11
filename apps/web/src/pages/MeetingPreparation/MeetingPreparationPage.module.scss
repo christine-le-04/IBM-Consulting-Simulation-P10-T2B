@@ -273,13 +273,15 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
 .linedList {
   // Rows grow a whole ruled line at a time, so wrapped questions stay on the paper's lines.
   li {
+    position: relative;
     min-height: 32px;
   }
 
   .itemNumber {
+    position: absolute;
+    inset-inline-start: -30px;
     width: auto;
     height: 32px;
-    margin-left: -30px;
     background: none;
     color: $note-red;
     font-family: $sans;
