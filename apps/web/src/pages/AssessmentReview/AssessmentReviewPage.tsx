@@ -174,13 +174,14 @@ export default function AssessmentReviewPage() {
                   <span>{competency.score}/100</span>
                 </div>
                 <div className={styles.bar} role="img" aria-label={`${competency.name}: ${competency.score} out of 100`}><i style={{ width: `${competency.score}%` }} /></div>
-                {competency.stage && competency.attemptCount != null && (
-                  <p>{competency.attemptCount} completed {competency.attemptCount === 1 ? 'attempt' : 'attempts'} total
-                    {competency.currentCycleAttempts != null && ` · ${competency.currentCycleAttempts} in the current checkpoint cycle`}
-                    {competency.checkpointResets != null && ` · ${competency.checkpointResets} checkpoint ${competency.checkpointResets === 1 ? 'reset' : 'resets'}`}
-                  </p>
-                )}
                 {competency.evidenceNote && <p>{competency.evidenceNote}</p>}
+                {competency.stage && competency.attemptCount != null && (
+                  <ul className={styles.attemptDetails} aria-label={`${stageLabels[competency.stage]} attempt details`}>
+                    <li>{competency.attemptCount} completed {competency.attemptCount === 1 ? 'attempt' : 'attempts'} total</li>
+                    {competency.currentCycleAttempts != null && <li>{competency.currentCycleAttempts} in the current checkpoint cycle</li>}
+                    {competency.checkpointResets != null && <li>{competency.checkpointResets} checkpoint {competency.checkpointResets === 1 ? 'reset' : 'resets'}</li>}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
