@@ -18,6 +18,7 @@ import styles from './shell.module.scss'
 export default function EngagementBar() {
   const { engagementId, engagement, viewingPhase } = useShellEngagement()
   const setMapOpen = useShellStore((s) => s.setMapOpen)
+  const caseFileOpen = useShellStore((s) => s.caseFileOpen)
   const setCaseFileOpen = useShellStore((s) => s.setCaseFileOpen)
   const briefDismissed = useShellStore((s) => s.briefDismissed)
   const setBriefDismissed = useShellStore((s) => s.setBriefDismissed)
@@ -59,8 +60,8 @@ export default function EngagementBar() {
         </span>
       </p>
 
-      <button type="button" className={styles.barButton} onClick={() => setCaseFileOpen(true)}>
-        <Folder size={16} /> <span className={styles.barLabel}>Case file</span>{' '}
+      <button type="button" className={styles.barButton} aria-expanded={caseFileOpen} aria-controls="case-file-panel" onClick={() => setCaseFileOpen(!caseFileOpen)}>
+        <Folder size={16} /> <span className={styles.barLabel}>{caseFileOpen ? 'Hide case file' : 'Show case file'}</span>{' '}
         <span className={styles.count} aria-label={`${usable} evidence items`}>{usable}</span>
       </button>
       <button type="button" className={styles.barButton} aria-pressed={!briefHidden} onClick={() => setBriefDismissed(key, !briefHidden)}>

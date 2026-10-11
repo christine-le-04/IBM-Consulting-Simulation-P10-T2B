@@ -29,7 +29,7 @@ export default function CaseFilePanel() {
   return (
     <>
       <div className={styles.scrim} onClick={close} aria-hidden="true" />
-      <aside className={styles.drawer} aria-label="Case file">
+      <aside id="case-file-panel" className={styles.drawer} aria-label="Case file">
         <header className={styles.drawerHeader}>
           <div>
             <p className={styles.eyebrow}>Working brief</p>
