@@ -10,7 +10,7 @@
 
 .eyebrow {
   margin: 0 0 0.35rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -19,7 +19,7 @@
 
 .note {
   margin: 0 0 1rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: var(--sim-ink-2);
   line-height: 1.5;
 }
@@ -37,7 +37,7 @@
 
 .greeting {
   margin: 0.25rem 0 0;
-  font-size: 2rem;
+  font-size: var(--sim-font-title);
   font-weight: 300;
   line-height: 1.15;
 }
@@ -72,13 +72,13 @@
 
   p {
     margin: 0;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.45;
   }
 
   figcaption {
     margin-top: 0.35rem;
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
   }
 }
@@ -114,8 +114,8 @@
 
   h2 {
     margin: 0;
-    font-size: 1.5rem;
-    font-weight: 400;
+    font-size: var(--sim-font-section);
+    font-weight: 600;
   }
 }
 
@@ -125,7 +125,7 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: var(--sim-ink-2);
 }
 
@@ -141,7 +141,7 @@
   background: none;
   color: var(--sim-blue);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   cursor: pointer;
   padding: 0;
 
@@ -154,7 +154,7 @@
   padding-left: 1.25rem;
   display: grid;
   gap: 0.35rem;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
   line-height: 1.45;
 }
 
@@ -195,7 +195,7 @@
   gap: 0.4rem;
   align-items: center;
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: var(--sim-ink-2);
 }
 
@@ -266,7 +266,7 @@
   // A two-line client name keeps the status on its first line.
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 
   strong {
     min-width: 0;
@@ -281,8 +281,8 @@
 }
 
 .rowMeta {
-  font-family: var(--sim-mono);
-  font-size: 0.6875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 }
 
@@ -400,11 +400,11 @@
 
   span {
     display: block;
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
   }
 
-  strong { font-size: 0.875rem; }
+  strong { font-size: var(--sim-font-body); }
 }
 
 .briefSection {
@@ -412,13 +412,13 @@
 
   h5 {
     margin: 0 0 0.4rem;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     font-weight: 600;
   }
 
   p,
   li {
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     line-height: 1.45;
   }
 
@@ -436,7 +436,7 @@
 
   span {
     display: block;
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
     margin-bottom: 2px;
   }
@@ -451,12 +451,12 @@
   div {
     display: flex;
     justify-content: space-between;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
   }
 }
 
 .stars {
-  font-family: var(--sim-mono);
+  font-family: var(--sim-sans);
 }
 
 .listControls {
@@ -479,7 +479,7 @@
 
   h3 {
     margin: 0 0 0.25rem;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     font-weight: 600;
   }
 

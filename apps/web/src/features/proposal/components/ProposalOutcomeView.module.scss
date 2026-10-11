@@ -12,7 +12,7 @@
 
 .eyebrow {
   margin: 0 0 0.35rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -37,7 +37,7 @@
   background: #fffefa;
   padding: 2.5rem 3rem 3rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 20px 40px -24px rgba(0, 0, 0, 0.4);
-  font-family: var(--sim-reading);
+  font-family: var(--sim-sans);
   color: #1c1c1c;
 
   @media (max-width: 672px) {
@@ -55,13 +55,13 @@
   strong {
     display: block;
     font-family: var(--sim-sans);
-    font-size: 1.125rem;
+    font-size: var(--sim-font-section);
     color: #005eb8;
   }
 
   span {
     font-family: var(--sim-sans);
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: #555;
   }
 }
@@ -73,7 +73,7 @@
   color: #fff;
   display: grid;
   place-items: center;
-  font-family: var(--sim-display);
+  font-family: var(--sim-sans);
   font-size: 1.5rem;
   font-weight: 700;
   flex: none;
@@ -82,7 +82,7 @@
 .dateLine {
   margin: 1.5rem 0 0;
   text-align: right;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
 }
 
 .re {
@@ -98,20 +98,20 @@
   padding: 0.6rem 0.75rem;
   background: #f4f2ec;
   font-family: var(--sim-sans);
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   margin-bottom: 1.25rem;
 }
 
 .letterBody {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: var(--sim-font-body);
   line-height: 1.75;
 }
 
 .signoff {
   margin: 2rem 0 0;
-  font-family: var(--sim-hand);
-  font-size: 1.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-subheading);
 
   span {
     font-family: var(--sim-sans);
@@ -135,8 +135,8 @@
 
   h2 {
     margin: 0 0 1rem;
-    font-size: 1.0625rem;
-    font-weight: 400;
+    font-size: var(--sim-font-section);
+    font-weight: 600;
     line-height: 1.4;
   }
 
@@ -147,7 +147,7 @@
   }
 
   p {
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
     margin: 0 0 0.75rem;
   }
@@ -189,7 +189,7 @@
     border-bottom: 2px solid transparent;
     background: none;
     font: inherit;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     padding: 0.75rem 0.6rem;
     cursor: pointer;
     color: var(--sim-ink-2);
@@ -211,7 +211,7 @@
 .card {
   border: 1px solid var(--sim-line);
   padding: 0.9rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   line-height: 1.5;
 
   ul {
@@ -237,7 +237,7 @@
   margin-bottom: 0.35rem;
 
   span {
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-blue-ink);
     font-weight: 600;
   }
@@ -251,7 +251,7 @@
 
 .strongest {
   margin: 0.75rem 0 0;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 }
 
 .evidence {
@@ -292,7 +292,7 @@
     }
   }
 
-  strong { font-size: 1.125rem; }
+  strong { font-size: var(--sim-font-section); }
 
   @media (max-width: 672px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -311,14 +311,14 @@
 
   h3 {
     margin: 0.6rem 0 0.35rem;
-    font-family: var(--sim-reading);
-    font-size: 1.125rem;
+    font-family: var(--sim-sans);
+    font-size: var(--sim-font-subheading);
     font-weight: 600;
   }
 
   p {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
   }
 }
@@ -327,7 +327,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 }
 
@@ -340,7 +340,7 @@
 
 .empty {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: var(--sim-ink-2);
 }
 .neutral li::marker { color: #0f62fe; }
@@ -362,7 +362,7 @@
   summary {
     cursor: pointer;
     color: var(--sim-blue);
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
   }
 }
 
@@ -372,7 +372,7 @@
   margin: 0.75rem 0;
 
   dt {
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
   }
 
@@ -418,6 +418,6 @@
 
   strong {
     text-align: right;
-    font-family: var(--sim-mono);
+    font-family: var(--sim-sans);
   }
 }

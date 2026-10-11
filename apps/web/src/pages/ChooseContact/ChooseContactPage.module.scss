@@ -1,5 +1,5 @@
 .page { max-width: 58rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
-.title { font-size: 1.75rem; font-weight: 400; margin: 0 0 0.5rem; }
+.title { font-size: var(--sim-font-title); font-weight: 500; margin: 0 0 0.5rem; }
 .lede { color: #525252; margin: 0 0 1.5rem; }
 
 .cards {
@@ -36,13 +36,13 @@
   place-items: center;
 }
 .locked .avatar { background: #6f6f6f; }
-.name { font-family: var(--sim-serif); font-size: 1.25rem; margin: 0; }
+.name { font-family: var(--sim-sans); font-size: var(--sim-font-subheading); font-weight: 600; margin: 0; }
 .role { margin: 0.25rem 0 0; }
-.org { font-family: var(--sim-mono); font-size: 0.75rem; color: #6f6f6f; margin: 0.25rem 0 0; }
+.org { font-family: var(--sim-sans); font-size: var(--sim-font-caption); color: #6f6f6f; margin: 0.25rem 0 0; }
 
 .cardBody { padding: 1.25rem; }
 .cardBody p { margin: 0 0 1rem; }
-.eyebrow { font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: #6f6f6f; margin-bottom: 0.5rem !important; }
+.eyebrow { font-size: var(--sim-font-caption); letter-spacing: 0.08em; text-transform: uppercase; color: #6f6f6f; margin-bottom: 0.5rem !important; }
 
 .cardFoot { padding: 0 1.25rem 1.25rem; }
 .chosenLabel { color: #0043ce; }
@@ -51,4 +51,4 @@
 .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
 
 /* ContactLine, shown on Make contact */
-.contactLine { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; color: #525252; font-size: 0.875rem; }
+.contactLine { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; color: #525252; font-size: var(--sim-font-body); }

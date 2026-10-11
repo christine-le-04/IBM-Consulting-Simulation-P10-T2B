@@ -32,7 +32,7 @@
 
 .eyebrow {
   margin: 0 0 0.35rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #6f6f6f;
@@ -40,7 +40,7 @@
 }
 
 .muted {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: #6f6f6f;
 }
 
@@ -70,14 +70,14 @@
   strong { font-size: 1rem; }
 
   span {
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: #6f6f6f;
   }
 }
 
 .attempts {
-  font-family: var(--sim-mono);
-  font-size: 0.6875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: #525252;
   background: #f4f4f4;
   border: 1px solid #e0e0e0;
@@ -93,7 +93,7 @@
   color: #fff;
   display: grid;
   place-items: center;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   font-weight: 600;
   flex: none;
 
@@ -111,7 +111,7 @@
 .avatarLarge {
   width: 40px;
   height: 40px;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 }
 
 .statusOn { background: #24a148; }
@@ -144,13 +144,13 @@
   background: #fff;
   border: 1px solid #e0e0e0;
   padding: 0.75rem 0.9rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   line-height: 1.45;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
 
   p {
     margin: 0 0 0.3rem;
-    font-size: 0.6875rem;
+    font-size: var(--sim-font-caption);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #6f6f6f;
@@ -176,7 +176,7 @@
   align-items: center;
   gap: 0.35rem;
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: #6f6f6f;
 
   svg { fill: #6f6f6f; }
@@ -194,14 +194,14 @@
     background: #fff;
     border: 1px solid #e8e8e8;
     border-radius: 6px;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
     box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
   }
 }
 
 .meta {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: #6f6f6f;
 
   strong {
@@ -219,7 +219,7 @@
   align-items: flex-end;
 
   time {
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: #6f6f6f;
   }
 
@@ -228,7 +228,7 @@
     padding: 0.6rem 0.85rem;
     background: #d0e2ff;
     border-radius: 6px;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
   }
 }
@@ -265,7 +265,7 @@
   padding: 0.5rem 0.75rem;
   background: #defbe6;
   border-left: 3px solid #24a148;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 }
 
 .notConvincedBanner {
@@ -288,7 +288,7 @@
     outline: none;
     resize: none;
     font: inherit;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
     background: transparent;
     min-height: 44px;
@@ -321,7 +321,7 @@
 
 .composeHelp {
   margin: 0.35rem 0 0;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   color: #8d8d8d;
 }
 
@@ -345,7 +345,7 @@
   padding: 1rem 1.25rem;
 
   p {
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
     margin: 0 0 0.6rem;
   }
@@ -354,7 +354,7 @@
     margin: 0 0 1rem;
     padding-left: 1.1rem;
     list-style: disc;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
   }
 }
@@ -370,8 +370,8 @@
 
   h2 {
     margin: 0;
-    font-size: 1.25rem;
-    font-weight: 400;
+    font-size: var(--sim-font-section);
+    font-weight: 600;
   }
 }
 
@@ -410,7 +410,7 @@
     color: #525252;
 
     span {
-      font-family: var(--sim-mono);
+      font-family: var(--sim-sans);
       margin-left: 2px;
     }
   }
@@ -427,7 +427,7 @@
   min-height: 0;
   padding: 1rem;
   @include scroll.visible-scroll(#fff);
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   line-height: 1.5;
 
   p { margin: 0 0 0.75rem; }
@@ -435,7 +435,7 @@
 
 .quality {
   margin: 0 0 0.4rem;
-  font-size: 1.125rem;
+  font-size: var(--sim-font-section);
   font-weight: 400;
   text-transform: capitalize;
 }

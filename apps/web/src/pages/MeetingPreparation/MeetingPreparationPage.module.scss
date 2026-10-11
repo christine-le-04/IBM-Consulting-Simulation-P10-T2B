@@ -4,7 +4,7 @@ $chip-bg: #e8e8f7;
 $chip-ink: #3d3fa0;
 $note-red: #9f1853;
 $note-ink: #1d3a6e;
-$mono: var(--sim-mono);
+$sans: var(--sim-sans);
 
 $line: var(--cds-border-subtle-01, #e0e0e0);
 $line-strong: var(--cds-border-strong-01, #c6c6c6);
@@ -60,14 +60,14 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
 
   h1 {
     margin: 0;
-    font-size: 1.375rem;
-    font-weight: 400;
+    font-size: var(--sim-font-title);
+    font-weight: 500;
     line-height: 1.25;
   }
 
   p {
     margin: 0.2rem 0 0;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     color: $ink-2;
   }
 }
@@ -81,7 +81,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
 
 .saveState {
   margin-right: 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: $ink-2;
 }
 
@@ -109,7 +109,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
 .label {
   display: block;
   margin-bottom: 0.4rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -131,7 +131,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
     background: #fff;
     color: var(--cds-text-primary, #161616);
     font: inherit;
-    font-size: 1rem;
+    font-size: var(--sim-font-body);
     line-height: 1.5;
     resize: vertical;
 
@@ -143,8 +143,8 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
   small {
     display: block;
     text-align: right;
-    font-family: $mono;
-    font-size: 0.6875rem;
+    font-family: $sans;
+    font-size: var(--sim-font-caption);
     color: $ink-2;
   }
 }
@@ -205,7 +205,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
   }
 
   textarea {
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 22px;
 
     &::placeholder {
@@ -223,7 +223,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
   border-radius: 50%;
   background: $chip-bg;
   color: $chip-ink;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   font-weight: 600;
 }
 
@@ -237,7 +237,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
   background: none;
   color: $accent-ink;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   cursor: pointer;
 
   &:hover {
@@ -257,15 +257,15 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
 
 .notepadTitle {
   margin: 0;
-  font-family: $mono;
-  font-size: 1.375rem;
+  font-family: $sans;
+  font-size: var(--sim-font-section);
   font-weight: 600;
   line-height: 32px;
 }
 
 .notepadHint {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   line-height: 32px;
   color: #6f6f6f;
 }
@@ -282,7 +282,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
     margin-left: -30px;
     background: none;
     color: $note-red;
-    font-family: $mono;
+    font-family: $sans;
   }
 
   li button {
@@ -293,7 +293,7 @@ $ink-3: var(--cds-text-placeholder, #8d8d8d);
   textarea {
     line-height: 32px;
     color: $note-ink;
-    font-family: $mono;
+    font-family: $sans;
 
     &::placeholder {
       color: rgba(29, 58, 110, 0.45);

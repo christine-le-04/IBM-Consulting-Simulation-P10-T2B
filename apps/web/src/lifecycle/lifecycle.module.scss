@@ -40,7 +40,7 @@
 }
 
 .briefLabel {
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: #6f6f6f;
@@ -48,7 +48,7 @@
 }
 
 .briefText {
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   line-height: 1.4;
   color: #161616;
 }
@@ -107,7 +107,7 @@
   padding: 0.9rem 1rem;
   color: #c6c6c6;
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   border-bottom: 1px solid #262626;
 
   &:hover {

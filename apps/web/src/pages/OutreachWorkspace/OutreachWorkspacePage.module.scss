@@ -50,13 +50,13 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.45rem 0.6rem;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     color: var(--sim-ink);
 
     b,
     span {
       margin-left: auto;
-      font-size: 0.75rem;
+      font-size: var(--sim-font-caption);
     }
 
     b { color: var(--sim-blue); }
@@ -71,9 +71,9 @@
 
 .account {
   margin: auto 0 0;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
-  font-family: var(--sim-mono);
+  font-family: var(--sim-sans);
   word-break: break-all;
 }
 
@@ -99,14 +99,14 @@
   strong { font-size: 1rem; }
 
   span {
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
   }
 }
 
 .listEmpty {
   padding: 1.5rem 1rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: var(--sim-ink-2);
 }
 
@@ -146,10 +146,10 @@
   display: flex;
   justify-content: space-between;
   width: 100%;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 
   time {
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
   }
 }
@@ -162,7 +162,7 @@
 }
 
 .listPreview {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -188,7 +188,7 @@
 
 .threadSubject {
   margin: 0;
-  font-size: 1.375rem;
+  font-size: var(--sim-font-title);
   font-weight: 400;
 }
 
@@ -211,13 +211,13 @@
   > div {
     flex: 1;
     min-width: 0;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
   }
 
   small {
     display: block;
     color: var(--sim-ink-2);
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     margin-top: 2px;
   }
 }
@@ -241,14 +241,14 @@
 }
 
 .messageTime {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
   white-space: nowrap;
 }
 
 .messageBody {
   padding: 0.25rem 1rem 1rem 3.75rem;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
   line-height: 1.55;
 
   p { margin: 0 0 0.75rem; }
@@ -266,7 +266,7 @@
   margin: 0;
   white-space: pre-wrap;
   font-family: inherit;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
   line-height: 1.55;
 }
 
@@ -274,7 +274,7 @@
   border-left: 3px solid #d02670;
   background: #fff0f7;
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 
   p { margin: 0 0 0.35rem; }
 
@@ -338,7 +338,7 @@
 
   span {
     display: block;
-    font-size: 0.6875rem;
+    font-size: var(--sim-font-caption);
     text-transform: uppercase;
     background: var(--sim-blue);
     color: #fff;
@@ -370,12 +370,12 @@
 
   p {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
   }
 }
 
 .inviteLabel {
-  font-size: 0.6875rem !important;
+  font-size: var(--sim-font-caption) !important;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sim-blue-ink);
@@ -419,7 +419,7 @@
   padding: 0.5rem 0.9rem;
   background: #f3f5f8;
   border-bottom: 1px solid var(--sim-line);
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 
   button {
     border: 0;
@@ -435,10 +435,11 @@
   gap: 0.75rem;
   padding: 0.55rem 0.9rem;
   border-bottom: 1px solid var(--sim-line);
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 
   > span:first-child {
     width: 56px;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
     flex: none;
   }
@@ -448,7 +449,7 @@
     border: 0;
     outline: none;
     font: inherit;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     background: transparent;
     min-width: 0;
   }
@@ -456,7 +457,7 @@
   small {
     margin-left: auto;
     color: var(--sim-ink-3);
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     white-space: nowrap;
   }
 }
@@ -527,7 +528,7 @@
 
 .menuLabel {
   margin: 0.35rem 0.75rem 0.2rem;
-  font-size: 0.625rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -548,8 +549,8 @@
 }
 
 .menuCode {
-  font-family: var(--sim-mono);
-  font-size: 0.6875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: var(--sim-blue-ink);
   padding-top: 2px;
 }
@@ -563,8 +564,8 @@
   resize: vertical;
   padding: 0.9rem;
   font: inherit;
-  font-family: Calibri, var(--sim-sans);
-  font-size: 0.9375rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
   line-height: 1.55;
 }
 
@@ -575,7 +576,7 @@
 .error {
   margin: 0;
   padding: 0.25rem 0.9rem;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-red);
 }
 
@@ -602,13 +603,13 @@
 }
 
 .counts {
-  font-family: var(--sim-mono);
-  font-size: 0.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 }
 
 .composeNote {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
   flex: 1;
   min-width: 200px;
@@ -628,11 +629,11 @@
     align-items: baseline;
     margin-bottom: 0.5rem;
 
-    strong { font-size: 0.9375rem; }
+    strong { font-size: var(--sim-font-body); }
 
     span {
-      font-family: var(--sim-mono);
-      font-size: 0.6875rem;
+      font-family: var(--sim-sans);
+      font-size: var(--sim-font-caption);
       color: var(--sim-ink-2);
     }
   }
@@ -669,7 +670,7 @@
 
 .editorExplain {
   margin: 0 0 0.75rem;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
   line-height: 1.4;
 }
@@ -694,7 +695,7 @@
   small { display: block; }
 
   strong { font-size: 0.8125rem; }
-  small { font-size: 0.6875rem; color: var(--sim-ink-2); }
+  small { font-size: var(--sim-font-caption); color: var(--sim-ink-2); }
 }
 
 .docPage {
@@ -702,7 +703,7 @@
   border: 1px solid #d8dde6;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   padding: 1.5rem 2rem;
-  font-family: var(--sim-serif);
+  font-family: var(--sim-sans);
 }
 
 .letterhead {
@@ -713,7 +714,7 @@
   padding-bottom: 0.4rem;
   margin-bottom: 1rem;
   font-family: var(--sim-sans);
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
   gap: 1rem;
   flex-wrap: wrap;
@@ -785,7 +786,7 @@
   border: 1px solid var(--sim-ink-3);
   display: grid;
   place-items: center;
-  font-size: 0.625rem;
+  font-size: var(--sim-font-caption);
 }
 
 .docSection {
@@ -793,7 +794,7 @@
 
   h3 {
     margin: 0;
-    font-size: 1.125rem;
+    font-size: var(--sim-font-section);
     font-weight: 600;
   }
 
@@ -804,7 +805,7 @@
     border: 1px dashed var(--sim-line-2);
     padding: 0.6rem;
     font: inherit;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.55;
     resize: vertical;
     outline: none;
@@ -813,8 +814,8 @@
   }
 
   small {
-    font-family: var(--sim-mono);
-    font-size: 0.6875rem;
+    font-family: var(--sim-sans);
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
   }
 }
@@ -846,7 +847,7 @@
 .declinedLabel,
 .closedLabel {
   margin: 0 0 0.25rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 600;
@@ -855,7 +856,7 @@
 
 .declinedHint {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
   line-height: 1.45;
 }
 
@@ -869,11 +870,11 @@
 
   h3 {
     margin: 0 0 0.25rem;
-    font-size: 1.125rem;
+    font-size: var(--sim-font-section);
     font-weight: 600;
   }
 
-  p { margin: 0; font-size: 0.9375rem; }
+  p { margin: 0; font-size: var(--sim-font-body); }
 }
 
 .closedLabel { color: #a2191f; }
@@ -907,12 +908,12 @@
     display: grid;
     grid-template-columns: 72px 1fr;
     gap: 0.75rem;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.45;
 
     span {
-      font-family: var(--sim-mono);
-      font-size: 0.75rem;
+      font-family: var(--sim-sans);
+      font-size: var(--sim-font-caption);
       color: var(--sim-ink-2);
       padding-top: 2px;
     }
@@ -924,7 +925,7 @@
   padding: 1rem;
   border: 1px dashed var(--sim-line-2);
   color: var(--sim-ink-2);
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
 }
 
 .followUp {
@@ -943,7 +944,7 @@
 
   h4 {
     margin: 0 0 0.25rem;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     font-weight: 600;
   }
 
@@ -1001,7 +1002,7 @@
 
   strong {
     text-align: right;
-    font-family: var(--sim-mono);
+    font-family: var(--sim-sans);
   }
 }
 

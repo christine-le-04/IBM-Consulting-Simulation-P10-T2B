@@ -23,6 +23,13 @@
   /** Carbon's fixed header. */
   --sim-header: 3rem;
   --sim-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sim-font-title: 1.5rem;
+  --sim-font-section: 1.125rem;
+  --sim-font-subheading: 1rem;
+  --sim-font-body: 0.875rem;
+  --sim-font-caption: 0.75rem;
+  --sim-font-placeholder: 0.8125rem;
+  --sim-line-height: 1.5;
   --sim-serif: 'IBM Plex Serif', Georgia, serif;
   --sim-mono: 'IBM Plex Mono', Menlo, monospace;
   // Faces borrowed by workspaces skinned like a real-world document (loaded in index.html).
