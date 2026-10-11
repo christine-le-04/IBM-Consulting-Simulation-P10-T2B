@@ -25,6 +25,7 @@ import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.outreach.domain.ContactAttemptPolicy;
 import com.ibm.consulting.sim.outreach.domain.OutreachAttempt;
 import com.ibm.consulting.sim.outreach.domain.OutreachContentPolicy;
+import com.ibm.consulting.sim.outreach.domain.OutreachClientReplyPolicy;
 import com.ibm.consulting.sim.outreach.domain.OutreachNextAction;
 import com.ibm.consulting.sim.outreach.domain.OutreachOutcome;
 import com.ibm.consulting.sim.outreach.domain.OutreachOutcomePolicy;
@@ -42,7 +43,7 @@ import com.ibm.consulting.sim.shared.domain.NotFoundException;
 public class OutreachService {
 
     private static final int MAX_ATTEMPTS = ContactAttemptPolicy.MAX_EMAILS_PER_CONTACT;
-    private static final int PROMPT_VERSION = 1;
+    private static final int PROMPT_VERSION = 2;
     private static final byte[] IDEMPOTENCY_NAMESPACE =
             "consulting-sim:outreach-attempt:v1".getBytes(StandardCharsets.UTF_8);
 
@@ -165,7 +166,7 @@ public class OutreachService {
         String clientReply;
         if (contact.isDecisionMaker()) {
             outcome = OutreachOutcomePolicy.decide(evaluation, profile);
-            clientReply = evaluation.clientReply();
+            clientReply = OutreachClientReplyPolicy.replyFor(outcome, evaluation);
         } else {
             outcome = OutreachOutcome.REJECTED;
             clientReply = contact.distractorReply();
@@ -249,6 +250,9 @@ public class OutreachService {
 
                 The deterministic engine requires an average quality score of %d/100 before a meeting can be accepted.
                 You may recommend a likely outcome in the JSON, but the backend owns the final state transition.
+                Keep clientReply consistent with your recommended outcome: ACCEPTED explicitly agrees to a meeting;
+                FOLLOW_UP_REQUIRED requests more information without promising a meeting; REJECTED clearly declines.
+                Asking to review more information before considering a call is FOLLOW_UP_REQUIRED, not ACCEPTED.
 
                 Client company: %s
                 Named stakeholder: %s
