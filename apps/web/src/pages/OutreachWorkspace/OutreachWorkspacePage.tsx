@@ -32,6 +32,7 @@ import ContactLine from '@/pages/ChooseContact/ContactLine'
 import { useAuthStore } from '@/store/authStore'
 import BriefComposer from './BriefComposer'
 import MailComposer from './MailComposer'
+import { formatClientEmail } from './clientEmail'
 import styles from './OutreachWorkspacePage.module.scss'
 
 const OUTREACH_WORKSPACE_OBJECTIVES = [
@@ -398,7 +399,7 @@ export default function OutreachWorkspacePage() {
                     </>
                   ) : (
                     <>
-                      <p>{open.preview}</p>
+                      <pre className={styles.plain}>{formatClientEmail(open.preview, displayName, clientName)}</pre>
                       {open.attempt && !open.brief && open.attempt.requestTitle && stage !== 'brief' && (
                         <aside className={styles.request}>
                           <p className={styles.requestTitle}>{open.attempt.requestTitle}</p>

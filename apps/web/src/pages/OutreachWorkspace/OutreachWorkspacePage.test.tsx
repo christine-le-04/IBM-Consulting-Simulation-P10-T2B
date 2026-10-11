@@ -33,6 +33,12 @@ vi.mock('@/components/shared/ObjectiveTourProvider', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
+vi.mock('@/store/authStore', () => ({
+  useAuthStore: (selector?: (state: { displayName: string }) => unknown) => {
+    const state = { displayName: 'Alex Taylor' }
+    return selector ? selector(state) : state
+  },
+}))
 
 const mockedOutreach = vi.mocked(useOutreach)
 const mockedCapabilityBrief = vi.mocked(useCapabilityBrief)
@@ -111,6 +117,14 @@ function renderPage() {
 
 describe('OutreachWorkspacePage first email', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('displays the client reply as an email addressed to the learner and signed by the contact', () => {
+    setup({ attempts: [attempt(1, { outcome: 'ACCEPTED', nextAction: 'CONTINUE_TO_MEETING' })] })
+    renderPage()
+
+    const reply = screen.getByText(/Hi Alex Taylor,/)
+    expect(reply.textContent).toBe('Hi Alex Taylor,\n\nReply to email 1\n\nKind regards,\nJohn Doe')
+  })
 
   it('inserts a piece of evidence from the case file into the message', async () => {
     const user = userEvent.setup()
