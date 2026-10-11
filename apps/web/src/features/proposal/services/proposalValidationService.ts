@@ -17,7 +17,7 @@ const ISSUE_FIELDS: Record<string, string> = {
 
 /** Both completeness codes and nested request fields lead to the relevant editor section. */
 export function proposalViolationLocation(code: string) {
-  const field = ISSUE_FIELDS[code] ?? code.split(/[.\[]/)[0]
+  const field = ISSUE_FIELDS[code] ?? code.split(/[.[]/)[0]
   const section = FIELD_SECTIONS[field]
   return section ? { field, section } : null
 }
