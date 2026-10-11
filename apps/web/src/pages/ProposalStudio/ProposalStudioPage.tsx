@@ -142,7 +142,7 @@ function Table<T extends object>({ columns, rows, empty, onChange, readOnly = fa
           {rows.map((row, index) => (
             <tr key={index} data-row>
               {columns.map(([key, label]) => (
-                <td key={key}>
+                <td key={key} className={key === 'severity' ? styles.severityCell : undefined}>
                   {key === 'severity' ? (
                     <Choice id={`severity-${index}`} label={label} hideLabel size="sm" disabled={readOnly} value={String(row[key])} options={SEVERITY} onChange={(value) => edit(index, key, value)} />
                   ) : (
