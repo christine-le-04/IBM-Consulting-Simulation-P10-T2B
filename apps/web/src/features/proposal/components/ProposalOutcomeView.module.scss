@@ -8,6 +8,14 @@
   min-height: calc(100vh - var(--sim-header) - 2.75rem);
   padding: 1.5rem 1rem 3rem;
   background: #e8e6e1;
+
+  // The proposal route uses a fixed shell on larger screens. The decision
+  // scrolls as one document rather than separate editor panels.
+  @media (min-width: 82rem) and (min-height: 43.75rem) {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
 }
 
 .eyebrow {
