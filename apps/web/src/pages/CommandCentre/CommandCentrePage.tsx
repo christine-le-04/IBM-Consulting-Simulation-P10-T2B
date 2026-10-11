@@ -329,7 +329,10 @@ export default function CommandCentrePage() {
                 </div>
               </div>
             ) : (
-              <p id="first-run" className={styles.note}>No scenarios are available yet. Check back shortly.</p>
+              <div>
+                <p id="first-run" className={styles.note} role="status">No live scenarios are available yet. We will check again automatically. If this continues, ask an administrator to check that scenarios have been published.</p>
+                <Button kind="tertiary" size="sm" renderIcon={Renew} onClick={() => void refetchScenarios()}>Check for scenarios</Button>
+              </div>
             )}
             <ol className={`${styles.arc} objective-engagement-arc`}>
               <li><strong>{PHASE_LABEL.CLIENT_INTELLIGENCE}</strong> — gather evidence on the client before interacting with them.</li>

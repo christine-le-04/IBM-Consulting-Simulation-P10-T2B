@@ -53,6 +53,37 @@ class ScenarioAssignmentServiceTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void newLearnerReceivesExactlyOneOfTheLiveScenarios() {
+        Scenario other = Scenario.create("Delivery planning", "Healthcare", "Description", 2);
+        when(scenarios.findAllActive()).thenReturn(List.of(scenario, other));
+        service.assignRandomStarter(alice);
+
+        ArgumentCaptor<Collection<ScenarioAssignment>> added = ArgumentCaptor.forClass(Collection.class);
+        verify(assignments).saveAll(added.capture());
+        assertThat(added.getValue()).singleElement().satisfies(assignment -> {
+            assertThat(assignment.getUserId()).isEqualTo(alice.getId());
+            assertThat(assignment.getScenarioLineageId()).isIn(scenario.getScenarioLineageId(), other.getScenarioLineageId());
+            assertThat(assignment.getAssignedBy()).isNull();
+        });
+        verify(assignments, never()).deleteAll(anyCollection());
+    }
+
+    @Test
+    void registrationWithoutLiveScenariosDoesNotCreateAnInvalidAssignment() {
+        when(scenarios.findAllActive()).thenReturn(List.of());
+        service.assignRandomStarter(alice);
+        verify(assignments, never()).saveAll(anyCollection());
+    }
+
+    @Test
+    void staffAccountsDoNotReceiveStarterAssignments() {
+        service.assignRandomStarter(author);
+        verify(scenarios, never()).findAllActive();
+        verify(assignments, never()).saveAll(anyCollection());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void replaceAssignsNewConsultantsAndUnassignsOmittedOnes() {
         ScenarioAssignment aliceAssignment = ScenarioAssignment.assign(scenario.getScenarioLineageId(), alice.getId(), null);
         when(assignments.findByLineageId(scenario.getScenarioLineageId())).thenReturn(List.of(aliceAssignment));
@@ -103,20 +134,11 @@ class ScenarioAssignmentServiceTest {
     }
 
     @Test
-    void consultantsNeedAnAssignmentToStartButStaffDoNot() {
-        when(assignments.existsByLineageIdAndUserId(scenario.getScenarioLineageId(), alice.getId())).thenReturn(true);
-        when(assignments.existsByLineageIdAndUserId(scenario.getScenarioLineageId(), bob.getId())).thenReturn(false);
-
+    void learnersCanStartWithoutAnAssignment() {
         assertThat(service.canStart(alice.getId(), scenario)).isTrue();
-        assertThat(service.canStart(bob.getId(), scenario)).isFalse();
+        assertThat(service.canStart(bob.getId(), scenario)).isTrue();
         assertThat(service.canStart(author.getId(), scenario)).isTrue();
         assertThat(service.canStart(UUID.randomUUID(), scenario)).isFalse();
-    }
-
-    @Test
-    void onlyConsultantCataloguesAreFiltered() {
-        assertThat(service.catalogueAssigneeFor(alice)).isEqualTo(alice.getId());
-        assertThat(service.catalogueAssigneeFor(author)).isNull();
     }
 
     @Test

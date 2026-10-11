@@ -211,6 +211,21 @@ describe('Office: completed scores', () => {
 })
 
 describe('Office: first visit', () => {
+  it('lets a new learner recheck an empty catalogue without reloading the page', async () => {
+    setup([])
+    mockedPortfolio.mockReturnValue({
+      data: { totalEngagements: 0, completedEngagements: 0, contractsWon: 0, contractsLost: 0, completedEngagementsHistory: [] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof usePortfolioSummary>)
+    const refetch = vi.fn()
+    mockedScenarioCatalog.mockReturnValue({ ...mockedScenarioCatalog({ page: 0, size: 8 }), refetch } as unknown as ReturnType<typeof useScenarioCatalog>)
+    renderPage()
+
+    expect(screen.getByRole('status')).toHaveTextContent('We will check again automatically')
+    await userEvent.click(screen.getByRole('button', { name: 'Check for scenarios' }))
+    expect(refetch).toHaveBeenCalledOnce()
+  })
+
   it('offers one starter client and opens its briefing', async () => {
     const user = userEvent.setup()
     setup([])

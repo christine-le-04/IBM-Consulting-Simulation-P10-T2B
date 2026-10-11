@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static com.ibm.consulting.sim.shared.config.CacheConfig.ADMIN_PLATFORM_OVERVIEW_CACHE;
@@ -30,9 +31,8 @@ import static com.ibm.consulting.sim.shared.config.CacheConfig.SCENARIO_CATALOG_
 import static com.ibm.consulting.sim.shared.config.CacheConfig.SCENARIO_CATALOG_FACETS_CACHE;
 
 /**
- * Who may see and start a scenario. A Live scenario is shown only to the
- * consultants (LEARNER accounts) assigned to it. Authors and administrators
- * see every Live scenario so they can preview the learner experience.
+ * Starter and administrator-managed scenario assignments. All learners may
+ * browse and start Live scenarios independently of their assignments.
  */
 @Service
 public class ScenarioAssignmentService implements ScenarioAccessPolicy {
@@ -50,6 +50,17 @@ public class ScenarioAssignmentService implements ScenarioAccessPolicy {
         this.scenarioRepository = scenarioRepository;
         this.userRepository = userRepository;
         this.auditLogger = auditLogger;
+    }
+
+    /** Assign one random Live scenario as part of a new learner's registration. */
+    @Transactional
+    public void assignRandomStarter(User user) {
+        if (!isConsultant(user)) return;
+        List<Scenario> live = scenarioRepository.findAllActive();
+        if (live.isEmpty()) return;
+        Scenario starter = live.get(ThreadLocalRandom.current().nextInt(live.size()));
+        assignmentRepository.saveAll(List.of(ScenarioAssignment.assign(
+                starter.getScenarioLineageId(), user.getId(), null)));
     }
 
     /** Admin capability: the consultants assigned to this scenario's lineage. */
@@ -103,22 +114,11 @@ public class ScenarioAssignmentService implements ScenarioAccessPolicy {
         return assignments(scenarioId);
     }
 
-    /**
-     * The assignment filter for the learner catalogue: the viewer's own id for
-     * consultants, or null (no filter) for authors and administrators.
-     */
-    public UUID catalogueAssigneeFor(User viewer) {
-        return isConsultant(viewer) ? viewer.getId() : null;
-    }
-
-    /** Engagement guard: consultants may only start scenarios they are assigned to. */
+    /** Assignments recommend scenarios; they do not restrict starting a Live scenario. */
     @Override
     @Transactional(readOnly = true)
     public boolean canStart(UUID userId, Scenario scenario) {
-        return userRepository.findById(userId)
-                .map(user -> !isConsultant(user)
-                        || assignmentRepository.existsByLineageIdAndUserId(scenario.getScenarioLineageId(), userId))
-                .orElse(false);
+        return userRepository.findById(userId).isPresent();
     }
 
     private static boolean isConsultant(User user) {

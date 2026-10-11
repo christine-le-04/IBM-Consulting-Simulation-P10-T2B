@@ -68,9 +68,9 @@ public class StartEngagementUseCase {
         if (inProgress.isPresent()) {
             return EngagementResponse.from(inProgress.get());
         }
-        // Resuming is always allowed; only a new run requires an assignment.
+        // Check the authenticated account before creating a new run.
         if (!accessPolicy.canStart(userId, scenario)) {
-            throw new ScenarioNotAssignedException(scenarioId);
+            throw new ScenarioAccessDeniedException(scenarioId);
         }
 
         Persona persona = resolveClient(scenario, personaId);
@@ -139,7 +139,7 @@ public class StartEngagementUseCase {
             return EngagementResponse.from(inProgress.get());
         }
         if (!accessPolicy.canStart(userId, scenario)) {
-            throw new ScenarioNotAssignedException(scenario.getId());
+            throw new ScenarioAccessDeniedException(scenario.getId());
         }
 
         Persona persona = resolveClient(scenario, personaId);
@@ -158,9 +158,9 @@ public class StartEngagementUseCase {
         }
     }
 
-    public static class ScenarioNotAssignedException extends DomainException {
-        public ScenarioNotAssignedException(UUID scenarioId) {
-            super("You are not assigned to scenario " + scenarioId + ". Ask an administrator to assign it to you.");
+    public static class ScenarioAccessDeniedException extends DomainException {
+        public ScenarioAccessDeniedException(UUID scenarioId) {
+            super("You cannot start scenario " + scenarioId + ". Sign in with an existing account.");
         }
     }
 

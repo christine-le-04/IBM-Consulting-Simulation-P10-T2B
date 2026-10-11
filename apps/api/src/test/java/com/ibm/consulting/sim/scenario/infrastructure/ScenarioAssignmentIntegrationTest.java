@@ -169,7 +169,7 @@ class ScenarioAssignmentIntegrationTest {
     }
 
     @Test
-    void theServiceReplacesAssignmentsInTheDatabaseAndDrivesTheStartRule() {
+    void theServiceReplacesAssignmentsWithoutRestrictingScenarioAccess() {
         User ada = inTransaction(() -> persistUser("Ada", UserRole.LEARNER));
         User bob = inTransaction(() -> persistUser("Bob", UserRole.LEARNER));
         User author = inTransaction(() -> persistUser("Author", UserRole.SCENARIO_AUTHOR));
@@ -187,7 +187,7 @@ class ScenarioAssignmentIntegrationTest {
         assertThat(inTransaction(() -> assignmentRepository.findByLineageId(scenario.getScenarioLineageId())))
                 .singleElement().satisfies(row -> assertThat(row.getAssignedBy()).isEqualTo(author.getId()));
 
-        assertThat(inTransaction(() -> service.canStart(ada.getId(), scenario))).isFalse();
+        assertThat(inTransaction(() -> service.canStart(ada.getId(), scenario))).isTrue();
         assertThat(inTransaction(() -> service.canStart(bob.getId(), scenario))).isTrue();
         assertThat(inTransaction(() -> service.canStart(author.getId(), scenario))).isTrue();
     }

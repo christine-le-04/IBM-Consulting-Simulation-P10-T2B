@@ -6,6 +6,9 @@ import com.ibm.consulting.sim.identity.domain.InvalidCredentialTokenException;
 import com.ibm.consulting.sim.identity.domain.User;
 import com.ibm.consulting.sim.identity.domain.UserAlreadyExistsException;
 import com.ibm.consulting.sim.identity.domain.UserRepository;
+import com.ibm.consulting.sim.identity.domain.UserRole;
+import org.mockito.ArgumentCaptor;
+import com.ibm.consulting.sim.scenario.application.ScenarioAssignmentService;
 import com.ibm.consulting.sim.shared.email.application.TransactionalEmailPublisher;
 import com.ibm.consulting.sim.shared.email.template.TransactionalEmailTemplates;
 import org.hibernate.exception.ConstraintViolationException;
@@ -20,12 +23,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class IdentityConcurrencyGuardTest {
+
+    @Test
+    void registrationAssignsThePersistedLearnerBeforePublishingVerificationEmail() {
+        UserRepository users = mock(UserRepository.class);
+        EmailVerificationTokenRepository tokens = mock(EmailVerificationTokenRepository.class);
+        TransactionalEmailPublisher emails = mock(TransactionalEmailPublisher.class);
+        ScenarioAssignmentService assignments = mock(ScenarioAssignmentService.class);
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        when(encoder.encode(any())).thenReturn("encoded");
+        RegisterUserUseCase service = new RegisterUserUseCase(users, encoder, tokens,
+                new CredentialTokenService(), emails, new TransactionalEmailTemplates(),
+                new IdentityEmailProperties(), assignments);
+
+        service.execute("new@example.com", "StrongPassword123!", "New learner");
+
+        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+        var order = inOrder(users, assignments, emails);
+        order.verify(users).saveAndFlush(saved.capture());
+        order.verify(assignments).assignRandomStarter(saved.getValue());
+        order.verify(emails).publish(any());
+        assertThat(saved.getValue().getRole()).isEqualTo(UserRole.LEARNER);
+    }
 
     @Test
     void translatesOnlyTheUniqueEmailConstraintBeforeCreatingSideEffects() {
@@ -132,7 +158,8 @@ class IdentityConcurrencyGuardTest {
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         when(encoder.encode(any())).thenReturn("encoded");
         return new RegisterUserUseCase(users, encoder, tokens, new CredentialTokenService(), emails,
-                new TransactionalEmailTemplates(), new IdentityEmailProperties());
+                new TransactionalEmailTemplates(), new IdentityEmailProperties(),
+                mock(ScenarioAssignmentService.class));
     }
 
     private EmailVerificationService verificationService(UserRepository users,
