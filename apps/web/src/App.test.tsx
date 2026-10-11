@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { Outlet } from 'react-router-dom'
 import App from './App'
 import { useAuthStore } from '@/store/authStore'
@@ -33,6 +33,21 @@ beforeEach(() => {
 })
 
 describe('App account route access', () => {
+  it('redirects an open login page when another tab signs in', async () => {
+    renderAt('/login')
+    expect(await screen.findByText('Sign in page')).toBeInTheDocument()
+    localStorage.setItem('auth-storage', JSON.stringify({ state: {
+      token: 'other-tab-token', userId: 'learner-1', role: 'LEARNER',
+    }, version: 0 }))
+
+    await act(async () => {
+      window.dispatchEvent(new StorageEvent('storage', { key: 'auth-storage', storageArea: localStorage }))
+    })
+
+    expect(await screen.findByText('Command centre')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/dashboard')
+  })
+
   it('sends an unauthenticated visitor to sign in before opening the dashboard', async () => {
     renderAt('/dashboard')
 
