@@ -43,7 +43,7 @@
 
 .readingWait {
   max-width: 28rem;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
 }
 
 .reading {
@@ -123,7 +123,7 @@
 .openerText {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -134,8 +134,8 @@
   border-radius: 12px;
   background: var(--sim-blue);
   color: #fff;
-  font-family: var(--sim-mono);
-  font-size: 0.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   text-align: center;
 }
 
@@ -159,8 +159,8 @@
     cursor: pointer;
 
     span {
-      font-family: var(--sim-mono);
-      font-size: 0.6875rem;
+      font-family: var(--sim-sans);
+      font-size: var(--sim-font-caption);
       margin-left: 2px;
       color: var(--sim-ink-3);
     }
@@ -183,7 +183,7 @@
   color: var(--sim-ink-2);
   cursor: pointer;
   padding: 0.25rem 0.5rem;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
 }
 
 .panelBody {
@@ -197,7 +197,7 @@
 .panelEyebrow {
   display: block;
   margin: 0 0 0.5rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -205,7 +205,7 @@
 }
 
 .help {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
   margin: 0.35rem 0 0;
   line-height: 1.4;
@@ -224,7 +224,7 @@
   background: var(--sim-surface);
   padding: 0.3rem 0.6rem;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -233,8 +233,8 @@
   span {
     background: var(--sim-blue);
     color: #fff;
-    font-family: var(--sim-mono);
-    font-size: 0.625rem;
+    font-family: var(--sim-sans);
+    font-size: var(--sim-font-caption);
     padding: 0 0.3rem;
   }
 }
@@ -275,7 +275,7 @@
   }
 
   small {
-    font-size: 0.6875rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
     margin-top: 2px;
   }
@@ -288,8 +288,8 @@
 }
 
 .sourceIndex {
-  font-family: var(--sim-mono);
-  font-size: 0.6875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-3);
   padding-top: 2px;
 }
@@ -316,14 +316,14 @@
   padding: 0.6rem 0.75rem;
   border-left: 3px solid var(--sim-blue);
   background: var(--sim-blue-soft);
-  font-family: var(--sim-reading);
-  font-size: 0.9375rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
   line-height: 1.5;
 }
 
 .clipSource {
   margin: -0.5rem 0 0;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 }
 
@@ -387,8 +387,8 @@
 
 .hypoStatement {
   margin: 0;
-  font-family: var(--sim-reading);
-  font-size: 0.9375rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
   line-height: 1.5;
 }
 
@@ -397,13 +397,13 @@
   justify-content: space-between;
   align-items: flex-end;
   margin-top: 0.5rem;
-  font-family: var(--sim-mono);
-  font-size: 0.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
 
   small {
     display: block;
     font-family: var(--sim-sans);
-    font-size: 0.6875rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
   }
 }
@@ -424,7 +424,7 @@
     display: flex;
     justify-content: space-between;
     width: 100%;
-    font-size: 0.75rem;
+    font-size: var(--sim-font-caption);
     color: var(--sim-ink-2);
     margin-bottom: 0.4rem;
   }
@@ -434,7 +434,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-family: var(--sim-mono);
+  font-family: var(--sim-sans);
 
   button {
     border: 0;
@@ -517,8 +517,8 @@
   align-items: center;
   gap: 0.35rem;
   flex: none;
-  font-family: var(--sim-mono);
-  font-size: 0.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: #6f6a5e;
 
   button {

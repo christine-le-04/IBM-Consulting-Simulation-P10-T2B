@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import '@carbon/react/index.scss'
 import './styles/tokens.scss'
+import './styles/typography.scss'
 
 const staleBundleReloadKey = 'consulting-sim:stale-bundle-reload-at'
 

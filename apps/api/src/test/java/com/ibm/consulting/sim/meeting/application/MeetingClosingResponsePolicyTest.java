@@ -8,6 +8,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MeetingClosingResponsePolicyTest {
     @Test
+    void separatesTheFinalThankYouFromTheAgreedNextStep() {
+        PersonaTurnResponse response = PersonaTurnResponse.safeFallback("What would you like to confirm?");
+
+        PersonaTurnResponse closing = MeetingClosingResponsePolicy.conclude(response);
+
+        assertThat(closing.spokenResponse()).contains("\n\nThank you for the conversation")
+                .doesNotContain("?");
+        assertThat(closing.meetingSignals()).contains("client_ready_to_close", "client_committed_next_step");
+    }
+
+    @Test
     void unsuccessfulEndingsPreserveTurnEvidenceWithoutInvitingAnotherAnswer() {
         PersonaTurnResponse response = new PersonaTurnResponse("What would you like to confirm with me?",
                 List.of("asks_focused_question"), PersonaStateDelta.zero(), List.of("Budget is constrained"),

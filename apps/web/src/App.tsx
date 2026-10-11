@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import AppShell from '@/components/layout/AppShell'
@@ -57,6 +57,16 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 }
 
 export default function App() {
+  useEffect(() => {
+    const syncSession = (event: StorageEvent) => {
+      if (event.storageArea === localStorage && (event.key === 'auth-storage' || event.key === null)) {
+        void useAuthStore.persist.rehydrate()
+      }
+    }
+    window.addEventListener('storage', syncSession)
+    return () => window.removeEventListener('storage', syncSession)
+  }, [])
+
   return (
     <BrowserRouter>
       <ErrorBoundary>

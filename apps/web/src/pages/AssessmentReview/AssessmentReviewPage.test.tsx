@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AssessmentReviewPage from './AssessmentReviewPage'
@@ -163,8 +163,16 @@ describe('AssessmentReviewPage best stage scores', () => {
     expect(screen.getByText('Outreach')).toBeInTheDocument()
     expect(screen.getByText('Meeting')).toBeInTheDocument()
     expect(screen.getByText('Proposal')).toBeInTheDocument()
-    expect(screen.getByText(/5 completed attempts total · 2 in the current checkpoint cycle · 1 checkpoint reset$/)).toBeInTheDocument()
-    expect(screen.getByText(/7 completed attempts total · 1 in the current checkpoint cycle · 2 checkpoint resets$/)).toBeInTheDocument()
+    expect(screen.getByText('5 completed attempts total')).toBeInTheDocument()
+    expect(screen.getByText('2 in the current checkpoint cycle')).toBeInTheDocument()
+    expect(screen.getByText('1 checkpoint reset')).toBeInTheDocument()
+    expect(screen.getByText('7 completed attempts total')).toBeInTheDocument()
+    expect(screen.getByText('1 in the current checkpoint cycle')).toBeInTheDocument()
+    expect(screen.getByText('2 checkpoint resets')).toBeInTheDocument()
+    expect(screen.getByText('0 checkpoint resets')).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Outreach attempt details' })).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(screen.getByRole('list', { name: 'Meeting attempt details' })).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(screen.getByRole('list', { name: 'Proposal attempt details' })).getAllByRole('listitem')).toHaveLength(3)
     expect(screen.getByText('90/100')).toBeInTheDocument()
     expect(screen.getByText(/Research and meeting preparation receive feedback only/)).toBeInTheDocument()
   })

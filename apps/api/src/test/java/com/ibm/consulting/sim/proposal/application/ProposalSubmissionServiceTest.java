@@ -83,6 +83,24 @@ class ProposalSubmissionServiceTest {
     }
 
     @Test
+    void blankSubmissionReturnsAllBlockingFindingsWithoutConsumingAnAttempt() {
+        ProposalDraftContent empty = new ProposalDraftContent("", "", List.of(""), BigDecimal.ZERO,
+                8, "UNCONFIRMED", "", List.of(), List.of(), List.of(), List.of(""), List.of());
+
+        for (boolean workspaceContract : List.of(true, false)) {
+            assertThatThrownBy(() -> service.submit(data.engagement().getId(), data.userId(), empty, workspaceContract))
+                    .isInstanceOf(ProposalService.ProposalValidationException.class)
+                    .satisfies(exception -> assertThat(((ProposalService.ProposalValidationException) exception).getIssues())
+                            .extracting(ProposalValidationIssue::code).contains(
+                                    "PROBLEM_REQUIRED", "SOLUTION_REQUIRED", "OUTCOME_REQUIRED", "EVIDENCE_REQUIRED"));
+        }
+        assertThat(proposalRepository.proposal).isEmpty();
+        assertThat(data.engagement().getState()).isEqualTo(EngagementState.DISCOVERY_COMPLETE);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+        verify(engagementRepository, never()).save(any());
+    }
+
+    @Test
     void blockingValidationRejectsAtomicallyBeforeProposalDecisionOrLifecycleMutation() {
         ProposalDraftContent invalid = validDraft(List.of());
 

@@ -648,45 +648,41 @@ describe('PortfolioPage history browsing', () => {
     return screen.getByRole('region', { name: 'Completed engagement history' })
   }
 
-  async function filter(name: string, option: string) {
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('combobox', { name }))
-    await user.click(screen.getByRole('option', { name: option }))
-  }
-
-  it('paginates newest-first history and resets the page when searching', async () => {
+  it('shows four engagements newest first and navigates between pages', async () => {
     render(<PortfolioPage />)
-    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
+    expect(within(historySection()).getAllByRole('link').map((link) => link.getAttribute('href')))
+      .toEqual([8, 7, 6, 5].map((id) => `/dashboard/engagements/run-${id}/assessment`))
     expect(within(historySection()).queryByRole('link', { name: 'Open the review of Client 1' })).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
-    expect(within(historySection()).getAllByRole('link')).toHaveLength(2)
-
-    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), '  CLIENT 8 ')
-    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getAllByRole('link').map((link) => link.getAttribute('href')))
+      .toEqual([4, 3, 2, 1].map((id) => `/dashboard/engagements/run-${id}/assessment`))
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Previous page' }))
     expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 8' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
   })
 
-  it('combines industry search, difficulty and outcome filters and can clear them', async () => {
+  it('shows the remaining engagement on a partial last page and keeps the four-item limit', async () => {
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: query.data!.completedEngagementsHistory.slice(0, 5),
+    } } as ReturnType<typeof usePortfolioSummary>)
     render(<PortfolioPage />)
-    const user = userEvent.setup()
-    await user.type(screen.getByLabelText('Search completed engagements'), 'retail')
-    await filter('Difficulty', 'Hard')
-    await filter('Outcome', 'Rejected')
-
-    expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
-    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 2' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Clear history filters' }))
-    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
-    expect(screen.getByLabelText('Search completed engagements')).toHaveValue('')
-  })
-
-  it('filters unavailable difficulty and pending assessments without changing portfolio totals or comparisons', async () => {
-    render(<PortfolioPage />)
-    await filter('Difficulty', 'Difficulty unavailable')
-    await filter('Outcome', 'Assessment pending')
-
+    expect(within(screen.getByRole('list', { name: 'Completed engagements' })).getAllByRole('listitem')).toHaveLength(4)
+    expect(screen.getByRole('combobox', { name: /Items per page/ })).toBeDisabled()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
     expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
     expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 1' })).toBeInTheDocument()
+  })
+
+  it('keeps pending assessments and all comparison options available without history filters', async () => {
+    render(<PortfolioPage />)
+    expect(screen.queryByLabelText('Search completed engagements')).not.toBeInTheDocument()
+    expect(within(historySection()).queryByRole('combobox', { name: 'Difficulty' })).not.toBeInTheDocument()
+    expect(within(historySection()).queryByRole('combobox', { name: 'Outcome' })).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
+    expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 1' })).toBeInTheDocument()
+    expect(within(historySection()).getByText('Assessment pending')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Completed engagements (8 of 8)' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Replay comparison' })).toBeInTheDocument()
     const user = userEvent.setup()
@@ -694,31 +690,24 @@ describe('PortfolioPage history browsing', () => {
     expect(screen.getByRole('option', { name: 'Client 8 — 80/100 · 01/10/2026' })).toBeInTheDocument()
   })
 
-  it('shows a recoverable empty result rather than the first-engagement empty state', async () => {
-    render(<PortfolioPage />)
-    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), 'no matching client')
-
-    expect(within(historySection()).getByRole('status')).toHaveTextContent('No completed engagements match these filters.')
-    expect(within(historySection()).queryByRole('link')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Complete your first engagement/)).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Clear history filters' }))
-    expect(within(historySection()).getAllByRole('link')).toHaveLength(6)
-  })
-
-  it('returns to the first page when the page size increases', async () => {
-    render(<PortfolioPage />)
+  it('returns to an available page when refreshed history has fewer engagements', async () => {
+    const { rerender } = render(<PortfolioPage />)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
-    fireEvent.change(screen.getByRole('combobox', { name: /Items per page/ }), { target: { value: '12' } })
-
-    expect(within(historySection()).getAllByRole('link')).toHaveLength(8)
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: query.data!.completedEngagementsHistory.slice(-2),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    rerender(<MemoryRouter><PortfolioPage /></MemoryRouter>)
+    expect(within(historySection()).getAllByRole('link')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
   })
 })
 
 describe('PortfolioPage recommended practice', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('explains its saved-score basis, links the supporting review and remains stable when history is filtered', async () => {
+  it('explains its saved-score basis and links the supporting review alongside engagement history', () => {
     setupPortfolio([makeTrend('Meeting', [{ engagementId: 'latest', generatedAt: '2026-10-02T10:00:00Z', score: 60 }])])
     const query = mockedUsePortfolioSummary()
     mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
@@ -737,7 +726,7 @@ describe('PortfolioPage recommended practice', () => {
     expect(focus).toHaveTextContent('Some older attempts have no saved scores')
     expect(within(focus).getByRole('link', { name: 'Open the review behind this recommendation' }))
       .toHaveAttribute('href', '/dashboard/engagements/latest/assessment')
-    await userEvent.setup().type(screen.getByLabelText('Search completed engagements'), 'nothing matches')
+    expect(screen.getByRole('link', { name: 'Open the review of Pilot rollout' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Recommended practice' })).toHaveTextContent('Focus next: Meeting')
   })
 

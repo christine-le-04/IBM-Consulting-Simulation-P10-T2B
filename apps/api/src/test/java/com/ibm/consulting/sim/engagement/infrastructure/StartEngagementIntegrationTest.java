@@ -252,20 +252,20 @@ class StartEngagementIntegrationTest {
     // ─── Scenario assignment ───
 
     @Test
-    void anUnassignedConsultantCannotStartANewRunAndNothingIsSaved() {
+    void anAccountDeniedByTheAccessPolicyCannotStartANewRun() {
         StartEngagementUseCase guarded = useCaseWith((user, target) -> false);
         Scenario scenario = activeScenario("Not assigned");
         when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
 
         assertThatThrownBy(() -> guarded.execute(UUID.randomUUID(), scenario.getId(), null))
-                .isInstanceOf(StartEngagementUseCase.ScenarioNotAssignedException.class)
-                .hasMessageContaining("not assigned");
+                .isInstanceOf(StartEngagementUseCase.ScenarioAccessDeniedException.class)
+                .hasMessageContaining("cannot start");
 
         assertThat(engagements.created()).isEmpty();
     }
 
     @Test
-    void aLeadFirstStartAlsoRequiresAnAssignment() {
+    void aLeadFirstStartAlsoChecksAccountAccess() {
         StartEngagementUseCase guarded = useCaseWith((user, target) -> false);
         Scenario scenario = activeScenario("Not assigned lead");
         Lead lead = Lead.create(scenario.getId(), "Example Co", "Technology",
@@ -274,7 +274,7 @@ class StartEngagementIntegrationTest {
         when(scenarios.findById(scenario.getId())).thenReturn(Optional.of(scenario));
 
         assertThatThrownBy(() -> guarded.executeForLead(UUID.randomUUID(), lead.getId(), null))
-                .isInstanceOf(StartEngagementUseCase.ScenarioNotAssignedException.class);
+                .isInstanceOf(StartEngagementUseCase.ScenarioAccessDeniedException.class);
 
         assertThat(engagements.created()).isEmpty();
     }

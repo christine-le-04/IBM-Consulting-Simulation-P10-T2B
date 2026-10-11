@@ -46,6 +46,7 @@ class ScenarioAssignmentMigrationTest {
             liveLineages = count(connection,
                     "SELECT count(DISTINCT scenario_lineage_id) FROM scenarios WHERE status = 'ACTIVE'");
         }
+
         assertThat(liveLineages).as("the seed migrations publish demo scenarios").isPositive();
 
         flywayUpTo("64").migrate();
@@ -62,6 +63,27 @@ class ScenarioAssignmentMigrationTest {
                     """)).as("no assignment points at a lineage without a live revision").isZero();
             assertThat(count(connection, "SELECT count(*) FROM scenario_assignments WHERE assigned_by IS NOT NULL"))
                     .as("migrated rows have no assigning administrator").isZero();
+        }
+        flywayUpTo("67").migrate();
+        UUID newLearner = UUID.randomUUID();
+        UUID anotherNewLearner = UUID.randomUUID();
+        int originalAssignments;
+        try (Connection connection = connect()) {
+            insertUser(connection, newLearner, "LEARNER");
+            insertUser(connection, anotherNewLearner, "LEARNER");
+            originalAssignments = assignmentsFor(connection, learner);
+        }
+        flywayUpTo("68").migrate();
+        try (Connection connection = connect()) {
+            assertThat(assignmentsFor(connection, newLearner)).isEqualTo(1);
+            assertThat(assignmentsFor(connection, anotherNewLearner)).isEqualTo(1);
+            assertThat(assignmentsFor(connection, learner)).isEqualTo(originalAssignments);
+            assertThat(assignmentsFor(connection, author)).isZero();
+            assertThat(count(connection, """
+                    SELECT count(*) FROM scenario_assignments a
+                    WHERE NOT EXISTS (SELECT 1 FROM scenarios s
+                                      WHERE s.scenario_lineage_id = a.scenario_lineage_id AND s.status = 'ACTIVE')
+                    """)).isZero();
         }
     }
 

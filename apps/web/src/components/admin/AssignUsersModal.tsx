@@ -9,8 +9,8 @@ import type { ScenarioSummary } from '@/api/types'
 const LEARNER_PAGE_SIZE = 100
 
 /**
- * "Assign users" from the scenario list: pick the consultants who can see
- * this scenario once it is Live. Saving returns to the scenario list.
+ * "Assign users" from the scenario list: pick the consultants assigned
+ * this scenario. All learners can browse and start Live scenarios. Saving returns to the scenario list.
  */
 export default function AssignUsersModal({ scenario, onClose, onSaved }: {
   scenario: ScenarioSummary
@@ -79,7 +79,7 @@ export default function AssignUsersModal({ scenario, onClose, onSaved }: {
     >
       <div className={styles.assignBody}>
         <p className={styles.modalIntro}>
-          Choose who can see <strong>{scenario.title}</strong> once it is live. Everyone else can't see or start it.
+          Assign <strong>{scenario.title}</strong> to selected learners. All learners can still browse and start any live scenario.
           Assignments carry over to new revisions.
         </p>
 

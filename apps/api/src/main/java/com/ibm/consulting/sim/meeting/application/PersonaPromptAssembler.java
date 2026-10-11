@@ -79,6 +79,14 @@ final class PersonaPromptAssembler {
                 %s
                 Consultant: %s
 
+                Response formatting: write spokenResponse as plain text in short, readable paragraphs.
+                Use JSON-escaped \\n for line breaks and \\n\\n between paragraphs; do not use HTML or Markdown.
+                In the opening reply, put a brief, natural greeting on its own line before the body.
+                In ongoing replies, answer directly without repeating the greeting or adding an email signature.
+                Put any follow-up question in a separate final paragraph.
+                Only when the Closing instruction authorizes closure, put a brief thank-you or outro on its own final line.
+                Formatting must not imply the meeting is over before closure is authorized.
+
                 Respond in character. Return ONLY JSON matching this schema:
                 {"spokenResponse": string,
                  "detectedLearnerBehaviours": string[],

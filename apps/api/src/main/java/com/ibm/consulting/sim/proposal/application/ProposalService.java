@@ -189,7 +189,10 @@ public class ProposalService {
         List<ProposalSource> sources = sources(engagement);
         DifficultyProfile profile = difficultyProfileService.forEngagement(engagement);
         List<ProposalValidationIssue> issues = ProposalValidationEngine.validate(content, sources, profile);
-        if (enforceWorkspaceGate && issues.stream().anyMatch(issue -> "BLOCKING".equals(issue.severity()))) {
+        // Blank narratives must reach the completeness validator so the learner
+        // sees every finding, including when using the original submit contract.
+        if ((enforceWorkspaceGate || content.problemStatement().isBlank())
+                && issues.stream().anyMatch(issue -> "BLOCKING".equals(issue.severity()))) {
             throw new ProposalValidationException(issues);
         }
 

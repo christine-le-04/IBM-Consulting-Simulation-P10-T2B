@@ -4,7 +4,7 @@
  *
  * It answers three things: what is in flight, how to resume, how to start
  * something new. The engagement on the floor gets the six rooms as plain
- * buttons; the mentor says one line in the lobby. The catalogue, briefing and
+ * buttons; the mentor's guidance sits above the other engagements. The catalogue, briefing and
  * persona picker are kept, behind "Start new" instead of on the page.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -272,6 +272,20 @@ export default function CommandCentrePage() {
   if (engLoading || scenLoading) return <LoadingState />
   if (engError || scenarioError) return <ErrorState title="The Office could not be opened" message="Your engagements are saved. Check your connection, then try again." actionLabel="Try again" onAction={() => { void refetchEngagements(); void refetchScenarios() }} />
 
+  const mentorNote = (
+    <figure className={styles.mentorSays}>
+      <DanaAvatar size={48} />
+      <blockquote>
+        <p>
+          {firstVisit
+            ? 'Hi, I’m Dana — I’ll be your mentor on your first engagements. At every step I’ll tell you what it’s for and what you’re still missing. You start with no clients, so let’s win your first one.'
+            : lobbyLine(featured, failed)}
+        </p>
+        <figcaption><strong>{MENTOR.name}</strong>, {MENTOR.role}</figcaption>
+      </blockquote>
+    </figure>
+  )
+
   return (
     <ObjectiveTourProvider tourId="command-centre" objectives={COMMAND_CENTRE_OBJECTIVES}>
       <main className={styles.page}>
@@ -292,17 +306,7 @@ export default function CommandCentrePage() {
 
         <header className={`${styles.lobby} objective-command-centre`}>
           <h1 className={styles.greeting}>{firstVisit ? `Welcome, ${displayName}.` : `Welcome back, ${displayName}.`}</h1>
-          <figure className={styles.mentorSays}>
-            <DanaAvatar size={48} />
-            <blockquote>
-              <p>
-                {firstVisit
-                  ? 'Hi, I’m Dana — I’ll be your mentor on your first engagements. At every step I’ll tell you what it’s for and what you’re still missing. You start with no clients, so let’s win your first one.'
-                  : lobbyLine(featured, failed)}
-              </p>
-              <figcaption><strong>{MENTOR.name}</strong>, {MENTOR.role}</figcaption>
-            </blockquote>
-          </figure>
+          {firstVisit && mentorNote}
         </header>
 
         {firstVisit ? (
@@ -329,7 +333,10 @@ export default function CommandCentrePage() {
                 </div>
               </div>
             ) : (
-              <p id="first-run" className={styles.note}>No scenarios are available yet. Check back shortly.</p>
+              <div>
+                <p id="first-run" className={styles.note} role="status">No live scenarios are available yet. We will check again automatically. If this continues, ask an administrator to check that scenarios have been published.</p>
+                <Button kind="tertiary" size="sm" renderIcon={Renew} onClick={() => void refetchScenarios()}>Check for scenarios</Button>
+              </div>
             )}
             <ol className={`${styles.arc} objective-engagement-arc`}>
               <li><strong>{PHASE_LABEL.CLIENT_INTELLIGENCE}</strong> — gather evidence on the client before interacting with them.</li>
@@ -342,49 +349,64 @@ export default function CommandCentrePage() {
           </section>
         ) : (
           <div className={styles.grid}>
-            {featured ? (
-              <section className={styles.floorCard} aria-labelledby="in-flight">
-                <div className={styles.floorHead}>
-                  <div className={styles.identity}>
-                    <IndustryArt industry={featured.scenarioIndustry} size={64} />
-                    <div>
-                      <p className={styles.eyebrow}>On the floor now</p>
-                      <h2 id="in-flight">{clientName(featured)}</h2>
-                      <div className={styles.floorMeta}>
-                        <Tag type="cyan" size="sm">{featured.scenarioIndustry ?? 'Unassigned'}</Tag>
-                        {featured.scenarioTitle}
-                        {labelsByEngagement.get(featured.id) && <Tag type="gray" size="sm">{labelsByEngagement.get(featured.id)}</Tag>}
+            <div className={styles.mainColumn}>
+              {featured ? (
+                <section className={styles.floorCard} aria-labelledby="in-flight">
+                  <div className={styles.floorHead}>
+                    <div className={styles.identity}>
+                      <IndustryArt industry={featured.scenarioIndustry} size={64} />
+                      <div>
+                        <p className={styles.eyebrow}>On the floor now</p>
+                        <h2 id="in-flight">{clientName(featured)}</h2>
+                        <div className={styles.floorMeta}>
+                          <Tag type="cyan" size="sm">{featured.scenarioIndustry ?? 'Unassigned'}</Tag>
+                          {featured.scenarioTitle}
+                          {labelsByEngagement.get(featured.id) && <Tag type="gray" size="sm">{labelsByEngagement.get(featured.id)}</Tag>}
+                        </div>
                       </div>
                     </div>
+                    <Tag type={statusOf(featured).tag}>{statusOf(featured).label}</Tag>
                   </div>
-                  <Tag type={statusOf(featured).tag}>{statusOf(featured).label}</Tag>
-                </div>
 
-                {/* The one thing to do next comes first, above the floor plan. */}
-                <div className={styles.next}>
-                  <div>
-                    <p className={styles.eyebrow}>Next · {ROOMS[roomIndex(featured.phase)]?.name}</p>
-                    <p className={styles.nextText}>{featured.nextAction}</p>
-                    <p className={styles.facts}>
-                      <span><strong>{featured.evidenceCount}</strong> evidence</span>
-                      <span><strong>{featured.daysElapsed}</strong> days in</span>
-                    </p>
+                  {/* The one thing to do next comes first, above the floor plan. */}
+                  <div className={styles.next}>
+                    <div>
+                      <p className={styles.eyebrow}>Next · {ROOMS[roomIndex(featured.phase)]?.name}</p>
+                      <p className={styles.nextText}>{featured.nextAction}</p>
+                      <p className={styles.facts}>
+                        <span><strong>{featured.evidenceCount}</strong> evidence</span>
+                        <span><strong>{featured.daysElapsed}</strong> days in</span>
+                      </p>
+                    </div>
+                    <Button size="lg" renderIcon={ArrowRight} onClick={() => navigate(resolveEngagementRoute(featured))}>Continue</Button>
                   </div>
-                  <Button size="lg" renderIcon={ArrowRight} onClick={() => navigate(resolveEngagementRoute(featured))}>Continue</Button>
+
+                  <RoomGrid engagement={featured} large />
+                </section>
+              ) : (
+                <section className={styles.floorCard} aria-labelledby="in-flight">
+                  <p className={styles.eyebrow}>On the floor now</p>
+                  <h2 id="in-flight" className={styles.emptyTitle}>No client on the floor</h2>
+                  <p className={styles.note}>Start a new engagement to fill the office.</p>
+                  <div><Button renderIcon={Add} onClick={() => setCatalogueOpen(true)}>Find your next client</Button></div>
+                </section>
+              )}
+
+              <section className={styles.panel}>
+                <div className={styles.panelHead}>
+                  <h3>Recently completed</h3>
+                  <Button kind="ghost" size="sm" onClick={() => navigate('/dashboard/portfolio')}>View all</Button>
                 </div>
-
-                <RoomGrid engagement={featured} large />
+                {completedHistory.length > 0 ? (
+                  <ul className={styles.list}>{completedHistory.slice(0, 2).map((item) => <CompletedRow key={item.engagementId} item={item} />)}</ul>
+                ) : (
+                  <p className={styles.sideEmpty}>Completed engagements will appear here.</p>
+                )}
               </section>
-            ) : (
-              <section className={styles.floorCard} aria-labelledby="in-flight">
-                <p className={styles.eyebrow}>On the floor now</p>
-                <h2 id="in-flight" className={styles.emptyTitle}>No client on the floor</h2>
-                <p className={styles.note}>Start a new engagement to fill the office.</p>
-                <div><Button renderIcon={Add} onClick={() => setCatalogueOpen(true)}>Find your next client</Button></div>
-              </section>
-            )}
+            </div>
 
-            <aside className={styles.side}>
+            <aside className={styles.side} aria-label="Engagement overview">
+              {mentorNote}
               <section className={styles.panel}>
                 <div className={styles.panelHead}>
                   <h3>Other engagements</h3>
@@ -405,18 +427,6 @@ export default function CommandCentrePage() {
                   <ul className={styles.list}>{visibleOthers.map((item) => <EngagementRow key={item.id} engagement={item} attemptLabel={labelsByEngagement.get(item.id)} />)}</ul>
                 ) : (
                   <p className={styles.sideEmpty}><Search size={16} /> No engagements match this search.</p>
-                )}
-              </section>
-
-              <section className={styles.panel}>
-                <div className={styles.panelHead}>
-                  <h3>Recently completed</h3>
-                  <Button kind="ghost" size="sm" onClick={() => navigate('/dashboard/portfolio')}>View all</Button>
-                </div>
-                {completedHistory.length > 0 ? (
-                  <ul className={styles.list}>{completedHistory.slice(0, 2).map((item) => <CompletedRow key={item.engagementId} item={item} />)}</ul>
-                ) : (
-                  <p className={styles.sideEmpty}>Completed engagements will appear here.</p>
                 )}
               </section>
 

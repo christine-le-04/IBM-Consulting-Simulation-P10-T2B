@@ -37,8 +37,8 @@ import com.ibm.consulting.sim.scenario.domain.Scenario;
 import com.ibm.consulting.sim.scenario.domain.ScenarioCatalogQuery;
 
 /**
- * The learner catalogue routes consultants to assignment-filtered queries and
- * everyone else to the unfiltered ones. The signed-in {@link User} is placed in
+ * The learner catalogue lets learners browse all Live scenarios regardless of
+ * assignments. The signed-in {@link User} is placed in
  * the security context directly, because filters are disabled in this slice.
  */
 @WebMvcTest(ScenarioController.class)
@@ -69,23 +69,22 @@ class ScenarioControllerAssignmentTest {
     }
 
     @Test
-    void consultantsListOnlyTheirAssignedScenarios() throws Exception {
+    void consultantsListAllLiveScenariosWithoutAssignments() throws Exception {
         signInAs(consultant);
-        when(assignments.catalogueAssigneeFor(any(User.class))).thenReturn(consultant.getId());
-        when(scenarios.listActiveAssignedTo(consultant.getId())).thenReturn(List.of(liveSummary("Assigned")));
+        when(scenarios.listActive()).thenReturn(List.of(liveSummary("Assigned"), liveSummary("Unassigned")));
 
         mockMvc.perform(get("/api/v1/scenarios"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].title").value("Assigned"));
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[1].title").value("Unassigned"));
 
-        verify(scenarios, never()).listActive();
+        verify(scenarios, never()).listActiveAssignedTo(any());
+        verifyNoInteractions(assignments);
     }
 
     @Test
     void staffListEveryLiveScenario() throws Exception {
         signInAs(author);
-        when(assignments.catalogueAssigneeFor(any(User.class))).thenReturn(null);
         when(scenarios.listActive()).thenReturn(List.of(liveSummary("One"), liveSummary("Two")));
 
         mockMvc.perform(get("/api/v1/scenarios"))
@@ -96,9 +95,8 @@ class ScenarioControllerAssignmentTest {
     }
 
     @Test
-    void theConsultantCatalogueQueryCarriesTheirIdAlongsideTheFilters() throws Exception {
+    void theLearnerCatalogueKeepsSearchFiltersWithoutRestrictingAssignments() throws Exception {
         signInAs(consultant);
-        when(assignments.catalogueAssigneeFor(any(User.class))).thenReturn(consultant.getId());
         when(scenarios.listCatalog(any())).thenReturn(new ScenarioCatalogResponse(List.of(), 0, 0, 9, 0));
 
         mockMvc.perform(get("/api/v1/scenarios/catalog").param("search", "Retail").param("difficulty", "3"))
@@ -106,7 +104,7 @@ class ScenarioControllerAssignmentTest {
 
         ArgumentCaptor<ScenarioCatalogQuery> query = ArgumentCaptor.forClass(ScenarioCatalogQuery.class);
         verify(scenarios).listCatalog(query.capture());
-        assertThat(query.getValue().assigneeId()).isEqualTo(consultant.getId());
+        assertThat(query.getValue().assigneeId()).isNull();
         assertThat(query.getValue().search()).isEqualTo("retail");
         assertThat(query.getValue().difficulty()).isEqualTo(3);
     }
@@ -114,7 +112,6 @@ class ScenarioControllerAssignmentTest {
     @Test
     void theStaffCatalogueQueryHasNoAssignmentFilter() throws Exception {
         signInAs(author);
-        when(assignments.catalogueAssigneeFor(any(User.class))).thenReturn(null);
         when(scenarios.listCatalog(any())).thenReturn(new ScenarioCatalogResponse(List.of(), 0, 0, 9, 0));
 
         mockMvc.perform(get("/api/v1/scenarios/catalog")).andExpect(status().isOk());
@@ -125,17 +122,16 @@ class ScenarioControllerAssignmentTest {
     }
 
     @Test
-    void industryFiltersOnlyOfferTheConsultantsAssignedIndustries() throws Exception {
+    void industryFiltersOfferAllLiveIndustries() throws Exception {
         signInAs(consultant);
-        when(assignments.catalogueAssigneeFor(any(User.class))).thenReturn(consultant.getId());
-        when(scenarios.listCatalogIndustriesAssignedTo(consultant.getId())).thenReturn(List.of("Retail"));
+        when(scenarios.listCatalogIndustries()).thenReturn(List.of("Retail", "Healthcare"));
 
         mockMvc.perform(get("/api/v1/scenarios/catalog/industries"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0]").value("Retail"))
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$.length()").value(2));
 
-        verify(scenarios, never()).listCatalogIndustries();
+        verify(scenarios, never()).listCatalogIndustriesAssignedTo(any());
     }
 
     @Test

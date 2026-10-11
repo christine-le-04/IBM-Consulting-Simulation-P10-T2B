@@ -52,6 +52,11 @@ const LIVE_MEETING_OBJECTIVES = [
 
 type PanelView = 'happening' | 'notes' | 'facts'
 
+function factLabel(fact: string) {
+  const text = fact.replace(/_/g, ' ').trim().toLowerCase()
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 function deriveHint(transcript: ConversationTurn[], signals: string[], state: PersonaState, threshold: number) {
   const latestPersonaTurn = [...transcript].reverse().find((turn) => turn.actor === 'PERSONA')
   const question = latestPersonaTurn?.content.match(/[^?.!]*\?/)?.[0]?.trim()
@@ -124,8 +129,13 @@ export default function LiveMeetingPage() {
     return lastReply?.signals?.split(',').map((signal) => signal.trim()).filter(Boolean) ?? []
   }, [latestSignals, turns])
   const currentState = personaState ?? persistedPersonaState
+  const isCompleted = meeting?.status === 'COMPLETED'
   const latestPersistedFeedback = meeting?.behaviourLedger?.[meeting.behaviourLedger.length - 1] ?? null
-  const feedback = behaviourFeedback ?? latestPersistedFeedback
+  // Completion includes the final persisted assessment. Do not let an older
+  // socket update mask it, or reuse an earlier assessment for a conduct breach.
+  const feedback = isCompleted
+    ? meeting?.terminationReason === 'UNPROFESSIONAL_CONDUCT' ? null : latestPersistedFeedback
+    : behaviourFeedback ?? latestPersistedFeedback
   const meetingThreshold = meeting?.meetingThreshold ?? DEFAULT_MEETING_THRESHOLD
   const hint = useMemo(
     () => currentState ? deriveHint(turns, signals, currentState, meetingThreshold) : [],
@@ -136,7 +146,6 @@ export default function LiveMeetingPage() {
   // record of who they wrote to is the name to show.
   const contact = currentContactOf(engagement)
   const clientName = persona?.name || contact?.name || 'The client'
-  const isCompleted = meeting?.status === 'COMPLETED'
   const passed = meeting?.completionOutcome === 'PASSED'
   const meetingGateMet = Boolean(currentState
     && currentState.trust >= meetingThreshold && currentState.interest >= meetingThreshold && currentState.patience >= meetingThreshold)
@@ -373,9 +382,17 @@ export default function LiveMeetingPage() {
 
           {view === 'happening' && (
             <div className={styles.panelBody}>
+              {isCompleted && (
+                <>
+                  <p className={styles.eyebrow}>Meeting conclusion</p>
+                  <p>{passed
+                    ? 'The client agreed to move forward. Continue to the proposal when you have reviewed the debrief.'
+                    : 'The meeting ended without agreement. Review the debrief before deciding your next step.'}</p>
+                </>
+              )}
               {feedback ? (
                 <>
-                  <p className={styles.eyebrow}>Simulation director</p>
+                  <p className={styles.eyebrow}>{isCompleted ? 'Final turn feedback' : 'Simulation director'}</p>
                   <h3 className={styles.quality}>{feedback.quality.replaceAll('_', ' ').toLowerCase()}</h3>
                   <p>{feedback.explanation}</p>
                   {effectOf(feedback) && <p className={styles.effect}>{effectOf(feedback)}</p>}
@@ -386,7 +403,7 @@ export default function LiveMeetingPage() {
                     })}
                   </div>
                 </>
-              ) : (
+              ) : !isCompleted && (
                 <p className={styles.muted}>After each answer, this says what it did to the relationship.</p>
               )}
             </div>
@@ -414,7 +431,7 @@ export default function LiveMeetingPage() {
             <div className={styles.panelBody}>
               <p className={styles.eyebrow}>Validated during the meeting</p>
               {currentState.disclosedFacts.length > 0
-                ? <ul className={styles.facts}>{currentState.disclosedFacts.map((fact) => <li key={fact}>{fact.replace(/_/g, ' ')}</li>)}</ul>
+                ? <ul className={styles.facts}>{currentState.disclosedFacts.map((fact) => <li key={fact}>{factLabel(fact)}</li>)}</ul>
                 : <p className={styles.muted}>Nothing yet. Hidden facts only come out when you ask the right question.</p>}
             </div>
           )}

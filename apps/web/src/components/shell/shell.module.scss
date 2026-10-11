@@ -6,7 +6,7 @@
 
 .eyebrow {
   margin: 0;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -56,7 +56,7 @@
   padding: 0 1rem;
   color: var(--sim-ink-2);
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   border-bottom: 3px solid transparent;
   border-top: 3px solid transparent;
 
@@ -110,8 +110,8 @@
 }
 
 .count {
-  font-family: var(--sim-mono);
-  font-size: 0.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   background: var(--sim-blue);
   color: #fff;
   padding: 0 0.35rem;
@@ -126,7 +126,7 @@
 }
 
 .whereTitle {
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   font-weight: 600;
   line-height: 1.1;
   white-space: nowrap;
@@ -240,7 +240,7 @@
   align-items: center;
   gap: 0.5rem;
   margin: 0 0 0.6rem;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-blue-ink);
   font-weight: 600;
 }
@@ -253,7 +253,7 @@
   padding: 0.45rem 0.7rem;
   background: var(--sim-surface);
   border-left: 3px solid var(--sim-blue);
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   font-style: italic;
   color: var(--sim-ink);
 }
@@ -263,7 +263,7 @@
 .thresholdNowLabel {
   flex: none;
   font-style: normal;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 600;
@@ -277,7 +277,7 @@
 
   span {
     display: block;
-    font-size: 0.6875rem;
+    font-size: var(--sim-font-caption);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--sim-blue-ink);
@@ -287,7 +287,7 @@
 
   p {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     line-height: 1.45;
     color: var(--sim-ink);
   }
@@ -317,7 +317,7 @@
   .pageRow {
     min-height: 48px;
     padding: 0.5rem 1rem;
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
   }
 
   .roomName {
@@ -361,7 +361,7 @@
   border-bottom: 1px solid var(--sim-line);
   background: rgba(255, 255, 255, 0.7);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   font-weight: 500;
   color: var(--sim-blue-ink);
   text-align: left;
@@ -401,8 +401,8 @@
 .pageState {
   flex: none;
   white-space: nowrap;
-  font-family: var(--sim-mono);
-  font-size: 0.625rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -417,15 +417,15 @@
 }
 
 .roomNumber {
-  font-family: var(--sim-mono);
-  font-size: 0.6875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-3);
   margin-right: auto;
 }
 
 .roomName {
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
 }
 
 .roomBlurb {
@@ -439,8 +439,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-family: var(--sim-mono);
-  font-size: 0.625rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -516,7 +516,7 @@
   }
 
   .roomName {
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
   }
 
   .pageRow {
@@ -527,7 +527,7 @@
 
 .mapIntro {
   margin: 0 0 1rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: var(--sim-ink-2);
 }
 
@@ -538,7 +538,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1.25rem;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 
   li {
@@ -578,8 +578,8 @@
 
   h2 {
     margin: 0.2rem 0 0;
-    font-size: 1.25rem;
-    font-weight: 400;
+    font-size: var(--sim-font-section);
+    font-weight: 600;
   }
 }
 
@@ -609,15 +609,15 @@
 
 .problemText {
   margin: 0;
-  font-family: var(--sim-serif);
-  font-size: 0.9375rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
   line-height: 1.5;
 }
 
 .problemSupport {
   margin: 0.4rem 0 0;
-  font-family: var(--sim-mono);
-  font-size: 0.6875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 }
 
@@ -632,7 +632,7 @@
     background: none;
     padding: 0.6rem 0.75rem;
     font: inherit;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
     color: var(--sim-ink-2);
     cursor: pointer;
   }
@@ -675,15 +675,15 @@
 }
 
 .code {
-  font-family: var(--sim-mono);
-  font-size: 0.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   font-weight: 500;
   color: var(--sim-blue-ink);
   flex: none;
 }
 
 .registerSource {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
   flex: 1;
   min-width: 0;
@@ -694,8 +694,8 @@
 
 .registerQuote {
   display: block;
-  font-family: var(--sim-serif);
-  font-size: 0.875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
   line-height: 1.5;
   quotes: '“' '”';
 }
@@ -716,7 +716,7 @@
   display: flex;
   gap: 1rem;
   margin-top: 0.45rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   text-transform: capitalize;
   color: var(--sim-ink-3);
 }
@@ -730,14 +730,14 @@
 
 .companySub {
   margin: 0.15rem 0 1rem;
-  font-family: var(--sim-mono);
-  font-size: 0.6875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 }
 
 .blockLabel {
   margin: 1.1rem 0 0.4rem;
-  font-size: 0.6875rem;
+  font-size: var(--sim-font-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sim-ink-2);
@@ -751,8 +751,9 @@
 
 .reveal {
   display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
   padding: 0.5rem 0.7rem;
   border-bottom: 1px solid var(--sim-line);
   font-size: 0.8125rem;
@@ -766,14 +767,14 @@
 
   dd {
     margin: 0;
-    text-align: right;
+    text-align: left;
     font-weight: 500;
   }
 
   small {
     display: block;
-    font-family: var(--sim-mono);
-    font-size: 0.625rem;
+    font-family: var(--sim-sans);
+    font-size: var(--sim-font-caption);
     color: var(--sim-blue-ink);
     font-weight: 400;
     margin-top: 2px;

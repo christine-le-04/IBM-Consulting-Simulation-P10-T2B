@@ -1,6 +1,7 @@
 package com.ibm.consulting.sim.identity.application;
 
 import com.ibm.consulting.sim.identity.domain.*;
+import com.ibm.consulting.sim.scenario.application.ScenarioAssignmentService;
 import com.ibm.consulting.sim.shared.email.application.TransactionalEmailPublisher;
 import com.ibm.consulting.sim.shared.email.template.TransactionalEmailTemplates;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,13 +24,15 @@ public class RegisterUserUseCase {
     private final TransactionalEmailPublisher emailPublisher;
     private final TransactionalEmailTemplates emailTemplates;
     private final IdentityEmailProperties emailProperties;
+    private final ScenarioAssignmentService scenarioAssignments;
 
     public RegisterUserUseCase(UserRepository userRepository, PasswordEncoder passwordEncoder,
                                EmailVerificationTokenRepository verificationTokens,
                                CredentialTokenService credentialTokenService,
                                TransactionalEmailPublisher emailPublisher,
                                TransactionalEmailTemplates emailTemplates,
-                               IdentityEmailProperties emailProperties) {
+                               IdentityEmailProperties emailProperties,
+                               ScenarioAssignmentService scenarioAssignments) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.verificationTokens = verificationTokens;
@@ -37,6 +40,7 @@ public class RegisterUserUseCase {
         this.emailPublisher = emailPublisher;
         this.emailTemplates = emailTemplates;
         this.emailProperties = emailProperties;
+        this.scenarioAssignments = scenarioAssignments;
     }
 
     @Transactional
@@ -56,6 +60,7 @@ public class RegisterUserUseCase {
             }
             throw exception;
         }
+        scenarioAssignments.assignRandomStarter(user);
         CredentialTokenService.IssuedCredential credential = credentialTokenService.issue();
         verificationTokens.save(EmailVerificationToken.issue(user.getId(), credential.selector(),
                 credential.hash(), credentialTokenService.expiresAt(emailProperties.getVerificationTtlMinutes())));

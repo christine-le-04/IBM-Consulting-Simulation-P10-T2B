@@ -13,6 +13,7 @@ import com.ibm.consulting.sim.lead.domain.ResearchEvidence;
 import com.ibm.consulting.sim.lead.domain.ResearchEvidenceRepository;
 import com.ibm.consulting.sim.outreach.domain.OutreachAttempt;
 import com.ibm.consulting.sim.outreach.domain.OutreachOutcome;
+import com.ibm.consulting.sim.outreach.domain.OutreachNextAction;
 import com.ibm.consulting.sim.outreach.domain.OutreachRepository;
 import com.ibm.consulting.sim.scenario.application.DifficultyProfileService;
 import com.ibm.consulting.sim.scenario.domain.DifficultyProfile;
@@ -48,6 +49,27 @@ class OutreachServiceTest {
             next week to discuss the operational evidence, validate priorities, and agree whether a focused
             discovery sprint would be useful?
             """.strip();
+
+    @Test
+    void acceptedOutreachPersistsAMeetingAgreementInsteadOfTheProvidersConditionalReply() {
+        Fixture fixture = fixture(new OutreachEvaluationResult(
+                "I can't commit to a call just yet. Send more information and I'll think about setting a time.",
+                "FOLLOW_UP_REQUIRED", 100, 100, 100, 100, 0, 0));
+
+        OutreachResponse response = send(fixture);
+
+        assertThat(response.outcome()).isEqualTo("ACCEPTED");
+        assertThat(response.clientReply()).contains("happy to arrange an introductory meeting")
+                .doesNotContain("can't commit", "think about setting a time");
+        OutreachAttempt persisted = fixture.attempts().findByEngagementId(fixture.engagement().getId()).getFirst();
+        assertThat(persisted.getClientReply()).isEqualTo(response.clientReply());
+        assertThat(persisted.getNextAction()).isEqualTo(OutreachNextAction.CONTINUE_TO_MEETING);
+        assertThat(fixture.engagement().getState()).isEqualTo(EngagementState.MEETING_SECURED);
+        when(fixture.engagements().findByIdAndUserId(fixture.engagement().getId(), fixture.userId()))
+                .thenReturn(Optional.of(fixture.engagement()));
+        assertThat(fixture.service().listAttempts(fixture.engagement().getId(), fixture.userId()).getFirst().clientReply())
+                .isEqualTo(response.clientReply());
+    }
 
     @Test
     void firstAttemptPersistsAndDeterministicPolicyOwnsTheLifecycle() {

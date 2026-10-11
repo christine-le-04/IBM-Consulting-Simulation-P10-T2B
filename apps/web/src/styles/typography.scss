@@ -1,0 +1,68 @@
+// Shared application defaults. Workspace modules may size display figures and
+// decorative headings separately; ordinary text and controls use this scale.
+body {
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
+  line-height: var(--sim-line-height);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--sim-sans);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+h1 { font-size: var(--sim-font-title); font-weight: 500; }
+h2 { font-size: var(--sim-font-section); }
+h3 { font-size: var(--sim-font-subheading); }
+h4,
+h5,
+h6 { font-size: var(--sim-font-body); }
+
+p {
+  font-size: var(--sim-font-body);
+  line-height: var(--sim-line-height);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: var(--sim-sans);
+}
+
+input,
+textarea,
+select,
+.cds--text-input,
+.cds--text-area,
+.cds--select-input,
+.cds--search-input,
+.cds--list-box__label {
+  font-size: var(--sim-font-body);
+}
+
+input::placeholder,
+textarea::placeholder,
+.cds--text-input::placeholder,
+.cds--text-area::placeholder,
+.cds--search-input::placeholder {
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-placeholder);
+  font-weight: 400;
+  color: #6f6f6f;
+  opacity: 1;
+}
+
+small,
+.cds--label,
+.cds--form__helper-text,
+.cds--form-requirement {
+  font-size: var(--sim-font-caption);
+  line-height: var(--sim-line-height);
+}

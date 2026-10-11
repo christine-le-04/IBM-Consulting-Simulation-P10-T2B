@@ -92,7 +92,7 @@ public class ProposalController {
 
     /** Retained for backward-compatible callers of the original submit contract. */
     record SubmitProposalRequest(
-            @NotBlank @Size(max = ProposalRequestLimits.NARRATIVE_MAX_LENGTH) String problemStatement,
+            @NotNull @Size(max = ProposalRequestLimits.NARRATIVE_MAX_LENGTH) String problemStatement,
             @NotNull @Size(max = ProposalRequestLimits.MAX_ITEMS)
             List<@NotNull @Size(max = ProposalRequestLimits.ITEM_MAX_LENGTH) String> components,
             @JsonDeserialize(using = StrictBigDecimalDeserializer.class)

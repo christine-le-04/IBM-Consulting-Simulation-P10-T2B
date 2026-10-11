@@ -72,7 +72,7 @@ public class ScenarioService {
 
     /** Live scenarios assigned to one consultant. */
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = SCENARIOS_CACHE, key = "'assigned:' + #userId")
+    @Cacheable(cacheNames = SCENARIOS_CACHE, key = "'starter-v1:assigned:' + #userId")
     public List<ScenarioSummary> listActiveAssignedTo(UUID userId) {
         return scenarioRepository.findAllActiveAssignedTo(userId).stream()
                 .map(this::summary)
@@ -81,7 +81,8 @@ public class ScenarioService {
 
     /** Bounded learner catalogue query that never loads every scenario into a dashboard request. */
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = SCENARIO_CATALOG_CACHE, key = "#query.cacheKey()")
+    // New namespace avoids pre-backfill empty results in persistent caches.
+    @Cacheable(cacheNames = SCENARIO_CATALOG_CACHE, key = "'starter-v1:' + #query.cacheKey()")
     public ScenarioCatalogResponse listCatalog(ScenarioCatalogQuery query) {
         return ScenarioCatalogResponse.from(scenarioRepository.findCatalog(query), this::summary);
     }
@@ -99,7 +100,7 @@ public class ScenarioService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = SCENARIO_CATALOG_FACETS_CACHE, key = "'industries:' + #userId")
+    @Cacheable(cacheNames = SCENARIO_CATALOG_FACETS_CACHE, key = "'starter-v1:industries:' + #userId")
     public List<String> listCatalogIndustriesAssignedTo(UUID userId) {
         return scenarioRepository.findCatalogIndustriesAssignedTo(userId);
     }

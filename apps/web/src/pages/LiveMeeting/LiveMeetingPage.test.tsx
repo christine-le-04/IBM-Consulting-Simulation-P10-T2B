@@ -154,6 +154,21 @@ function renderPage() {
 describe('LiveMeetingPage states', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('shows disclosed facts in sentence case rather than capitalising every word', () => {
+    setup(makeMeeting({}))
+    mockedPersonaState.mockReturnValue({
+      data: { ...personaState, disclosedFacts: ['BUDGET_SIGNAL', 'Decision Maker', 'technology stack'] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof usePersonaState>)
+    renderPage()
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Facts/ }))
+
+    expect(screen.getByText('Budget signal')).toBeInTheDocument()
+    expect(screen.getByText('Decision maker')).toBeInTheDocument()
+    expect(screen.getByText('Technology stack')).toBeInTheDocument()
+  })
+
   it.each([
     ['EASY', 70, 14, 'the client explains concerns clearly'],
     ['MEDIUM', 70, 14, 'use focused follow-ups'],
@@ -324,6 +339,61 @@ describe('LiveMeetingPage retry actions', () => {
 
 describe('LiveMeetingPage without numbers', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('uses the saved closing assessment instead of stale socket feedback after completion', () => {
+    const previous = {
+      quality: 'STRONG_DISCOVERY', trustDelta: 6, interestDelta: 4, patienceDelta: -2,
+      verifiedBehaviours: ['asked_open_question'], explanation: 'Earlier discovery feedback.',
+      nextBestAction: 'Ask a follow-up question.',
+    }
+    const closing = { ...previous, explanation: 'You confirmed the next step with a date and owner.' }
+    setup(makeMeeting({
+      status: 'COMPLETED', completionOutcome: 'PASSED', behaviourLedger: [previous, closing],
+    }))
+    const socket = mockedMeetingSocket('meeting-1')
+    mockedMeetingSocket.mockReturnValue({ ...socket, behaviourFeedback: previous })
+    renderPage()
+
+    expect(screen.getByText('Final turn feedback')).toBeInTheDocument()
+    expect(screen.getByText(closing.explanation)).toBeInTheDocument()
+    expect(screen.queryByText(previous.explanation)).not.toBeInTheDocument()
+    expect(screen.getByText(/The client agreed to move forward/)).toBeInTheDocument()
+  })
+
+  it('shows the closing assessment after reloading a completed meeting', () => {
+    setup(makeMeeting({
+      status: 'COMPLETED', completionOutcome: 'PASSED', behaviourLedger: [{
+        quality: 'CONSTRUCTIVE', trustDelta: 0, interestDelta: 0, patienceDelta: 0,
+        verifiedBehaviours: [], explanation: 'You confirmed who will own the next step.',
+        nextBestAction: 'Prepare the proposal.',
+      }],
+    }))
+    renderPage()
+
+    expect(screen.getByText('Final turn feedback')).toBeInTheDocument()
+    expect(screen.getByText('You confirmed who will own the next step.')).toBeInTheDocument()
+  })
+
+  it.each([null, 'UNPROFESSIONAL_CONDUCT'] as const)(
+    'does not show stale feedback when completion has no final assessment (%s)', (terminationReason) => {
+      const previous = {
+        quality: 'STRONG_DISCOVERY', trustDelta: 6, interestDelta: 4, patienceDelta: -2,
+        verifiedBehaviours: [], explanation: 'Earlier discovery feedback.', nextBestAction: 'Ask a question.',
+      }
+      setup(makeMeeting({
+        status: 'COMPLETED', completionOutcome: 'FAILED', terminationReason,
+        behaviourLedger: terminationReason ? [previous] : [],
+      }))
+      const socket = mockedMeetingSocket('meeting-1')
+      mockedMeetingSocket.mockReturnValue({ ...socket, behaviourFeedback: previous })
+      renderPage()
+
+      expect(screen.getByText(/The meeting ended without agreement/)).toBeInTheDocument()
+      expect(screen.queryByText(previous.explanation)).not.toBeInTheDocument()
+      expect(screen.queryByText('Final turn feedback')).not.toBeInTheDocument()
+      expect(screen.queryByText('After each answer, this says what it did to the relationship.')).not.toBeInTheDocument()
+    },
+  )
 
   it('shows the client by name and describes the last answer in words, never as scores (SRS FR-14)', () => {
     setup(

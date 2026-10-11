@@ -84,7 +84,8 @@ class IdentityCommandConcurrencyIntegrationTest {
         RegisterUserUseCase service = new RegisterUserUseCase(
                 gateEmailExistenceChecks(userRepository, existenceChecks), passwordEncoder,
                 verificationTokens, new CredentialTokenService(), emails,
-                new TransactionalEmailTemplates(), new IdentityEmailProperties());
+                new TransactionalEmailTemplates(), new IdentityEmailProperties(),
+                mock(com.ibm.consulting.sim.scenario.application.ScenarioAssignmentService.class));
 
         List<Outcome> outcomes = runConcurrently(
                 () -> service.execute("Concurrent@Example.com", "StrongPassword123!", "First"),

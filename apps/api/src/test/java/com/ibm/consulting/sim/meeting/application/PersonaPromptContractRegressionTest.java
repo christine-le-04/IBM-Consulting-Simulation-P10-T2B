@@ -23,6 +23,10 @@ class PersonaPromptContractRegressionTest {
                     List.of(), List.of(), List.of(), "What are your priorities?",
                     DifficultyProfile.defaults(tier, 3, 3, 3), false);
             assertThat(prompt).contains("The backend has not authorized closure")
+                    .contains("Use JSON-escaped \\n for line breaks and \\n\\n between paragraphs")
+                    .contains("In the opening reply, put a brief, natural greeting on its own line")
+                    .contains("without repeating the greeting or adding an email signature")
+                    .contains("Only when the Closing instruction authorizes closure")
                     .contains("do not demand a solution mechanism on every turn")
                     .contains("The Closing instruction takes precedence");
             assertThat(prompt).contains(switch (tier) {

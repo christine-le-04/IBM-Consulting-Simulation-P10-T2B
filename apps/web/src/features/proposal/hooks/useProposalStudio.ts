@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ProposalReview, ProposalSource } from '@/api/types'
+import { getApiProblem } from '@/api/problemDetails'
 import {
   type ProposalDraftRequest,
   useProposalChallenge,
@@ -58,6 +59,7 @@ export function useProposalStudio(engagementId: string) {
   }, [engagementId, workspace.data])
 
   const resetSubmitError = submitProposal.reset
+  const submitError = submitProposal.error
 
   const updateDraft = useCallback((updater: (current: ProposalDraftRequest) => ProposalDraftRequest) => {
     const nextDraft = updater(draftRef.current)
@@ -67,10 +69,12 @@ export function useProposalStudio(engagementId: string) {
     setDraft(nextDraft)
     setReview(null)
     setSaveState('idle')
-    // A rejected submit describes the draft as it was; once the learner edits,
-    // the banner would point at problems they may already have fixed.
-    resetSubmitError()
-  }, [engagementId, resetSubmitError])
+    // Keep validation findings available for rechecking as the draft changes.
+    // Transport failures can be dismissed when the learner starts editing again.
+    if (!getApiProblem(submitError, '').violations) {
+      resetSubmitError()
+    }
+  }, [engagementId, resetSubmitError, submitError])
 
   const persist = useCallback(async (): Promise<boolean> => {
     if (submitted) return true

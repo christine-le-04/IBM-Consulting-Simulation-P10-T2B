@@ -43,7 +43,7 @@
   a {
     color: #525252;
     text-decoration: none;
-    font-size: 0.875rem;
+    font-size: var(--sim-font-body);
 
     &:hover { color: #161616; }
   }
@@ -94,7 +94,7 @@
 .eyebrow,
 .eyebrowDark {
   margin: 0 0 1.25rem;
-  font-family: var(--sim-mono);
+  font-family: var(--sim-sans);
   font-size: 0.8125rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -120,7 +120,7 @@
 
 .reassure {
   margin: 1.25rem 0 0;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: #6f6f6f;
 }
 
@@ -157,8 +157,8 @@
 
   figcaption {
     margin: 0 0 0.6rem;
-    font-family: var(--sim-mono);
-    font-size: 0.625rem;
+    font-family: var(--sim-sans);
+    font-size: var(--sim-font-caption);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: #6f6f6f;
@@ -182,7 +182,7 @@
 }
 
 .newsMast {
-  font-family: var(--sim-masthead);
+  font-family: var(--sim-sans);
   font-size: 1.5rem;
   text-align: center;
   border-bottom: 3px double #161616;
@@ -192,7 +192,7 @@
 
 .newsHead {
   margin: 0;
-  font-family: var(--sim-display);
+  font-family: var(--sim-sans);
   font-weight: 900;
   font-size: 1.25rem;
   line-height: 1.15;
@@ -200,15 +200,15 @@
 
 .newsSaved {
   margin: 0.75rem 0 0;
-  font-family: var(--sim-reading);
-  font-size: 0.875rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
   background: #fde68a;
   padding: 0.3rem 0.4rem;
 
   span {
     display: block;
     font-family: var(--sim-sans);
-    font-size: 0.6875rem;
+    font-size: var(--sim-font-caption);
     font-weight: 600;
     color: #0e6027;
     margin-bottom: 2px;
@@ -225,7 +225,7 @@
 
 .mailFrom {
   margin: 0 0 0.4rem;
-  font-size: 0.875rem;
+  font-size: var(--sim-font-body);
   color: #525252;
 
   strong { color: #161616; }
@@ -233,13 +233,13 @@
 
 .mailBody {
   margin: 0 0 0.75rem;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
   line-height: 1.5;
 }
 
 .mailTag {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   padding: 2px 10px;
   background: #a7f0ba;
   color: #044317;
@@ -263,7 +263,7 @@
   background: #f2edff;
   color: #161616;
   border-radius: 8px 8px 8px 2px;
-  font-size: 0.9375rem;
+  font-size: var(--sim-font-body);
   line-height: 1.45;
 }
 
@@ -345,12 +345,12 @@
   }
 
   strong {
-    font-size: 1.125rem;
+    font-size: var(--sim-font-section);
     font-weight: 500;
   }
 
   span:last-child {
-    font-size: 0.9375rem;
+    font-size: var(--sim-font-body);
     line-height: 1.4;
     color: #525252;
   }
@@ -366,8 +366,8 @@
 }
 
 .trackNo {
-  font-family: var(--sim-mono);
-  font-size: 0.75rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-caption);
   color: #6f6f6f;
 }
 
@@ -418,7 +418,7 @@
   grid-template-columns: 140px 1fr 28px;
   align-items: center;
   gap: 0.6rem;
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   color: #393939;
 
   b {
@@ -429,7 +429,7 @@
 
   em {
     font-style: normal;
-    font-family: var(--sim-mono);
+    font-family: var(--sim-sans);
     text-align: right;
   }
 }

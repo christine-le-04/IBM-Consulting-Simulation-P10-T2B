@@ -18,7 +18,7 @@ final class MeetingClosingResponsePolicy {
 
     private static final String CLOSING_RESPONSE = "That gives me enough confidence to take the agreed next step forward. "
             + "Please send the concise summary we discussed, and I will coordinate the follow-up with the right people. "
-            + "Thank you for the conversation; I look forward to reconnecting next week.";
+            + "\n\nThank you for the conversation; I look forward to reconnecting next week.";
 
     private MeetingClosingResponsePolicy() {
     }
