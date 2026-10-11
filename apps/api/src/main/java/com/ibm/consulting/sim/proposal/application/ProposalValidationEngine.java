@@ -41,10 +41,10 @@ public final class ProposalValidationEngine {
         if (draft.businessOutcomes().stream().noneMatch(outcome -> !blank(outcome.getOutcome()) || !blank(outcome.getMetric()) || !blank(outcome.getTarget()))) {
             issues.add(blocking("OUTCOME_REQUIRED", "Add at least one measurable business outcome or KPI.", "OUTCOMES"));
         }
-        if (draft.risks().isEmpty()) {
+        if (draft.risks().stream().noneMatch(risk -> !blank(risk.getRisk()) || !blank(risk.getMitigation()))) {
             issues.add(warning("RISK_COVERAGE", "No delivery or operational risks have been documented.", "RISKS"));
         }
-        if (draft.milestones().isEmpty()) {
+        if (draft.milestones().stream().noneMatch(milestone -> !blank(milestone.getPhase()) || !blank(milestone.getDuration()))) {
             issues.add(warning("TIMELINE_DETAIL", "Add delivery milestones so the timeline is explainable.", "TIMELINE"));
         }
         if (draft.assumptions().isEmpty()) {

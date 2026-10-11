@@ -15,6 +15,23 @@ class ProposalValidationEngineTest {
             "Manual reconciliation is creating audit delays and operational risk.", "HIGH");
 
     @Test
+    void reportsAllCompletenessFindingsForTheBlankStudioDraft() {
+        ProposalDraftContent empty = new ProposalDraftContent("", "", List.of(""), BigDecimal.ZERO,
+                8, "UNCONFIRMED", "Consultant estimate",
+                List.of(new ProposalBusinessOutcome("", "", "")),
+                List.of(new ProposalMilestone("", "")),
+                List.of(new ProposalRisk("", "MEDIUM", "")), List.of(""), List.of());
+
+        List<ProposalValidationIssue> issues = ProposalValidationEngine.validate(empty, List.of());
+
+        assertThat(issues).extracting(ProposalValidationIssue::code).containsExactly(
+                "PROBLEM_REQUIRED", "SOLUTION_REQUIRED", "OUTCOME_REQUIRED", "RISK_COVERAGE",
+                "TIMELINE_DETAIL", "ASSUMPTIONS", "EVIDENCE_REQUIRED");
+        assertThat(issues).filteredOn(issue -> issue.code().equals("RISK_COVERAGE")
+                || issue.code().equals("TIMELINE_DETAIL")).allMatch(issue -> issue.severity().equals("WARNING"));
+    }
+
+    @Test
     void requiresTraceableEvidenceBeforeSubmission() {
         ProposalDraftContent draft = draft(List.of());
 

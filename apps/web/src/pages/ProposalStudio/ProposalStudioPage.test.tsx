@@ -250,6 +250,34 @@ describe('ProposalStudioPage document', () => {
 describe('ProposalStudioPage submit and review', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('shows all completeness findings together when a blank proposal is rejected', () => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, submitProposal: {
+      ...studio.submitProposal, isError: true,
+      error: { isAxiosError: true, response: { status: 422, data: {
+        detail: 'Proposal needs changes before submission', violations: {
+          PROBLEM_REQUIRED: 'Describe the client problem with enough specificity.',
+          SOLUTION_REQUIRED: 'Explain the recommended solution and include at least one component.',
+          OUTCOME_REQUIRED: 'Add at least one measurable business outcome or KPI.',
+          RISK_COVERAGE: 'No delivery or operational risks have been documented.',
+          TIMELINE_DETAIL: 'Add delivery milestones so the timeline is explainable.',
+          ASSUMPTIONS: 'State the dependencies and assumptions behind the recommendation.',
+          EVIDENCE_REQUIRED: 'Attach at least one evidence or meeting source to a proposal section.',
+        },
+      } } },
+    } } as unknown as ReturnType<typeof useProposalStudio>)
+    renderPage()
+
+    const findings = screen.getByRole('list', { name: 'Proposal validation errors' })
+    expect(within(findings).getAllByRole('listitem')).toHaveLength(7)
+    for (const label of ['Describe the client problem', 'Explain your recommendation',
+      'Add a measurable outcome', 'Document delivery risks', 'Add delivery milestones',
+      'State your assumptions', 'Attach supporting evidence']) {
+      expect(within(findings).getByText(label)).toBeInTheDocument()
+    }
+  })
+
   it('shows a pending submission without implying a client decision before validation succeeds', () => {
     setup([])
     const studio = mockedUseProposalStudio('eng-1')

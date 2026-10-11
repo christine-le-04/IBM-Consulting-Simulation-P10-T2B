@@ -6,6 +6,7 @@ import com.ibm.consulting.sim.identity.domain.UserRole;
 import com.ibm.consulting.sim.identity.infrastructure.JwtTokenProvider;
 import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.proposal.application.ProposalService;
+import com.ibm.consulting.sim.proposal.application.ProposalValidationEngine;
 import com.ibm.consulting.sim.proposal.domain.ProposalDraftContent;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,27 @@ class ProposalControllerValidationContractTest {
 
     private final UUID engagementId = UUID.randomUUID();
     private final User learner = User.create("learner@example.com", "hash", "Learner", UserRole.LEARNER);
+
+    @Test
+    void blankWorkspaceSubmissionReturnsAllCompletenessIssuesInsteadOfStoppingAtProblemStatement() throws Exception {
+        when(proposalService.submit(eq(engagementId), eq(learner.getId()), any(), eq(true)))
+                .thenAnswer(invocation -> {
+                    ProposalDraftContent draft = invocation.getArgument(2);
+                    throw new ProposalService.ProposalValidationException(ProposalValidationEngine.validate(draft, List.of()));
+                });
+
+        mockMvc.perform(post("/api/v1/engagements/{id}/proposal", engagementId)
+                        .with(authentication()).contentType(MediaType.APPLICATION_JSON).content("""
+                                {"problemStatement":"", "solutionStrategy":"", "components":[""],
+                                 "budget":0, "timelineWeeks":8, "businessOutcomes":[],
+                                 "milestones":[], "risks":[], "assumptions":[""], "evidenceLinks":[]}
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.violations.PROBLEM_REQUIRED").exists())
+                .andExpect(jsonPath("$.violations.SOLUTION_REQUIRED").exists())
+                .andExpect(jsonPath("$.violations.OUTCOME_REQUIRED").exists())
+                .andExpect(jsonPath("$.violations.EVIDENCE_REQUIRED").exists());
+    }
 
     @Test
     void malformedDraftReviewAndChallengePayloadsReturnValidationProblems() throws Exception {
