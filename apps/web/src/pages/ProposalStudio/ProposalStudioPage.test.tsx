@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProposalStudioPage from './ProposalStudioPage'
@@ -275,6 +275,50 @@ describe('ProposalStudioPage submit and review', () => {
       'Add a measurable outcome', 'Document delivery risks', 'Add delivery milestones',
       'State your assumptions', 'Attach supporting evidence']) {
       expect(within(findings).getByText(label)).toBeInTheDocument()
+    }
+  })
+
+  it('clears only resolved findings after a typing pause and restores them if the field becomes invalid', async () => {
+    vi.useFakeTimers()
+    try {
+      setup([])
+      const studio = mockedUseProposalStudio('eng-1')
+      const rejected = { ...studio, submitProposal: {
+        ...studio.submitProposal, isError: true,
+        error: { isAxiosError: true, response: { status: 422, data: { violations: {
+          PROBLEM_REQUIRED: 'Describe the problem.', SOLUTION_REQUIRED: 'Explain the solution.',
+          EVIDENCE_REQUIRED: 'Attach evidence.',
+        } } } },
+      } } as unknown as ReturnType<typeof useProposalStudio>
+      mockedUseProposalStudio.mockReturnValue(rejected)
+      const view = renderPage()
+      expect(screen.getByText('Describe the client problem')).toBeInTheDocument()
+
+      const rerenderDraft = (problemStatement: string) => {
+        mockedUseProposalStudio.mockReturnValue({ ...rejected, draft: { ...rejected.draft, problemStatement } })
+        view.rerender(<MemoryRouter initialEntries={['/dashboard/engagements/eng-1/proposal']}>
+          <Routes><Route path="/dashboard/engagements/:engagementId/proposal" element={<ProposalStudioPage />} /></Routes>
+        </MemoryRouter>)
+      }
+      rerenderDraft('.')
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(screen.getByText('Describe the client problem')).toBeInTheDocument()
+
+      rerenderDraft('Claims backlog doubled since March')
+      await act(async () => { vi.advanceTimersByTime(299) })
+      expect(screen.getByText('Describe the client problem')).toBeInTheDocument()
+      await act(async () => { vi.advanceTimersByTime(1) })
+
+      const findings = screen.getByRole('list', { name: 'Proposal validation errors' })
+      expect(within(findings).getAllByRole('listitem')).toHaveLength(2)
+      expect(screen.queryByText('Describe the client problem')).not.toBeInTheDocument()
+      expect(within(findings).getByText('Explain your recommendation')).toBeInTheDocument()
+      expect(within(findings).getByText('Attach supporting evidence')).toBeInTheDocument()
+      rerenderDraft('')
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(screen.getByText('Describe the client problem')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
     }
   })
 

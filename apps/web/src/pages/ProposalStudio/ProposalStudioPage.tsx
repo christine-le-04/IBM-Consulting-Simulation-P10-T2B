@@ -32,6 +32,7 @@ import { useMentor } from '@/components/shell/useMentor'
 import { ProposalOutcomeView } from '@/features/proposal/components/ProposalOutcomeView'
 import { useProposalStudio } from '@/features/proposal/hooks/useProposalStudio'
 import { proposalSections } from '@/features/proposal/services/proposalDraftService'
+import { remainingProposalViolations } from '@/features/proposal/services/proposalValidationService'
 import { currentContactOf } from '@/lifecycle/contactSelection'
 import styles from './ProposalStudioPage.module.scss'
 
@@ -207,6 +208,11 @@ export default function ProposalStudioPage() {
   const [sourcePage, setSourcePage] = useState(0)
 
   const { draft, activeSection, updateDraft } = studio
+  const [validationDraft, setValidationDraft] = useState(draft)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setValidationDraft(draft), 300)
+    return () => window.clearTimeout(timer)
+  }, [draft])
   const sources = useMemo(() => studio.workspace.data?.sources ?? [], [studio.workspace.data?.sources])
   const sourceById = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources])
   const sourcePageCount = Math.max(1, Math.ceil(sources.length / SOURCES_PER_PAGE))
@@ -219,8 +225,14 @@ export default function ProposalStudioPage() {
   const isReviewing = studio.reviewProposal.isPending
   const isSubmitting = studio.submitProposal.isPending
   const hasProposalFailure = studio.submitProposal.isError || studio.saveState === 'error'
-  const proposalProblem = hasProposalFailure
-    ? getApiProblem(studio.submitProposal.error ?? studio.saveDraft.error, 'Your draft remains in this workspace. Resolve the highlighted findings and try again.')
+  const originalProblem = hasProposalFailure
+    ? getApiProblem(studio.saveState === 'error' ? studio.saveDraft.error : studio.submitProposal.error, 'Your draft remains in this workspace. Resolve the highlighted findings and try again.')
+    : null
+  const remainingViolations = originalProblem?.violations && studio.saveState !== 'error'
+    ? remainingProposalViolations(originalProblem.violations, validationDraft)
+    : originalProblem?.violations
+  const proposalProblem = originalProblem && (!remainingViolations || Object.keys(remainingViolations).length > 0)
+    ? { ...originalProblem, violations: remainingViolations }
     : null
 
   useEffect(() => {
