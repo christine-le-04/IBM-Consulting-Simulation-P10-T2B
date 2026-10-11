@@ -250,6 +250,39 @@ describe('ProposalStudioPage document', () => {
 describe('ProposalStudioPage submit and review', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('shows a pending submission without implying a client decision before validation succeeds', () => {
+    setup([])
+    const studio = mockedUseProposalStudio('eng-1')
+    mockedUseProposalStudio.mockReturnValue({ ...studio, submitProposal: {
+      ...studio.submitProposal, isPending: true,
+    } } as ReturnType<typeof useProposalStudio>)
+    const view = renderPage()
+
+    expect(screen.getByText('Submitting proposal')).toBeInTheDocument()
+    expect(screen.getByText('Your proposal is being checked. Any validation issues will appear here.')).toBeInTheDocument()
+    expect(screen.queryByText('Applying the client decision')).not.toBeInTheDocument()
+
+    mockedUseProposalStudio.mockReturnValue({ ...studio, submitProposal: {
+      ...studio.submitProposal, isPending: false, isError: true,
+      error: { isAxiosError: true, response: { status: 400, data: {
+        detail: 'Request validation failed', violations: { problemStatement: 'must not be blank' },
+      } } },
+    } } as unknown as ReturnType<typeof useProposalStudio>)
+    view.rerender(
+      <MemoryRouter initialEntries={['/dashboard/engagements/eng-1/proposal']}>
+        <Routes>
+          <Route path="/dashboard/engagements/:engagementId/proposal" element={<ProposalStudioPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByText('Submitting proposal')).not.toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Proposal validation errors' }))
+      .toHaveTextContent('Problem statement (Foundation): must not be blank')
+    expect(screen.getByRole('button', { name: 'Submit to client' })).toBeEnabled()
+    expect(screen.getByLabelText('Problem statement')).not.toHaveAttribute('readonly')
+  })
+
   it.each([
     ['problemStatement', 'Problem statement (Foundation)', 'must not be blank'],
     ['budget', 'Estimated budget (Value & commercial)', 'must be greater than or equal to 0'],

@@ -352,8 +352,8 @@ export default function ProposalStudioPage() {
 
         {isSubmitting && (
           <div className={styles.submitting} role="status" aria-live="polite">
-            <InlineLoading description="Applying the client decision" />
-            <span>Persisting the deterministic outcome. The client narrative will continue in the background.</span>
+            <InlineLoading description="Submitting proposal" />
+            <span>Your proposal is being checked. Any validation issues will appear here.</span>
           </div>
         )}
 
