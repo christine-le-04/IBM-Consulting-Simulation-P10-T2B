@@ -6,7 +6,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Checkbox, Pagination, Tag, TextInput } from '@carbon/react'
+import { Button, Checkbox, Pagination, Tag } from '@carbon/react'
 import { ArrowRight, TrophyFilled, Locked } from '@carbon/icons-react'
 import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfolio'
 import { useMyAchievements } from '@/api/hooks/useAchievements'
@@ -54,6 +54,7 @@ function CompetencyTrendCard({ trend, showHistory }: { trend: CompetencyTrend, s
 }
 
 const colors = ['#0f62fe', '#24a148', '#1192e8', '#da1e28']
+const HISTORY_PAGE_SIZE = 4
 
 function CompetencyGraphLegend({ trends, hiddenCompetencies, toggleCompetency } : { trends: CompetencyTrend[], hiddenCompetencies: Set<string>, toggleCompetency: (competencyName: string) => void}) {
   return (
@@ -376,37 +377,14 @@ export default function PortfolioPage() {
   const { data: portfolio, isLoading, isError, error, refetch } = usePortfolioSummary()
   const { displayName } = useAuthStore()
   const [showCompetencyHistory, setShowCompetencyHistory] = useState(false)
-  const [historySearch, setHistorySearch] = useState('')
-  const [historyDifficulty, setHistoryDifficulty] = useState('ALL')
-  const [historyOutcome, setHistoryOutcome] = useState('ALL')
   const [historyPage, setHistoryPage] = useState(1)
-  const [historyPageSize, setHistoryPageSize] = useState(6)
   const sortedHistory = useMemo(
     () => (portfolio?.completedEngagementsHistory ?? []).slice().reverse(),
     [portfolio],
   )
 
-  const filteredHistory = useMemo(() => {
-    const query = historySearch.trim().toLowerCase()
-    return sortedHistory.filter((engagement) =>
-      `${engagement.scenarioTitle} ${engagement.industry}`.toLowerCase().includes(query)
-      && (historyDifficulty === 'ALL' || (engagement.difficulty ?? 'UNKNOWN') === historyDifficulty)
-      && (historyOutcome === 'ALL' || (engagement.overallScore == null ? 'ASSESSMENT_PENDING' : engagement.outcome) === historyOutcome))
-  }, [sortedHistory, historySearch, historyDifficulty, historyOutcome])
-  const currentHistoryPage = Math.min(historyPage, Math.max(1, Math.ceil(filteredHistory.length / historyPageSize)))
-  const visibleHistory = filteredHistory.slice((currentHistoryPage - 1) * historyPageSize, currentHistoryPage * historyPageSize)
-  const outcomeOptions = [
-    { value: 'ALL', label: 'All outcomes' },
-    ...[...new Set(sortedHistory.map((engagement) => engagement.overallScore == null ? 'ASSESSMENT_PENDING' : engagement.outcome))]
-      .sort().map((outcome) => ({ value: outcome,
-        label: outcome.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase()) })),
-  ]
-  const clearHistoryFilters = () => {
-    setHistorySearch('')
-    setHistoryDifficulty('ALL')
-    setHistoryOutcome('ALL')
-    setHistoryPage(1)
-  }
+  const currentHistoryPage = Math.min(historyPage, Math.max(1, Math.ceil(sortedHistory.length / HISTORY_PAGE_SIZE)))
+  const visibleHistory = sortedHistory.slice((currentHistoryPage - 1) * HISTORY_PAGE_SIZE, currentHistoryPage * HISTORY_PAGE_SIZE)
 
   if (isLoading) return <LoadingState />
   if (isError || !portfolio) return <LoadError title="Portfolio could not be opened" error={error} onRetry={() => void refetch()} />
@@ -481,30 +459,11 @@ export default function PortfolioPage() {
         {sortedHistory.length > 0 ? (
           <>
             <h2>Completed engagements ({portfolio.completedEngagements} of {portfolio.totalEngagements})</h2>
-            <div className={styles.historyControls}>
-              <TextInput id="portfolio-history-search" labelText="Search completed engagements" size="sm"
-                placeholder="Search scenario or industry" value={historySearch}
-                onChange={(event) => { setHistorySearch(event.target.value); setHistoryPage(1) }} />
-              <Choice id="portfolio-history-difficulty" label="Difficulty" size="sm" value={historyDifficulty}
-                options={[{ value: 'ALL', label: 'All difficulties' }, { value: 'EASY', label: 'Easy' },
-                  { value: 'MEDIUM', label: 'Medium' }, { value: 'HARD', label: 'Hard' },
-                  { value: 'UNKNOWN', label: 'Difficulty unavailable' }]}
-                onChange={(value) => { setHistoryDifficulty(value); setHistoryPage(1) }} />
-              <Choice id="portfolio-history-outcome" label="Outcome" size="sm" value={historyOutcome} options={outcomeOptions}
-                onChange={(value) => { setHistoryOutcome(value); setHistoryPage(1) }} />
-            </div>
-            {(historySearch || historyDifficulty !== 'ALL' || historyOutcome !== 'ALL')
-              && <Button kind="ghost" size="sm" onClick={clearHistoryFilters}>Clear history filters</Button>}
-            {visibleHistory.length > 0 ? <>
-              <div className={styles.history}>
-                {visibleHistory.map((h) => <EngagementHistoryRow key={h.engagementId} engagement={h} />)}
-              </div>
-              <Pagination page={currentHistoryPage} pageSize={historyPageSize} pageSizes={[6, 12, 24]}
-                totalItems={filteredHistory.length} onChange={({ page, pageSize }) => {
-                  setHistoryPageSize(pageSize)
-                  setHistoryPage(pageSize !== historyPageSize ? 1 : page)
-                }} />
-            </> : <p className={styles.emptyState} role="status">No completed engagements match these filters.</p>}
+            <ul className={styles.history} aria-label="Completed engagements">
+              {visibleHistory.map((h) => <li key={h.engagementId}><EngagementHistoryRow engagement={h} /></li>)}
+            </ul>
+            <Pagination page={currentHistoryPage} pageSize={HISTORY_PAGE_SIZE} pageSizes={[HISTORY_PAGE_SIZE]}
+              pageSizeInputDisabled totalItems={sortedHistory.length} onChange={({ page }) => setHistoryPage(page)} />
           </>
         ) : (
           <>
