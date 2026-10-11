@@ -154,6 +154,21 @@ function renderPage() {
 describe('LiveMeetingPage states', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('shows disclosed facts in sentence case rather than capitalising every word', () => {
+    setup(makeMeeting({}))
+    mockedPersonaState.mockReturnValue({
+      data: { ...personaState, disclosedFacts: ['BUDGET_SIGNAL', 'Decision Maker', 'technology stack'] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof usePersonaState>)
+    renderPage()
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Facts/ }))
+
+    expect(screen.getByText('Budget signal')).toBeInTheDocument()
+    expect(screen.getByText('Decision maker')).toBeInTheDocument()
+    expect(screen.getByText('Technology stack')).toBeInTheDocument()
+  })
+
   it.each([
     ['EASY', 70, 14, 'the client explains concerns clearly'],
     ['MEDIUM', 70, 14, 'use focused follow-ups'],

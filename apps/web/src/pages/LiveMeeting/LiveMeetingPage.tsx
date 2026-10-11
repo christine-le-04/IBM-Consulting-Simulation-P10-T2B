@@ -52,6 +52,11 @@ const LIVE_MEETING_OBJECTIVES = [
 
 type PanelView = 'happening' | 'notes' | 'facts'
 
+function factLabel(fact: string) {
+  const text = fact.replace(/_/g, ' ').trim().toLowerCase()
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 function deriveHint(transcript: ConversationTurn[], signals: string[], state: PersonaState, threshold: number) {
   const latestPersonaTurn = [...transcript].reverse().find((turn) => turn.actor === 'PERSONA')
   const question = latestPersonaTurn?.content.match(/[^?.!]*\?/)?.[0]?.trim()
@@ -426,7 +431,7 @@ export default function LiveMeetingPage() {
             <div className={styles.panelBody}>
               <p className={styles.eyebrow}>Validated during the meeting</p>
               {currentState.disclosedFacts.length > 0
-                ? <ul className={styles.facts}>{currentState.disclosedFacts.map((fact) => <li key={fact}>{fact.replace(/_/g, ' ')}</li>)}</ul>
+                ? <ul className={styles.facts}>{currentState.disclosedFacts.map((fact) => <li key={fact}>{factLabel(fact)}</li>)}</ul>
                 : <p className={styles.muted}>Nothing yet. Hidden facts only come out when you ask the right question.</p>}
             </div>
           )}
