@@ -133,4 +133,44 @@ class AdminAchievementScopeTest {
 
         verify(achievements).save(any(Achievement.class));
     }
+
+    @Test
+    void anExclusiveBadgeCannotUseCareerWideConditions() {
+        ConditionNode winRate = ConditionNode.leaf(ConditionType.MIN_WIN_RATE_PERCENT, null, 50);
+
+        assertThatThrownBy(() -> service.create(new UpsertAchievementRequest("Win rate", "", "star", winRate, currentRevision)))
+                .isInstanceOf(AdminAchievementService.InvalidAchievementException.class)
+                .hasMessageContaining("MIN_WIN_RATE_PERCENT");
+        verify(achievements, never()).save(any());
+    }
+
+    @Test
+    void aGenericBadgeCanStillUseCareerWideConditions() {
+        ConditionNode explorer = ConditionNode.leaf(ConditionType.MIN_DISTINCT_SCENARIOS_COMPLETED, null, 3);
+
+        service.create(new UpsertAchievementRequest("Explorer", "", "compass", explorer));
+
+        verify(achievements).save(any(Achievement.class));
+    }
+
+    @Test
+    void bothScopesCanUseTheSingleRunCondition() {
+        ConditionNode hardWin = ConditionNode.runs(1, new com.ibm.consulting.sim.achievement.domain.RunCriteria(
+                true, null, null, null, null, "HARD", List.of("MEETING"), null, null));
+
+        service.create(new UpsertAchievementRequest("Hard win", "", "star", hardWin));
+        service.create(new UpsertAchievementRequest("Hard win here", "", "star", hardWin, currentRevision));
+
+        verify(achievements, org.mockito.Mockito.times(2)).save(any(Achievement.class));
+    }
+
+    @Test
+    void aCompetencyInsideARunConditionMustBeReal() {
+        ConditionNode typo = ConditionNode.runs(1, new com.ibm.consulting.sim.achievement.domain.RunCriteria(
+                null, null, "Rapport", 80, null, null, null, null, null));
+
+        assertThatThrownBy(() -> service.create(new UpsertAchievementRequest("Rapport", "", "star", typo)))
+                .isInstanceOf(AdminAchievementService.InvalidAchievementException.class)
+                .hasMessageContaining("\"Rapport\"");
+    }
 }
