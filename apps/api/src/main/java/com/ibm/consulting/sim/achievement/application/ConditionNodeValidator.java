@@ -18,12 +18,14 @@ public final class ConditionNodeValidator implements ConstraintValidator<ValidCo
                     && !node.children().isEmpty()
                     && node.type() == null
                     && node.competencyName() == null
-                    && node.threshold() == null;
+                    && node.threshold() == null
+                    && node.run() == null;
             case LEAF -> node.operator() == null
                     && node.children() == null
                     && node.type() != null
                     && validThreshold(node.type(), node.threshold())
-                    && validCompetency(node.type(), node.competencyName());
+                    && validCompetency(node.type(), node.competencyName())
+                    && (node.type() == ConditionType.MIN_RUNS_MATCHING) == (node.run() != null);
         };
     }
 

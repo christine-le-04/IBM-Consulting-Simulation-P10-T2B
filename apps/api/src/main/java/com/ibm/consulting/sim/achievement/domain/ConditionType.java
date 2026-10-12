@@ -15,7 +15,14 @@ public enum ConditionType {
     /** Number of distinct scenarios the learner has completed at least once. */
     MIN_DISTINCT_SCENARIOS_COMPLETED,
     /** Win rate across completed engagements, expressed as a whole percentage (0-100). */
-    MIN_WIN_RATE_PERCENT;
+    MIN_WIN_RATE_PERCENT,
+    /** At least {@code threshold} runs that each meet a {@link RunCriteria} on their own. */
+    MIN_RUNS_MATCHING;
+
+    /** Career-wide measures that mean nothing for a single scenario, so Exclusive badges can't use them. */
+    public boolean isGenericOnly() {
+        return this == MIN_DISTINCT_SCENARIOS_COMPLETED || this == MIN_WIN_RATE_PERCENT;
+    }
 
     public boolean hasPercentageThreshold() {
         return switch (this) {

@@ -91,24 +91,41 @@ public class AdminAchievementService {
         return toAdminView(achievement);
     }
 
-    /** Rule shape (domain invariants) plus competency names an assessment actually scores. */
+    /**
+     * Rule shape (domain invariants), competency names an assessment actually
+     * scores, and conditions that fit the scope: career-wide measures (distinct
+     * scenarios, win rate) mean nothing for an Exclusive badge.
+     */
     private void validate(UpsertAchievementRequest request) {
         ruleMapper.toDomain(request.rule());
         List<String> unknown = new ArrayList<>();
-        collectUnknownCompetencies(request.rule(), unknown);
+        List<ConditionType> outOfScope = new ArrayList<>();
+        inspect(request.rule(), request.scenarioId() != null, unknown, outOfScope);
         if (!unknown.isEmpty()) {
             throw new InvalidAchievementException("Unknown competency " + String.join(", ", unknown)
                     + ". Use one of: " + String.join(", ", Competencies.ALL) + ".");
         }
+        if (!outOfScope.isEmpty()) {
+            throw new InvalidAchievementException("An Exclusive badge can't use " + outOfScope.stream()
+                    .distinct().map(ConditionType::name).collect(java.util.stream.Collectors.joining(", "))
+                    + ": these measure progress across every scenario.");
+        }
     }
 
-    private static void collectUnknownCompetencies(ConditionNode node, List<String> unknown) {
+    private static void inspect(ConditionNode node, boolean exclusive, List<String> unknown,
+                                List<ConditionType> outOfScope) {
         if (node == null) return;
         if (node.kind() == ConditionNode.Kind.GROUP && node.children() != null) {
-            node.children().forEach(child -> collectUnknownCompetencies(child, unknown));
-        } else if (node.type() == ConditionType.MIN_COMPETENCY_SCORE
-                && !Competencies.ALL.contains(node.competencyName())) {
-            unknown.add("\"" + node.competencyName() + "\"");
+            node.children().forEach(child -> inspect(child, exclusive, unknown, outOfScope));
+            return;
+        }
+        if (node.type() == null) return;
+        if (exclusive && node.type().isGenericOnly()) outOfScope.add(node.type());
+        String competency = node.type() == ConditionType.MIN_COMPETENCY_SCORE ? node.competencyName()
+                : node.run() != null ? node.run().competencyName() : null;
+        boolean required = node.type() == ConditionType.MIN_COMPETENCY_SCORE;
+        if ((required || competency != null) && !Competencies.ALL.contains(competency)) {
+            unknown.add("\"" + competency + "\"");
         }
     }
 

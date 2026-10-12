@@ -48,6 +48,7 @@ public final class AchievementRuleEvaluator {
             case MIN_COMPETENCY_SCORE -> facts.bestCompetencyScores().getOrDefault(leaf.competencyName(), 0);
             case MIN_DISTINCT_SCENARIOS_COMPLETED -> facts.distinctScenariosCompleted();
             case MIN_WIN_RATE_PERCENT -> facts.winRatePercent();
+            case MIN_RUNS_MATCHING -> facts.runs().stream().filter(leaf.run()::matches).count();
         };
     }
 }
