@@ -27,6 +27,8 @@ class AdminAchievementServiceTest {
     @Mock AchievementRuleMapper ruleMapper;
     @Mock AchievementRuleCodec ruleCodec;
     @Mock AuditLogger auditLogger;
+    @Mock AchievementEvaluationService evaluationService;
+    @Mock ScenarioLineageLookup scenarioLineageLookup;
 
     @InjectMocks AdminAchievementService service;
 

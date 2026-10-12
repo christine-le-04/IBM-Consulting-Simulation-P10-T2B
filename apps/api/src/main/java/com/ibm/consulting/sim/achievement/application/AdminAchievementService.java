@@ -1,23 +1,27 @@
 package com.ibm.consulting.sim.achievement.application;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.ibm.consulting.sim.achievement.domain.Achievement;
 import com.ibm.consulting.sim.achievement.domain.AchievementRepository;
+import com.ibm.consulting.sim.achievement.domain.ConditionType;
 import com.ibm.consulting.sim.achievement.infrastructure.AchievementRuleCodec;
+import com.ibm.consulting.sim.assessment.domain.Competencies;
+import com.ibm.consulting.sim.shared.domain.DomainException;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
 import com.ibm.consulting.sim.shared.infrastructure.observability.AuditAction;
 import com.ibm.consulting.sim.shared.infrastructure.observability.AuditLogger;
 
 /**
  * Administrative CRUD for achievement definitions (create/update rule tree,
- * activate/deactivate). Restricted at the controller layer to {@code ADMINISTRATOR}
- * since achievements are a platform-wide progression concept, not scenario-scoped
- * content (unlike {@code ScenarioService}, which authors also manage).
+ * activate/deactivate). Restricted at the controller layer to {@code ADMINISTRATOR}.
+ *
+ * <p>An achievement is Generic (counts every scenario) or Exclusive to one
+ * scenario lineage. Whenever an achievement is published or its rule or scope
+ * changes, learners whose past runs already satisfy it are awarded it.
  */
 @Service
 public class AdminAchievementService {
@@ -26,15 +30,21 @@ public class AdminAchievementService {
     private final AchievementRuleMapper ruleMapper;
     private final AchievementRuleCodec ruleCodec;
     private final AuditLogger auditLogger;
+    private final AchievementEvaluationService evaluationService;
+    private final ScenarioLineageLookup scenarioLineageLookup;
 
     public AdminAchievementService(AchievementRepository achievementRepository,
                                     AchievementRuleMapper ruleMapper,
                                     AchievementRuleCodec ruleCodec,
-                                    AuditLogger auditLogger) {
+                                    AuditLogger auditLogger,
+                                    AchievementEvaluationService evaluationService,
+                                    ScenarioLineageLookup scenarioLineageLookup) {
         this.achievementRepository = achievementRepository;
         this.ruleMapper = ruleMapper;
         this.ruleCodec = ruleCodec;
         this.auditLogger = auditLogger;
+        this.evaluationService = evaluationService;
+        this.scenarioLineageLookup = scenarioLineageLookup;
     }
 
     @Transactional(readOnly = true)
@@ -44,23 +54,26 @@ public class AdminAchievementService {
 
     @Transactional
     public AchievementAdminView create(UpsertAchievementRequest request) {
-        // Validate the rule tree is well-formed (domain constructors enforce invariants) before persisting.
-        ruleMapper.toDomain(request.rule());
+        validate(request);
         String ruleJson = ruleCodec.encode(request.rule());
         Achievement achievement = Achievement.create(request.name(), request.description(), request.iconKey(), ruleJson);
+        applyScope(achievement, request.scenarioId());
         achievementRepository.save(achievement);
         auditLogger.recordAdmin(AuditAction.ADMIN_ACHIEVEMENT_CREATED, "ACHIEVEMENT", achievement.getId().toString());
+        evaluationService.backfill(achievement);
         return toAdminView(achievement);
     }
 
     @Transactional
     public AchievementAdminView update(UUID id, UpsertAchievementRequest request) {
         Achievement achievement = findAchievement(id);
-        ruleMapper.toDomain(request.rule());
+        validate(request);
         achievement.updateDetails(request.name(), request.description(), request.iconKey());
         achievement.updateRule(ruleCodec.encode(request.rule()));
+        applyScope(achievement, request.scenarioId());
         achievementRepository.save(achievement);
         auditLogger.recordAdmin(AuditAction.ADMIN_ACHIEVEMENT_UPDATED, "ACHIEVEMENT", achievement.getId().toString());
+        evaluationService.backfill(achievement);
         return toAdminView(achievement);
     }
 
@@ -74,7 +87,43 @@ public class AdminAchievementService {
         }
         achievementRepository.save(achievement);
         auditLogger.recordAdmin(active ? AuditAction.ADMIN_ACHIEVEMENT_REACTIVATED : AuditAction.ADMIN_ACHIEVEMENT_DEACTIVATED, "ACHIEVEMENT", achievement.getId().toString());
+        if (active) evaluationService.backfill(achievement);
         return toAdminView(achievement);
+    }
+
+    /** Rule shape (domain invariants) plus competency names an assessment actually scores. */
+    private void validate(UpsertAchievementRequest request) {
+        ruleMapper.toDomain(request.rule());
+        List<String> unknown = new ArrayList<>();
+        collectUnknownCompetencies(request.rule(), unknown);
+        if (!unknown.isEmpty()) {
+            throw new InvalidAchievementException("Unknown competency " + String.join(", ", unknown)
+                    + ". Use one of: " + String.join(", ", Competencies.ALL) + ".");
+        }
+    }
+
+    private static void collectUnknownCompetencies(ConditionNode node, List<String> unknown) {
+        if (node == null) return;
+        if (node.kind() == ConditionNode.Kind.GROUP && node.children() != null) {
+            node.children().forEach(child -> collectUnknownCompetencies(child, unknown));
+        } else if (node.type() == ConditionType.MIN_COMPETENCY_SCORE
+                && !Competencies.ALL.contains(node.competencyName())) {
+            unknown.add("\"" + node.competencyName() + "\"");
+        }
+    }
+
+    /** Null scenarioId makes the achievement Generic; otherwise Exclusive to that scenario's lineage. */
+    private void applyScope(Achievement achievement, UUID scenarioId) {
+        if (scenarioId == null) {
+            achievement.makeGeneric();
+            return;
+        }
+        UUID lineage = scenarioLineageLookup.lineageOf(scenarioId)
+                .orElseThrow(() -> new NotFoundException("Scenario", scenarioId));
+        String title = scenarioLineageLookup.current(lineage)
+                .map(ScenarioLineageLookup.CurrentRevision::title)
+                .orElse(null);
+        achievement.assignToScenario(lineage, title);
     }
 
     private Achievement findAchievement(UUID id) {
@@ -82,6 +131,15 @@ public class AdminAchievementService {
     }
 
     private AchievementAdminView toAdminView(Achievement achievement) {
-        return AchievementAdminView.from(achievement, ruleCodec.decode(achievement.getRuleJson()));
+        ScenarioLineageLookup.CurrentRevision scenario = achievement.isExclusive()
+                ? scenarioLineageLookup.current(achievement.getScenarioLineageId()).orElse(null)
+                : null;
+        return AchievementAdminView.from(achievement, ruleCodec.decode(achievement.getRuleJson()), scenario);
+    }
+
+    public static class InvalidAchievementException extends DomainException {
+        public InvalidAchievementException(String message) {
+            super(message);
+        }
     }
 }
