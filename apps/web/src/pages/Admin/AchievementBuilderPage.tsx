@@ -28,6 +28,7 @@ import LoadingState from '@/components/shared/LoadingState'
 import ErrorState from '@/components/shared/ErrorState'
 import type { AchievementAdminView, ConditionNode, UpsertAchievementRequest } from '@/api/types'
 import { ACHIEVEMENT_ICONS, achievementDescription, achievementIcon } from '@/features/achievement/achievementPresentation'
+import { everyRunHasRequirement, pruneForScope } from '@/features/achievement/ruleScope'
 
 const DEFAULT_RULE: ConditionNode = {
   kind: 'GROUP',
@@ -86,7 +87,7 @@ function AchievementForm({
   const [exclusive, setExclusive] = useState(Boolean(initial.scenarioId))
   const knownIcon = ACHIEVEMENT_ICONS.some((option) => option.key === form.iconKey)
   const PreviewIcon = achievementIcon(form.iconKey)
-  const incomplete = !form.name.trim() || (exclusive && !form.scenarioId)
+  const incomplete = !form.name.trim() || (exclusive && !form.scenarioId) || !everyRunHasRequirement(form.rule)
 
   return (
     <Tile>
@@ -123,7 +124,8 @@ function AchievementForm({
           onChange={(value) => {
             const isExclusive = value === 'EXCLUSIVE'
             setExclusive(isExclusive)
-            if (!isExclusive) setForm({ ...form, scenarioId: null })
+            // Conditions an Exclusive badge can't use are removed (development: no confirmation needed).
+            setForm(isExclusive ? { ...form, rule: pruneForScope(form.rule, true) } : { ...form, scenarioId: null })
           }}
         >
           <RadioButton id="achievement-scope-generic" value="GENERIC" labelText="Generic: counts every scenario" />
@@ -140,7 +142,7 @@ function AchievementForm({
 
         <div>
           <h5 style={{ marginBottom: '0.75rem' }}>Unlock rule</h5>
-          <AchievementRuleBuilder node={form.rule} onChange={(rule) => setForm({ ...form, rule })} />
+          <AchievementRuleBuilder node={form.rule} exclusive={exclusive} onChange={(rule) => setForm({ ...form, rule })} />
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>

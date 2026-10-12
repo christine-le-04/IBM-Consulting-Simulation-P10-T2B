@@ -88,3 +88,57 @@ describe('AchievementBuilderPage scope and icons', () => {
       .toEqual(['Outreach Effectiveness', 'Relationship Building', 'Solution Alignment'])
   })
 })
+
+describe('AchievementBuilderPage condition sets', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const conditionSelect = () => screen.getAllByRole('combobox').find((el) =>
+    Array.from((el as HTMLSelectElement).options).some((o) => o.value === 'MIN_ENGAGEMENTS_COMPLETED')) as HTMLSelectElement
+  const options = (select: HTMLSelectElement) => Array.from(select.options).map((o) => o.value)
+
+  it('hides career-wide conditions for an exclusive badge and removes them on switching', async () => {
+    const user = userEvent.setup()
+    setup()
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+    await user.selectOptions(conditionSelect(), 'MIN_WIN_RATE_PERCENT')
+    expect(options(conditionSelect())).toContain('MIN_WIN_RATE_PERCENT')
+
+    await user.click(screen.getByLabelText('Exclusive: one scenario only'))
+
+    expect(options(conditionSelect())).not.toContain('MIN_WIN_RATE_PERCENT')
+    expect(options(conditionSelect())).not.toContain('MIN_DISTINCT_SCENARIOS_COMPLETED')
+    expect(options(conditionSelect())).toContain('MIN_RUNS_MATCHING')
+    expect(conditionSelect().value).toBe('MIN_ENGAGEMENTS_COMPLETED')
+  })
+
+  it('sends a run condition with everything required in the same run', async () => {
+    const user = userEvent.setup()
+    setup()
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+    await user.type(screen.getByLabelText('Achievement name'), 'Hard win')
+    await user.selectOptions(conditionSelect(), 'MIN_RUNS_MATCHING')
+    await user.selectOptions(screen.getByLabelText('Difficulty at least'), 'HARD')
+    await user.click(screen.getByLabelText('Meeting'))
+    await user.click(screen.getByRole('button', { name: 'Save achievement' }))
+
+    const sent = createMutate.mock.calls[0][0]
+    const condition = sent.rule.children[0]
+    expect(condition.type).toBe('MIN_RUNS_MATCHING')
+    expect(condition.threshold).toBe(1)
+    expect(condition.run).toMatchObject({ won: true, minDifficulty: 'HARD', firstAttemptStages: ['MEETING'] })
+  })
+
+  it('cannot save a run condition that requires nothing', async () => {
+    const user = userEvent.setup()
+    setup()
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+    await user.type(screen.getByLabelText('Achievement name'), 'Anything')
+    await user.selectOptions(conditionSelect(), 'MIN_RUNS_MATCHING')
+    await user.click(screen.getByLabelText('Win (proposal accepted)'))
+
+    expect(screen.getByRole('button', { name: 'Save achievement' })).toBeDisabled()
+  })
+})
