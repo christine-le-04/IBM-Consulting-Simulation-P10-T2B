@@ -2,11 +2,11 @@ import {
   Button,
   Select,
   SelectItem,
-  TextInput,
   NumberInput,
   Tile,
   Stack,
 } from '@carbon/react'
+import { COMPETENCIES } from '@/features/achievement/achievementPresentation'
 import { Add, TrashCan } from '@carbon/icons-react'
 import type { ConditionNode, ConditionType, LogicalOperator } from '@/api/types'
 
@@ -130,13 +130,18 @@ export default function AchievementRuleBuilder({ node, onChange, onRemove, path 
             </Select>
 
             {node.type === 'MIN_COMPETENCY_SCORE' && (
-              <TextInput
+              <Select
                 id={`competency-${path}`}
-                labelText="Competency name"
+                labelText="Competency"
                 value={node.competencyName ?? ''}
-                onChange={(e) => onChange({ ...node, competencyName: e.target.value })}
+                onChange={(e) => onChange({ ...node, competencyName: e.target.value || null })}
                 size="sm"
-              />
+              >
+                <SelectItem value="" text="Choose a competency" />
+                {COMPETENCIES.map((competency) => (
+                  <SelectItem key={competency} value={competency} text={competency} />
+                ))}
+              </Select>
             )}
 
             <NumberInput
