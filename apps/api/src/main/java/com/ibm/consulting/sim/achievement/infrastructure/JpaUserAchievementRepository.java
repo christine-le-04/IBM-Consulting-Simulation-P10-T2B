@@ -29,6 +29,21 @@ interface SpringDataUserAchievementRepository extends JpaRepository<UserAchievem
                        @Param("userId") UUID userId,
                        @Param("achievementId") UUID achievementId,
                        @Param("unlockedAt") Instant unlockedAt);
+
+    /** Separate query because binding a null UUID in native SQL is not portable. */
+    @Modifying
+    @Query(value = """
+            insert into user_achievements
+                (id, user_id, achievement_id, unlocked_at, unlocked_by_engagement_id, created_at, updated_at, version)
+            values
+                (:id, :userId, :achievementId, :unlockedAt, :engagementId, :unlockedAt, :unlockedAt, 0)
+            on conflict (user_id, achievement_id) do nothing
+            """, nativeQuery = true)
+    int insertIfAbsentForEngagement(@Param("id") UUID id,
+                                    @Param("userId") UUID userId,
+                                    @Param("achievementId") UUID achievementId,
+                                    @Param("unlockedAt") Instant unlockedAt,
+                                    @Param("engagementId") UUID engagementId);
 }
 
 @Repository
@@ -46,6 +61,14 @@ class JpaUserAchievementRepository implements UserAchievementRepository {
         return repo.existsByUserIdAndAchievementId(userId, achievementId);
     }
     @Override public boolean insertIfAbsent(UUID userId, UUID achievementId, Instant unlockedAt) {
-        return repo.insertIfAbsent(UUID.randomUUID(), userId, achievementId, unlockedAt) == 1;
+        return insertIfAbsent(userId, achievementId, unlockedAt, null);
+    }
+    @Override public boolean insertIfAbsent(UUID userId, UUID achievementId, Instant unlockedAt,
+                                            UUID unlockedByEngagementId) {
+        int inserted = unlockedByEngagementId == null
+                ? repo.insertIfAbsent(UUID.randomUUID(), userId, achievementId, unlockedAt)
+                : repo.insertIfAbsentForEngagement(UUID.randomUUID(), userId, achievementId, unlockedAt,
+                        unlockedByEngagementId);
+        return inserted == 1;
     }
 }
