@@ -798,6 +798,7 @@ export type ConditionType =
     | 'MIN_COMPETENCY_SCORE'
     | 'MIN_DISTINCT_SCENARIOS_COMPLETED'
     | 'MIN_WIN_RATE_PERCENT'
+    | 'MIN_RUNS_MATCHING'
 
 export type LogicalOperator = 'AND' | 'OR'
 
@@ -810,6 +811,24 @@ export interface ConditionNode {
   type: ConditionType | null
   competencyName: string | null
   threshold: number | null
+  /** Only for MIN_RUNS_MATCHING: what one run must achieve, all together. */
+  run?: RunCriteria | null
+}
+
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
+export type AssessedStage = 'OUTREACH' | 'MEETING' | 'PROPOSAL'
+
+/** Requirements a single run must meet together; unset fields are not required. */
+export interface RunCriteria {
+  won: boolean | null
+  minOverallScore: number | null
+  competencyName: string | null
+  minCompetencyScore: number | null
+  minEveryCompetencyScore: number | null
+  minDifficulty: Difficulty | null
+  firstAttemptStages: AssessedStage[]
+  notARetry: boolean | null
+  maxHours: number | null
 }
 
 export type AchievementScope = 'GENERIC' | 'EXCLUSIVE'
