@@ -2,6 +2,7 @@ package com.ibm.consulting.sim.achievement.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.achievement.application.AchievementEvaluationService;
+import com.ibm.consulting.sim.achievement.application.ScenarioLineageLookup;
 import com.ibm.consulting.sim.achievement.application.AchievementFactSheetBuilder;
 import com.ibm.consulting.sim.achievement.application.AchievementRuleMapper;
 import com.ibm.consulting.sim.achievement.application.ConditionNode;
@@ -84,7 +85,7 @@ class AchievementUnlockConcurrencyIntegrationTest {
         when(facts.build(userId)).thenReturn(AchievementFactSheet.empty());
         AchievementEvaluationService service = new AchievementEvaluationService(
                 achievementRepository, gatedUnlocks, facts,
-                codec, new AchievementRuleMapper());
+                codec, new AchievementRuleMapper(), mock(ScenarioLineageLookup.class));
 
         List<List<Achievement>> results = runConcurrently(
                 () -> service.evaluateForUser(userId),
