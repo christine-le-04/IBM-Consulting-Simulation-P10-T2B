@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AssessmentReviewPage from './AssessmentReviewPage'
 import { useAssessment, useGenerateAssessment } from '@/api/hooks/useAssessment'
 import { useEngagement } from '@/api/hooks/useEngagements'
-import type { Assessment, Engagement } from '@/api/types'
+import { useMyAchievements } from '@/api/hooks/useAchievements'
+import type { AchievementSummary, Assessment, Engagement } from '@/api/types'
 
 
 vi.mock('@/api/hooks/useAssessment', () => ({
@@ -16,6 +17,7 @@ vi.mock('@/api/hooks/useEngagements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/hooks/useEngagements')>()
   return { ...actual, useEngagement: vi.fn() }
 })
+vi.mock('@/api/hooks/useAchievements', () => ({ useMyAchievements: vi.fn() }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
 vi.mock('@/components/shared/ErrorState', () => ({ default: () => <div>Error...</div> }))
 
@@ -23,6 +25,7 @@ vi.mock('@/components/shared/ErrorState', () => ({ default: () => <div>Error...<
 const mockedAssessment = vi.mocked(useAssessment)
 const mockedGenerateAssessment = vi.mocked(useGenerateAssessment)
 const mockedEngagement = vi.mocked(useEngagement)
+const mockedAchievements = vi.mocked(useMyAchievements)
 
 // creates an assessment object for tests
 function makeAssessment(overrides: Partial<Assessment>): Assessment {
@@ -62,6 +65,21 @@ function setup(assessment: Assessment) {
   mockedEngagement.mockReturnValue({
     data: { id: 'eng-1', phase: 'ASSESSMENT' } as unknown as Engagement,
   } as unknown as ReturnType<typeof useEngagement>)
+
+  mockAchievements([])
+}
+
+function mockAchievements(achievements: AchievementSummary[]) {
+  mockedAchievements.mockReturnValue({ data: achievements } as unknown as ReturnType<typeof useMyAchievements>)
+}
+
+function badge(overrides: Partial<AchievementSummary>): AchievementSummary {
+  return {
+    id: 'badge-1', name: 'First Engagement', description: 'Complete your first consulting engagement.',
+    iconKey: 'flag', unlocked: true, unlockedAt: '2026-08-01T10:00:00Z', progressPercent: 100,
+    scope: 'GENERIC', scenarioTitle: null, available: true, unlockedByEngagementId: 'eng-1',
+    ...overrides,
+  }
 }
 
 // renders the assessment page with the required router and query client providers
@@ -182,5 +200,30 @@ describe('AssessmentReviewPage best stage scores', () => {
     renderPage()
     expect(screen.getByRole('heading', { name: 'Competencies' })).toBeInTheDocument()
     expect(screen.queryByText(/completed attempts total/)).not.toBeInTheDocument()
+  })
+})
+
+describe('AssessmentReviewPage achievements unlocked by this run', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('announces badges this run unlocked', () => {
+    setup(makeAssessment({}))
+    mockAchievements([badge({})])
+    renderPage()
+
+    expect(screen.getByText('Achievement unlocked: First Engagement')).toBeInTheDocument()
+    expect(screen.getByText('Complete your first consulting engagement.')).toBeInTheDocument()
+  })
+
+  it('does not announce badges earned by another run, awarded retroactively, or still locked', () => {
+    setup(makeAssessment({}))
+    mockAchievements([
+      badge({ id: 'other-run', name: 'Deal Closer', unlockedByEngagementId: 'eng-2' }),
+      badge({ id: 'retroactive', name: 'Explorer', unlockedByEngagementId: null }),
+      badge({ id: 'locked', name: 'Top Performer', unlocked: false, unlockedAt: null, progressPercent: 40 }),
+    ])
+    renderPage()
+
+    expect(screen.queryByText(/Achievement unlocked/)).not.toBeInTheDocument()
   })
 })
