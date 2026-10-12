@@ -23,20 +23,39 @@ import java.util.UUID;
 @Component
 public class AchievementFactSheetBuilder {
 
-    private static final Set<EngagementState> COMPLETED_STATES = Set.of(
+    /** Run states that count as completed (won or lost). */
+    public static final Set<EngagementState> COMPLETED_STATES = Set.of(
             EngagementState.CLIENT_DECISION, EngagementState.REVIEW, EngagementState.COMPLETED);
 
     private final EngagementRepository engagementRepository;
     private final AssessmentRepository assessmentRepository;
+    private final ScenarioLineageLookup scenarioLineageLookup;
 
     public AchievementFactSheetBuilder(EngagementRepository engagementRepository,
-                                        AssessmentRepository assessmentRepository) {
+                                        AssessmentRepository assessmentRepository,
+                                        ScenarioLineageLookup scenarioLineageLookup) {
         this.engagementRepository = engagementRepository;
         this.assessmentRepository = assessmentRepository;
+        this.scenarioLineageLookup = scenarioLineageLookup;
     }
 
+    /** The learner's progress across every scenario (Generic achievements). */
     public AchievementFactSheet build(UUID userId) {
-        List<Engagement> engagements = engagementRepository.findByUserId(userId);
+        return fromEngagements(engagementRepository.findByUserId(userId));
+    }
+
+    /**
+     * The learner's progress within one scenario only (Exclusive achievements):
+     * the same facts, computed from runs of any revision of that scenario.
+     */
+    public AchievementFactSheet build(UUID userId, UUID scenarioLineageId) {
+        Set<UUID> revisions = scenarioLineageLookup.revisionIds(scenarioLineageId);
+        return fromEngagements(engagementRepository.findByUserId(userId).stream()
+                .filter(engagement -> revisions.contains(engagement.getScenarioId()))
+                .toList());
+    }
+
+    private AchievementFactSheet fromEngagements(List<Engagement> engagements) {
         List<Engagement> completed = engagements.stream()
                 .filter(e -> COMPLETED_STATES.contains(e.getState()))
                 .toList();
