@@ -6,7 +6,7 @@ import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfol
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { useAuthStore } from '@/store/authStore'
 import PortfolioPage from './PortfolioPage'
-import type { CompetencyTrend } from '@/api/types'
+import type { AchievementSummary, CompetencyTrend } from '@/api/types'
 import userEvent from '@testing-library/user-event'
 
 // The page links to each engagement's review, so it renders inside a router.
@@ -857,5 +857,53 @@ describe('PortfolioPage completed engagements', () => {
       .toHaveAttribute('href', '/dashboard/engagements/eng-7/assessment')
     expect(screen.getByText('Medium')).toBeInTheDocument()
     expect(screen.getByText('Stage breakdown unavailable for this assessment.')).toBeInTheDocument()
+  })
+})
+
+describe('PortfolioPage achievements', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function showAchievements(achievements: AchievementSummary[]) {
+    setupPortfolio([])
+    mockedUseMyAchievements.mockReturnValue({ data: achievements, isLoading: false } as unknown as ReturnType<typeof useMyAchievements>)
+    render(<PortfolioPage />)
+  }
+
+  const badge = (overrides: Partial<AchievementSummary>): AchievementSummary => ({
+    id: 'badge-1', name: 'Rostering Pro', description: 'Score 80 in this scenario.', iconKey: 'star',
+    unlocked: false, unlockedAt: null, progressPercent: 50,
+    scope: 'GENERIC', scenarioTitle: null, available: true, unlockedByEngagementId: null,
+    ...overrides,
+  })
+
+  it('labels an exclusive badge with its scenario', () => {
+    showAchievements([badge({ scope: 'EXCLUSIVE', scenarioTitle: 'AeroVector: crew rostering' })])
+
+    expect(screen.getByText('Exclusive · AeroVector: crew rostering')).toBeInTheDocument()
+    expect(screen.getByText('50% complete')).toBeInTheDocument()
+  })
+
+  it('explains that a badge cannot be earned while its scenario is archived', () => {
+    showAchievements([badge({ scope: 'EXCLUSIVE', scenarioTitle: 'AeroVector: crew rostering', available: false })])
+
+    expect(screen.getByText(/currently archived, so it can.t be earned right now/)).toBeInTheDocument()
+    expect(screen.queryByText('50% complete')).not.toBeInTheDocument()
+  })
+
+  it('keeps an earned badge from an archived scenario, shaded', () => {
+    showAchievements([badge({
+      scope: 'EXCLUSIVE', scenarioTitle: 'AeroVector: crew rostering', available: false,
+      unlocked: true, unlockedAt: '2026-08-01T10:00:00Z', progressPercent: 100,
+    })])
+
+    expect(screen.getByText(/Unlocked/)).toBeInTheDocument()
+    expect(screen.getByText(/which is currently archived\./)).toBeInTheDocument()
+    expect(screen.getByText('Rostering Pro').closest('article')?.className).toMatch(/badgePaused/)
+  })
+
+  it('shows no scenario label on a generic badge', () => {
+    showAchievements([badge({})])
+
+    expect(screen.queryByText(/^Exclusive/)).not.toBeInTheDocument()
   })
 })

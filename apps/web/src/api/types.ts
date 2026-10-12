@@ -812,6 +812,8 @@ export interface ConditionNode {
   threshold: number | null
 }
 
+export type AchievementScope = 'GENERIC' | 'EXCLUSIVE'
+
 export interface AchievementSummary {
   id: string
   name: string
@@ -820,6 +822,14 @@ export interface AchievementSummary {
   unlocked: boolean
   unlockedAt: string | null
   progressPercent: number
+  /** Optional so older payloads and fixtures still type-check; treated as GENERIC. */
+  scope?: AchievementScope
+  /** Exclusive badges only: the scenario's current title. */
+  scenarioTitle?: string | null
+  /** False while an Exclusive badge's scenario is archived. */
+  available?: boolean
+  /** The run whose completion unlocked the badge; null if awarded retroactively. */
+  unlockedByEngagementId?: string | null
 }
 
 export interface AchievementAdminView {
@@ -829,6 +839,12 @@ export interface AchievementAdminView {
   iconKey: string
   active: boolean
   rule: ConditionNode
+  scope?: AchievementScope
+  scenarioLineageId?: string | null
+  /** The scenario's current revision, for the picker. */
+  scenarioId?: string | null
+  scenarioTitle?: string | null
+  scenarioLive?: boolean | null
 }
 
 export interface UpsertAchievementRequest {
@@ -836,6 +852,8 @@ export interface UpsertAchievementRequest {
   description: string
   iconKey: string
   rule: ConditionNode
+  /** Null for a Generic badge; any revision of the scenario for an Exclusive one. */
+  scenarioId?: string | null
 }
 
 // ─── Admin: Scenario Authoring ────────────────────────────────────────────────
