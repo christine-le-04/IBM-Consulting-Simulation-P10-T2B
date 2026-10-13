@@ -833,6 +833,16 @@ export interface RunCriteria {
 
 export type AchievementScope = 'GENERIC' | 'EXCLUSIVE'
 
+/** Who would earn a draft badge now; nothing is saved or awarded. */
+export interface AchievementPreview {
+  qualifyingLearners: number
+  /** Of those, how many already hold it (when editing). */
+  alreadyEarned: number
+  learnersChecked: number
+  /** False while an Exclusive badge's scenario is archived. */
+  awardable: boolean
+}
+
 export interface AchievementSummary {
   id: string
   name: string

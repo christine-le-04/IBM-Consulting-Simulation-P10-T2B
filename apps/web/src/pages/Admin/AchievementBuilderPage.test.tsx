@@ -3,14 +3,14 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AchievementBuilderPage from './AchievementBuilderPage'
 import {
-  useAdminAchievements, useCreateAchievement, useSetAchievementActive, useUpdateAchievement,
+  useAchievementPreview, useAdminAchievements, useCreateAchievement, useSetAchievementActive, useUpdateAchievement,
 } from '@/api/hooks/useAdminAchievements'
 import { useAdminScenarioCatalog } from '@/api/hooks/useAdminScenarios'
 import type { AchievementAdminView, ConditionNode } from '@/api/types'
 
 vi.mock('@/api/hooks/useAdminAchievements', () => ({
   useAdminAchievements: vi.fn(), useCreateAchievement: vi.fn(),
-  useSetAchievementActive: vi.fn(), useUpdateAchievement: vi.fn(),
+  useSetAchievementActive: vi.fn(), useUpdateAchievement: vi.fn(), useAchievementPreview: vi.fn(),
 }))
 vi.mock('@/api/hooks/useAdminScenarios', () => ({ useAdminScenarioCatalog: vi.fn() }))
 
@@ -19,11 +19,17 @@ const rule: ConditionNode = {
   kind: 'LEAF', operator: null, children: null, type: 'MIN_ENGAGEMENTS_COMPLETED', competencyName: null, threshold: 1,
 }
 
+function mockPreview(data: { qualifyingLearners: number; alreadyEarned: number; learnersChecked: number; awardable: boolean }) {
+  vi.mocked(useAchievementPreview).mockReturnValue(
+    { data, isFetching: false, isError: false } as unknown as ReturnType<typeof useAchievementPreview>)
+}
+
 function setup(achievements: AchievementAdminView[] = []) {
   vi.mocked(useAdminAchievements).mockReturnValue({ data: achievements, isLoading: false, isError: false } as unknown as ReturnType<typeof useAdminAchievements>)
   vi.mocked(useCreateAchievement).mockReturnValue({ mutate: createMutate, isPending: false, isError: false } as unknown as ReturnType<typeof useCreateAchievement>)
   vi.mocked(useUpdateAchievement).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateAchievement>)
   vi.mocked(useSetAchievementActive).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useSetAchievementActive>)
+  mockPreview({ qualifyingLearners: 0, alreadyEarned: 0, learnersChecked: 0, awardable: true })
   vi.mocked(useAdminScenarioCatalog).mockReturnValue({
     data: { items: [{ id: 'scn-live', title: 'AeroVector: crew rostering' }], totalElements: 1, totalPages: 1, page: 0, size: 48 },
     isLoading: false,
@@ -140,5 +146,62 @@ describe('AchievementBuilderPage condition sets', () => {
     await user.click(screen.getByLabelText('Win (proposal accepted)'))
 
     expect(screen.getByRole('button', { name: 'Save achievement' })).toBeDisabled()
+  })
+})
+
+describe('AchievementBuilderPage rule summary and preview', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('describes the rule in plain English as it is edited', async () => {
+    const user = userEvent.setup()
+    setup()
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+
+    expect(screen.getByText('Unlocks when a learner completes at least 1 run. Runs of any scenario count.')).toBeInTheDocument()
+  })
+
+  it('names the chosen scenario in the summary of an exclusive badge', async () => {
+    const user = userEvent.setup()
+    setup()
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+    await user.click(screen.getByLabelText('Exclusive: one scenario only'))
+    await user.selectOptions(screen.getByLabelText('Scenario'), 'scn-live')
+
+    expect(screen.getByText(/Only runs of “AeroVector: crew rostering” count\./)).toBeInTheDocument()
+  })
+
+  it('says how many learners already qualify and will receive it on save', async () => {
+    const user = userEvent.setup()
+    setup()
+    mockPreview({ qualifyingLearners: 4, alreadyEarned: 1, learnersChecked: 10, awardable: true })
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+
+    expect(await screen.findByText(
+      '4 learners of 10 with completed runs already qualify (1 already have it). 3 learners will receive it when you save.',
+    )).toBeInTheDocument()
+  })
+
+  it('warns when an exclusive badge cannot be awarded because its scenario is archived', async () => {
+    const user = userEvent.setup()
+    setup()
+    mockPreview({ qualifyingLearners: 2, alreadyEarned: 0, learnersChecked: 3, awardable: false })
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+
+    expect(await screen.findByText(/can't be awarded while its scenario is archived/)).toBeInTheDocument()
+  })
+
+  it('does not preview an exclusive badge until a scenario is chosen', async () => {
+    const user = userEvent.setup()
+    setup()
+    render(<AchievementBuilderPage />)
+    await user.click(screen.getByRole('button', { name: 'New achievement' }))
+    await user.click(screen.getByLabelText('Exclusive: one scenario only'))
+
+    expect(screen.getByText('Finish the rule to see who would earn it.')).toBeInTheDocument()
+    expect(useAchievementPreview).toHaveBeenLastCalledWith(null, undefined)
   })
 })

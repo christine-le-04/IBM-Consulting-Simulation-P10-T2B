@@ -23,6 +23,7 @@ import {
   useUpdateAchievement,
 } from '@/api/hooks/useAdminAchievements'
 import AchievementRuleBuilder from '@/components/admin/AchievementRuleBuilder'
+import AchievementRuleInsight from '@/components/admin/AchievementRuleInsight'
 import { useAdminScenarioCatalog } from '@/api/hooks/useAdminScenarios'
 import LoadingState from '@/components/shared/LoadingState'
 import ErrorState from '@/components/shared/ErrorState'
@@ -49,7 +50,7 @@ function emptyForm(): UpsertAchievementRequest {
 function ScenarioPicker({ value, currentTitle, onChange }: {
   value: string | null | undefined
   currentTitle?: string | null
-  onChange: (scenarioId: string | null) => void
+  onChange: (scenarioId: string | null, title: string | null) => void
 }) {
   const { data, isLoading } = useAdminScenarioCatalog({ status: 'ACTIVE', page: 0, size: 48 })
   const live = data?.items ?? []
@@ -61,7 +62,11 @@ function ScenarioPicker({ value, currentTitle, onChange }: {
       helperText="Only runs of this scenario count, across all its revisions."
       value={value ?? ''}
       disabled={isLoading}
-      onChange={(e) => onChange(e.target.value || null)}
+      onChange={(e) => {
+        const id = e.target.value || null
+        const title = live.find((scenario) => scenario.id === id)?.title ?? (id === value ? currentTitle ?? null : null)
+        onChange(id, title)
+      }}
     >
       <SelectItem value="" text={isLoading ? 'Loading scenarios…' : 'Choose a scenario'} />
       {missingCurrent && <SelectItem value={value} text={`${currentTitle ?? 'Current scenario'} (archived)`} />}
@@ -73,18 +78,22 @@ function ScenarioPicker({ value, currentTitle, onChange }: {
 function AchievementForm({
   initial,
   initialScenarioTitle,
+  achievementId,
   onSubmit,
   onCancel,
   submitting,
 }: {
   initial: UpsertAchievementRequest
   initialScenarioTitle?: string | null
+  /** Set when editing, so the preview can count current holders. */
+  achievementId?: string
   onSubmit: (request: UpsertAchievementRequest) => void
   onCancel: () => void
   submitting: boolean
 }) {
   const [form, setForm] = useState<UpsertAchievementRequest>(initial)
   const [exclusive, setExclusive] = useState(Boolean(initial.scenarioId))
+  const [scenarioTitle, setScenarioTitle] = useState<string | null>(initialScenarioTitle ?? null)
   const knownIcon = ACHIEVEMENT_ICONS.some((option) => option.key === form.iconKey)
   const PreviewIcon = achievementIcon(form.iconKey)
   const incomplete = !form.name.trim() || (exclusive && !form.scenarioId) || !everyRunHasRequirement(form.rule)
@@ -136,13 +145,24 @@ function AchievementForm({
           <ScenarioPicker
             value={form.scenarioId}
             currentTitle={initialScenarioTitle}
-            onChange={(scenarioId) => setForm({ ...form, scenarioId })}
+            onChange={(scenarioId, title) => {
+              setForm({ ...form, scenarioId })
+              setScenarioTitle(title)
+            }}
           />
         )}
 
         <div>
           <h5 style={{ marginBottom: '0.75rem' }}>Unlock rule</h5>
           <AchievementRuleBuilder node={form.rule} exclusive={exclusive} onChange={(rule) => setForm({ ...form, rule })} />
+          <AchievementRuleInsight
+            rule={form.rule}
+            exclusive={exclusive}
+            scenarioId={form.scenarioId}
+            scenarioTitle={scenarioTitle}
+            achievementId={achievementId}
+            ready={(!exclusive || Boolean(form.scenarioId)) && everyRunHasRequirement(form.rule)}
+          />
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -177,6 +197,7 @@ function AchievementRow({ achievement }: { achievement: AchievementAdminView }) 
           scenarioId: achievement.scope === 'EXCLUSIVE' ? achievement.scenarioId ?? null : null,
         }}
         initialScenarioTitle={achievement.scenarioTitle}
+        achievementId={achievement.id}
         submitting={updateAchievement.isPending}
         onCancel={() => setEditing(false)}
         onSubmit={(request) => updateAchievement.mutate(request, { onSuccess: () => setEditing(false) })}
