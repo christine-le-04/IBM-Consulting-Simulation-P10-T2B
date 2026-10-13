@@ -27,16 +27,17 @@ public record RunCriteria(
     public RunCriteria {
         firstAttemptStages = firstAttemptStages == null ? List.of() : List.copyOf(firstAttemptStages);
         competencyName = competencyName == null || competencyName.isBlank() ? null : competencyName.trim();
-        if (!Boolean.TRUE.equals(won) && minOverallScore == null && minCompetencyScore == null
-                && minEveryCompetencyScore == null && minDifficulty == null && firstAttemptStages.isEmpty()
-                && !Boolean.TRUE.equals(notARetry) && maxHours == null) {
-            throw new IllegalArgumentException("a run condition needs at least one requirement");
+        // Specific mistakes first, so the message says what to fix.
+        if ((competencyName == null) != (minCompetencyScore == null)) {
+            throw new IllegalArgumentException("competencyName and minCompetencyScore must be set together");
         }
         requireScore(minOverallScore, "minOverallScore");
         requireScore(minCompetencyScore, "minCompetencyScore");
         requireScore(minEveryCompetencyScore, "minEveryCompetencyScore");
-        if ((competencyName == null) != (minCompetencyScore == null)) {
-            throw new IllegalArgumentException("competencyName and minCompetencyScore must be set together");
+        if (!Boolean.TRUE.equals(won) && minOverallScore == null && minCompetencyScore == null
+                && minEveryCompetencyScore == null && minDifficulty == null && firstAttemptStages.isEmpty()
+                && !Boolean.TRUE.equals(notARetry) && maxHours == null) {
+            throw new IllegalArgumentException("a run condition needs at least one requirement");
         }
         if (minDifficulty != null && !DIFFICULTIES.contains(minDifficulty)) {
             throw new IllegalArgumentException("minDifficulty must be one of " + DIFFICULTIES);
