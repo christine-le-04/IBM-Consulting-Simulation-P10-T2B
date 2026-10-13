@@ -97,10 +97,14 @@ public class AdminAchievementService {
      * scenarios, win rate) mean nothing for an Exclusive badge.
      */
     private void validate(UpsertAchievementRequest request) {
-        ruleMapper.toDomain(request.rule());
+        validate(request.rule(), request.scenarioId());
+    }
+
+    private void validate(ConditionNode rule, UUID scenarioId) {
+        ruleMapper.toDomain(rule);
         List<String> unknown = new ArrayList<>();
         List<ConditionType> outOfScope = new ArrayList<>();
-        inspect(request.rule(), request.scenarioId() != null, unknown, outOfScope);
+        inspect(rule, scenarioId != null, unknown, outOfScope);
         if (!unknown.isEmpty()) {
             throw new InvalidAchievementException("Unknown competency " + String.join(", ", unknown)
                     + ". Use one of: " + String.join(", ", Competencies.ALL) + ".");
@@ -127,6 +131,18 @@ public class AdminAchievementService {
         if ((required || competency != null) && !Competencies.ALL.contains(competency)) {
             unknown.add("\"" + competency + "\"");
         }
+    }
+
+    /**
+     * Who would earn a draft achievement now. Validated like a save, evaluated on a
+     * transient copy: nothing is stored or awarded.
+     */
+    @Transactional(readOnly = true)
+    public AchievementPreview preview(PreviewAchievementRequest request, UUID existingAchievementId) {
+        validate(request.rule(), request.scenarioId());
+        Achievement draft = Achievement.create("Preview", "", "", ruleCodec.encode(request.rule()));
+        applyScope(draft, request.scenarioId());
+        return evaluationService.preview(draft, existingAchievementId);
     }
 
     /** Null scenarioId makes the achievement Generic; otherwise Exclusive to that scenario's lineage. */

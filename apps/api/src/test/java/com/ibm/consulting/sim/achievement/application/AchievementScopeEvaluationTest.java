@@ -140,4 +140,45 @@ class AchievementScopeEvaluationTest {
         assertThat(service.backfill(generic)).isZero();
         verify(scenarios, never()).usersWithCompletedRuns(any());
     }
+
+    @Test
+    void previewCountsWhoQualifiesWithoutAwardingAnything() {
+        Achievement generic = completeRuns("Five anywhere", 5);
+        UUID beginner = UUID.randomUUID();
+        when(scenarios.usersWithCompletedRuns(null)).thenReturn(List.of(learner, beginner));
+        when(facts.build(beginner)).thenReturn(new AchievementFactSheet(1, 0, 50, 50.0, 1, 0.0, Map.of()));
+
+        AchievementPreview preview = service.preview(generic, null);
+
+        assertThat(preview.qualifyingLearners()).isEqualTo(1);
+        assertThat(preview.learnersChecked()).isEqualTo(2);
+        assertThat(preview.awardable()).isTrue();
+        verify(unlocks, never()).insertIfAbsent(any(), any(), any(), any());
+        verify(unlocks, never()).insertIfAbsent(any(), any(), any());
+    }
+
+    @Test
+    void previewOfAnEditedBadgeCountsLearnersWhoAlreadyHoldIt() {
+        Achievement generic = completeRuns("Five anywhere", 5);
+        UUID existing = UUID.randomUUID();
+        when(scenarios.usersWithCompletedRuns(null)).thenReturn(List.of(learner));
+        when(unlocks.existsByUserIdAndAchievementId(learner, existing)).thenReturn(true);
+
+        AchievementPreview preview = service.preview(generic, existing);
+
+        assertThat(preview.qualifyingLearners()).isEqualTo(1);
+        assertThat(preview.alreadyEarned()).isEqualTo(1);
+    }
+
+    @Test
+    void previewReportsAnExclusiveBadgeAsNotAwardableWhileItsScenarioIsArchived() {
+        Achievement exclusive = exclusive("One here", 1, false);
+        when(scenarios.usersWithCompletedRuns(lineage)).thenReturn(List.of(learner));
+        when(facts.build(learner, lineage)).thenReturn(new AchievementFactSheet(1, 0, 60, 60.0, 1, 0.0, Map.of()));
+
+        AchievementPreview preview = service.preview(exclusive, null);
+
+        assertThat(preview.qualifyingLearners()).isEqualTo(1);
+        assertThat(preview.awardable()).isFalse();
+    }
 }

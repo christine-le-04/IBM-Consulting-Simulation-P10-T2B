@@ -173,4 +173,26 @@ class AdminAchievementScopeTest {
                 .isInstanceOf(AdminAchievementService.InvalidAchievementException.class)
                 .hasMessageContaining("\"Rapport\"");
     }
+
+    @Test
+    void previewEvaluatesADraftWithoutSavingIt() {
+        when(evaluation.preview(any(Achievement.class), any())).thenReturn(new AchievementPreview(3, 0, 10, true));
+
+        AchievementPreview preview = service.preview(new PreviewAchievementRequest(oneRun, currentRevision), null);
+
+        assertThat(preview.qualifyingLearners()).isEqualTo(3);
+        ArgumentCaptor<Achievement> draft = ArgumentCaptor.forClass(Achievement.class);
+        verify(evaluation).preview(draft.capture(), org.mockito.ArgumentMatchers.isNull());
+        assertThat(draft.getValue().getScenarioLineageId()).isEqualTo(lineage);
+        verify(achievements, never()).save(any());
+        verify(evaluation, never()).backfill(any());
+    }
+
+    @Test
+    void previewRejectsTheSameRulesAsSaving() {
+        ConditionNode winRate = ConditionNode.leaf(ConditionType.MIN_WIN_RATE_PERCENT, null, 50);
+
+        assertThatThrownBy(() -> service.preview(new PreviewAchievementRequest(winRate, currentRevision), null))
+                .isInstanceOf(AdminAchievementService.InvalidAchievementException.class);
+    }
 }

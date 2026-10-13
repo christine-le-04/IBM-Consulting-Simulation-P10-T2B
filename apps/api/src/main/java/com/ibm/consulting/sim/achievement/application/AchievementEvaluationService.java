@@ -91,6 +91,29 @@ public class AchievementEvaluationService {
         return awarded;
     }
 
+    /**
+     * Who would earn an achievement now, without awarding anything. Uses the same
+     * candidates and rule check as {@link #backfill}. {@code existingAchievementId}
+     * (when editing) also counts learners who already hold it.
+     */
+    @Transactional(readOnly = true)
+    public AchievementPreview preview(Achievement achievement, UUID existingAchievementId) {
+        List<UUID> candidates = scenarioLineageLookup.usersWithCompletedRuns(achievement.getScenarioLineageId());
+        int qualifying = 0;
+        int alreadyEarned = 0;
+        for (UUID userId : candidates) {
+            if (!new Evaluation(userId).satisfies(achievement)) continue;
+            qualifying++;
+            if (existingAchievementId != null
+                    && userAchievementRepository.existsByUserIdAndAchievementId(userId, existingAchievementId)) {
+                alreadyEarned++;
+            }
+        }
+        boolean live = !achievement.isExclusive() || scenarioLineageLookup.current(achievement.getScenarioLineageId())
+                .map(ScenarioLineageLookup.CurrentRevision::live).orElse(false);
+        return new AchievementPreview(qualifying, alreadyEarned, candidates.size(), live);
+    }
+
     /** One learner's evaluation pass; fact sheets are built once per scope and reused. */
     private final class Evaluation {
         private final UUID userId;
@@ -105,9 +128,14 @@ public class AchievementEvaluationService {
         boolean unlockIfSatisfied(Achievement achievement, UUID engagementId) {
             if (!achievement.isAwardable(isLive(achievement))) return false;
             if (userAchievementRepository.existsByUserIdAndAchievementId(userId, achievement.getId())) return false;
-            AchievementCondition rule = ruleMapper.toDomain(ruleCodec.decode(achievement.getRuleJson()));
-            return AchievementRuleEvaluator.isSatisfied(rule, factsFor(achievement))
+            return satisfies(achievement)
                     && userAchievementRepository.insertIfAbsent(userId, achievement.getId(), Instant.now(), engagementId);
+        }
+
+        /** The rule check alone: no availability, no existing unlock, nothing written. */
+        boolean satisfies(Achievement achievement) {
+            AchievementCondition rule = ruleMapper.toDomain(ruleCodec.decode(achievement.getRuleJson()));
+            return AchievementRuleEvaluator.isSatisfied(rule, factsFor(achievement));
         }
 
         private boolean isLive(Achievement achievement) {
