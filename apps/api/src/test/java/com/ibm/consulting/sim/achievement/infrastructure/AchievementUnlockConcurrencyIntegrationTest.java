@@ -70,7 +70,7 @@ class AchievementUnlockConcurrencyIntegrationTest {
     @Test
     void concurrentEvaluationCreatesOneUnlockAndOneNewlyUnlockedResult() throws Exception {
         AchievementRuleCodec codec = new AchievementRuleCodec(new ObjectMapper());
-        String ruleJson = codec.encode(ConditionNode.leaf(ConditionType.MIN_ENGAGEMENTS_COMPLETED, null, 0));
+        String ruleJson = codec.encode(ConditionNode.leaf(ConditionType.MIN_ENGAGEMENTS_COMPLETED, null, 1));
         UUID userId = inTransaction(() -> {
             User user = User.create("achievement-" + UUID.randomUUID() + "@example.com", "hash", "Learner", UserRole.LEARNER);
             entityManager.persist(user);
@@ -82,7 +82,7 @@ class AchievementUnlockConcurrencyIntegrationTest {
         CountDownLatch existenceChecks = new CountDownLatch(2);
         UserAchievementRepository gatedUnlocks = gateExistenceChecks(unlockRepository, existenceChecks);
         AchievementFactSheetBuilder facts = mock(AchievementFactSheetBuilder.class);
-        when(facts.build(userId)).thenReturn(AchievementFactSheet.empty());
+        when(facts.build(userId)).thenReturn(new AchievementFactSheet(1, 0, 60, 60.0, 1, 0.0, java.util.Map.of()));
         AchievementEvaluationService service = new AchievementEvaluationService(
                 achievementRepository, gatedUnlocks, facts,
                 codec, new AchievementRuleMapper(), mock(ScenarioLineageLookup.class));

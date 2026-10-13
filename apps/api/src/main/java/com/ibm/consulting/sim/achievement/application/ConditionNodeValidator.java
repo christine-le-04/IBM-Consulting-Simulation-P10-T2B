@@ -29,8 +29,13 @@ public final class ConditionNodeValidator implements ConstraintValidator<ValidCo
         };
     }
 
+    /**
+     * New rules need a threshold above 0: "at least 0" is met by everyone. Rules
+     * already stored with 0 still load (the domain accepts them) and are made safe
+     * by requiring a completed run in scope.
+     */
     private static boolean validThreshold(ConditionType type, Double threshold) {
-        if (threshold == null || !Double.isFinite(threshold) || threshold < 0) return false;
+        if (threshold == null || !Double.isFinite(threshold) || threshold <= 0) return false;
         return !type.hasPercentageThreshold() || threshold <= 100;
     }
 

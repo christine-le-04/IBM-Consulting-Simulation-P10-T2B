@@ -181,4 +181,18 @@ class AchievementScopeEvaluationTest {
         assertThat(preview.qualifyingLearners()).isEqualTo(1);
         assertThat(preview.awardable()).isFalse();
     }
+
+    @Test
+    void anExclusiveBadgeWithAZeroAverageIsNotEarnedWithoutPlayingItsScenario() {
+        Achievement averageZero = Achievement.create("Rostering average", "", "star",
+                codec.encode(ConditionNode.leaf(ConditionType.MIN_AVERAGE_OVERALL_SCORE, null, 0)));
+        averageZero.assignToScenario(lineage, "Crew rostering");
+        when(scenarios.current(lineage)).thenReturn(Optional.of(
+                new ScenarioLineageLookup.CurrentRevision(UUID.randomUUID(), "Crew rostering", true)));
+        when(facts.build(learner, lineage)).thenReturn(AchievementFactSheet.empty());
+        when(achievements.findAllActive()).thenReturn(List.of(averageZero));
+
+        assertThat(service.evaluateForUser(learner)).isEmpty();
+        verify(unlocks, never()).insertIfAbsent(any(), any(), any(), any());
+    }
 }
