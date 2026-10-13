@@ -162,7 +162,7 @@ export default function AchievementRuleBuilder({ node, onChange, onRemove, path 
               id={`threshold-${path}`}
               label={node.type === 'MIN_RUNS_MATCHING' ? 'Number of runs' : 'Threshold'}
               value={node.threshold ?? 0}
-              min={node.type === 'MIN_RUNS_MATCHING' ? 1 : 0}
+              min={1}
               onChange={(_e, state) => onChange({ ...node, threshold: Number(state?.value ?? 0) })}
               size="sm"
             />
