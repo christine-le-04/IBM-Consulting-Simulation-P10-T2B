@@ -9,13 +9,16 @@ import {
   Launch,
   Renew,
   Settings,
+  UserMultiple,
   WarningAlt,
 } from '@carbon/icons-react'
 import { Link } from 'react-router-dom'
 import { useAdminAiOperations } from '@/api/hooks/useAdminAiOperations'
+import { useAdminLearnerProgress } from '@/api/hooks/useAdminLearnerProgress'
 import { useAdminPlatformOverview } from '@/api/hooks/useAdminPlatformOverview'
 import { useAllScenariosForAdmin } from '@/api/hooks/useAdminScenarios'
 import { useAuthStore } from '@/store/authStore'
+import { DEFAULT_STUCK_DAYS, statusOf } from '@/features/admin/learnerProgress'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
 import styles from './AdminConsolePage.module.css'
@@ -76,17 +79,20 @@ export default function AdminConsolePage() {
   const scenarios = useAllScenariosForAdmin(canAuthorScenarios)
   const aiOperations = useAdminAiOperations(canViewAiOperations)
   const platform = useAdminPlatformOverview(canAdminister)
+  const learners = useAdminLearnerProgress(canAdminister)
 
   const scenarioList = scenarios.data ?? []
   const activeScenarioCount = canAuthorScenarios
     ? scenarioList.filter((scenario) => scenario.status === 'ACTIVE').length
     : platform.data?.scenariosByStatus?.ACTIVE ?? 0
   const draftScenarioCount = scenarioList.filter((scenario) => scenario.status === 'DRAFT').length
+  const stuckLearnerCount = (learners.data ?? []).filter((entry) => statusOf(entry, learners.dataUpdatedAt) === 'STUCK').length
   const healthyProviders = (aiOperations.data?.providers ?? []).filter((provider) => provider.available).length
   const unavailableProviders = (aiOperations.data?.providers ?? []).filter((provider) => !provider.available).length
   const scenarioStates = platform.data?.scenariosByStatus ?? {}
   const platformScenarioCount = Object.values(scenarioStates).reduce((sum, count) => sum + count, 0)
   const isRefreshing = scenarios.isFetching || aiOperations.isFetching || platform.isFetching
+  const needsReview = Boolean(draftScenarioCount || unavailableProviders || aiOperations.data?.mockMode || stuckLearnerCount)
 
   const scenarioTotal = canAuthorScenarios && scenarios.isLoading ? '...' : platformScenarioCount || scenarioList.length
   const activeScenarios = canAuthorScenarios && scenarios.isLoading ? '...' : activeScenarioCount
@@ -127,6 +133,7 @@ export default function AdminConsolePage() {
             void scenarios.refetch()
             void aiOperations.refetch()
             void platform.refetch()
+            if (canAdminister) void learners.refetch()
           }}>Refresh</Button>
           {canAuthorScenarios && <Button as={Link} to="/dashboard/admin/scenarios" size="sm" renderIcon={DocumentAdd}>Create scenario</Button>}
         </div>
@@ -151,6 +158,7 @@ export default function AdminConsolePage() {
           <div className={styles.actionGrid}>
             {canAuthorScenarios && <ActionCard to="/dashboard/admin/scenarios" icon={Settings} title="Learning journeys" detail="Create scenarios, define people, facts and learning rules." action="Open scenarios" tone="blue" />}
             {canAdminister && <ActionCard to="/dashboard/admin/users" icon={Group} title="People and access" detail="Give learners, reviewers and authors the right level of access." action="Manage people" tone="green" />}
+            {canAdminister && <ActionCard to="/dashboard/admin/learners" icon={UserMultiple} title="Learner progress" detail="See each learner's stage, score and who needs a nudge." action="View learners" tone="blue" />}
             {canAdminister && <ActionCard to="/dashboard/admin/achievements" icon={Idea} title="Progression and badges" detail="Recognise strong consulting behaviours across scenarios." action="Manage progression" tone="purple" />}
             {canViewAiOperations && <ActionCard to="/dashboard/admin/ai-operations" icon={ChartLine} title="AI delivery" detail="Review provider availability, capacity and approved routing." action="View AI health" tone="orange" />}
           </div>
@@ -176,12 +184,13 @@ export default function AdminConsolePage() {
 
         <aside className={styles.sidePanel}>
           <section className={styles.attentionPanel}>
-            <div className={styles.panelHeading}><div><p className={styles.panelEyebrow}>Readiness</p><h2>Needs your attention</h2></div><Tag type={draftScenarioCount || unavailableProviders || aiOperations.data?.mockMode ? 'warm-gray' : 'green'}>{draftScenarioCount || unavailableProviders || aiOperations.data?.mockMode ? 'Review' : 'All clear'}</Tag></div>
+            <div className={styles.panelHeading}><div><p className={styles.panelEyebrow}>Readiness</p><h2>Needs your attention</h2></div><Tag type={needsReview ? 'warm-gray' : 'green'}>{needsReview ? 'Review' : 'All clear'}</Tag></div>
             <div className={styles.attentionList}>
               {canAuthorScenarios && draftScenarioCount > 0 && <AttentionItem to="/dashboard/admin/scenarios" title={`${draftScenarioCount} draft ${draftScenarioCount === 1 ? 'scenario' : 'scenarios'}`} detail="Finish and publish when each journey is ready for learners." />}
               {canViewAiOperations && aiOperations.data?.mockMode && <AttentionItem to="/dashboard/admin/ai-operations" title="AI fallback mode is on" detail="Review live provider configuration before production sessions." />}
               {canViewAiOperations && unavailableProviders > 0 && <AttentionItem to="/dashboard/admin/ai-operations" title={`${unavailableProviders} AI ${unavailableProviders === 1 ? 'service needs' : 'services need'} review`} detail="A healthy provider can still handle the affected task through approved fallback routing." />}
-              {!draftScenarioCount && !unavailableProviders && !aiOperations.data?.mockMode && <AttentionItem kind="success" to="/dashboard/admin/scenarios" title="Your platform is ready" detail="Scenarios and AI delivery are ready for the next learner session." />}
+              {canAdminister && stuckLearnerCount > 0 && <AttentionItem to="/dashboard/admin/learners?status=STUCK" title={`${stuckLearnerCount} ${stuckLearnerCount === 1 ? 'learner is' : 'learners are'} stuck`} detail={`No activity for ${DEFAULT_STUCK_DAYS}+ days. Check in before they drop off.`} />}
+              {!needsReview && <AttentionItem kind="success" to="/dashboard/admin/scenarios" title="Your platform is ready" detail="Scenarios and AI delivery are ready for the next learner session." />}
             </div>
           </section>
 
