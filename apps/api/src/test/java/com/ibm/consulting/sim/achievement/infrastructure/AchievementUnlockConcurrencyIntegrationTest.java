@@ -71,10 +71,11 @@ class AchievementUnlockConcurrencyIntegrationTest {
     void concurrentEvaluationCreatesOneUnlockAndOneNewlyUnlockedResult() throws Exception {
         AchievementRuleCodec codec = new AchievementRuleCodec(new ObjectMapper());
         String ruleJson = codec.encode(ConditionNode.leaf(ConditionType.MIN_ENGAGEMENTS_COMPLETED, null, 1));
+        Achievement firstStep = Achievement.create("First step", "Complete one task", "trophy", ruleJson);
         UUID userId = inTransaction(() -> {
             User user = User.create("achievement-" + UUID.randomUUID() + "@example.com", "hash", "Learner", UserRole.LEARNER);
             entityManager.persist(user);
-            entityManager.persist(Achievement.create("First step", "Complete one task", "trophy", ruleJson));
+            entityManager.persist(firstStep);
             entityManager.flush();
             return user.getId();
         });
@@ -91,9 +92,14 @@ class AchievementUnlockConcurrencyIntegrationTest {
                 () -> service.evaluateForUser(userId),
                 () -> service.evaluateForUser(userId));
 
-        List<UserAchievement> persisted = inTransaction(() -> unlockRepository.findByUserId(userId));
+        // Only this test's badge: the migrated database also holds the seeded starter badges.
+        List<UserAchievement> persisted = inTransaction(() -> unlockRepository.findByUserId(userId)).stream()
+                .filter(unlock -> unlock.getAchievementId().equals(firstStep.getId()))
+                .toList();
         assertThat(persisted).hasSize(1);
-        assertThat(results.stream().mapToInt(List::size).sum()).isEqualTo(1);
+        assertThat(results.stream().flatMap(List::stream)
+                .filter(achievement -> achievement.getId().equals(firstStep.getId()))
+                .count()).isEqualTo(1);
     }
 
     private UserAchievementRepository gateExistenceChecks(UserAchievementRepository delegate,
