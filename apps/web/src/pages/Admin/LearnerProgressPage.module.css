@@ -1,0 +1,19 @@
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-top: 1.25rem; }
+.tile { display: flex; flex-direction: column; gap: .2rem; min-height: 5.5rem; padding: 1rem; border: 1px solid #e0e0e0; background: #fff; color: #161616; font: inherit; text-align: left; }
+button.tile { cursor: pointer; }button.tile:hover { border-color: #78a9ff; }
+.tileActive { border-color: #0f62fe; box-shadow: inset 0 0 0 1px #0f62fe; }
+.tileLabel,.tile small { color: #525252; font-size: var(--sim-font-caption); }
+.tile strong { font-size: 1.75rem; font-weight: 400; line-height: 1.2; }
+.controls { display: grid; grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(10rem, 1fr)); gap: 1rem; align-items: end; margin-bottom: 1.5rem; }
+.table { min-width: 960px; }
+.stage { display: flex; flex-direction: column; gap: .4rem; min-width: 11rem; }
+.stageBar { display: flex; gap: 3px; }
+.segment { width: 1.4rem; height: .375rem; background: #e0e0e0; }
+.segmentDone { background: #161616; }.segmentCurrent { background: #0f62fe; }.segmentFailed { background: #8a3800; }
+.stage .stageLabel { margin: 0; color: #525252; font-size: var(--sim-font-caption); }
+.score { font-variant-numeric: tabular-nums; }
+.empty,.noResults { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; padding: 3rem 2rem; margin-top: 1.25rem; border: 1px solid #e0e0e0; background: #fff; }
+.empty svg { color: #8d8d8d; }.empty h2,.noResults h2 { margin: 0; font-size: var(--sim-font-section); font-weight: 400; }.empty p { max-width: 32rem; margin: 0; color: #525252; }
+.legend { margin: 1rem 0 0; color: #525252; font-size: var(--sim-font-caption); }
+@media (max-width: 1056px) { .tiles,.controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 672px) { .tiles,.controls { grid-template-columns: 1fr; } }

@@ -27,6 +27,7 @@ const AchievementBuilderPage = lazy(() => import('@/pages/Admin/AchievementBuild
 const AdminConsolePage = lazy(() => import('@/pages/Admin/AdminConsolePage'))
 const UserManagementPage = lazy(() => import('@/pages/Admin/UserManagementPage'))
 const AiOperationsPage = lazy(() => import('@/pages/Admin/AiOperationsPage'))
+const LearnerProgressPage = lazy(() => import('@/pages/Admin/LearnerProgressPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -139,6 +140,10 @@ export default function App() {
           <Route
             path="admin/users"
             element={<RequireRole roles={['ADMINISTRATOR']}><UserManagementPage /></RequireRole>}
+          />
+          <Route
+            path="admin/learners"
+            element={<RequireRole roles={['ADMINISTRATOR']}><LearnerProgressPage /></RequireRole>}
           />
           <Route
             path="admin/ai-operations"
