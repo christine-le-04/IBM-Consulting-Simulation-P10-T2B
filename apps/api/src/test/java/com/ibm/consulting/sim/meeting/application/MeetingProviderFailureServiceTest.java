@@ -50,7 +50,8 @@ class MeetingProviderFailureServiceTest {
         MeetingService service = new MeetingService(meetings, turns, states,
                 mock(MeetingPreparationRepository.class), engagements, personas,
                 mock(ResearchEvidenceRepository.class), ai, new ObjectMapper(), mock(TranscriptExportService.class),
-                mock(KnowledgeRetrievalService.class), difficulty, mock(GuidedMeetingResponseService.class));
+                mock(KnowledgeRetrievalService.class), difficulty, mock(GuidedMeetingResponseService.class),
+                MeetingServiceTestFactory.transactions());
 
         for (int attempt = 0; attempt < 2; attempt++) {
             assertThatThrownBy(() -> service.sendMessage(meeting.getId(), userId,
@@ -59,7 +60,7 @@ class MeetingProviderFailureServiceTest {
         }
         verify(turns, never()).save(any());
         verify(states, never()).save(any());
-        verify(meetings, never()).save(any());
+        assertThat(meeting.reserveTurn(UUID.randomUUID(), java.time.Instant.now())).isTrue();
         assertThat(state.getTrust()).isEqualTo(50);
         assertThat(state.getInterest()).isEqualTo(50);
         assertThat(state.getPatience()).isEqualTo(50);

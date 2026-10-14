@@ -85,7 +85,7 @@ class MeetingMessageConcurrencyIntegrationTest {
                 new EntityManagerEngagementRepository(entityManager),
                 data.engagementId(),
                 data.persona(),
-                data.profile());
+                data.profile(), transactionManager);
 
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             Future<MeetingTurnResult> first = executor.submit(
