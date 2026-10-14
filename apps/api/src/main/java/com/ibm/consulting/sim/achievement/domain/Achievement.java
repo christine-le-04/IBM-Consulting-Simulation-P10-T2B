@@ -3,6 +3,8 @@ package com.ibm.consulting.sim.achievement.domain;
 import com.ibm.consulting.sim.shared.domain.BaseEntity;
 import jakarta.persistence.*;
 
+import java.util.UUID;
+
 /**
  * An admin-authored achievement definition. The unlock rule itself is stored as
  * an opaque serialised string ({@code ruleJson}) — encoding/decoding it into an
@@ -28,6 +30,14 @@ public class Achievement extends BaseEntity {
     @Column(name = "rule_json", nullable = false, columnDefinition = "text")
     private String ruleJson;
 
+    /** Null for a Generic achievement; the scenario lineage of an Exclusive one. */
+    @Column(name = "scenario_lineage_id")
+    private UUID scenarioLineageId;
+
+    /** Scenario title when assigned. Display reads the live title; this is a fallback. */
+    @Column(name = "scenario_title_snapshot")
+    private String scenarioTitleSnapshot;
+
     protected Achievement() {}
 
     public static Achievement create(String name, String description, String iconKey, String ruleJson) {
@@ -50,6 +60,30 @@ public class Achievement extends BaseEntity {
         this.iconKey = (iconKey == null || iconKey.isBlank()) ? "trophy" : iconKey;
     }
 
+    /** Makes the achievement Exclusive to one scenario, counting runs of any of its revisions. */
+    public void assignToScenario(UUID scenarioLineageId, String scenarioTitle) {
+        this.scenarioLineageId = scenarioLineageId;
+        this.scenarioTitleSnapshot = scenarioTitle;
+    }
+
+    /** Makes the achievement Generic again: it counts runs of every scenario. */
+    public void makeGeneric() {
+        this.scenarioLineageId = null;
+        this.scenarioTitleSnapshot = null;
+    }
+
+    public boolean isExclusive() { return scenarioLineageId != null; }
+
+    /**
+     * Whether the achievement can be newly awarded. Computed from the scenario's
+     * current status every time, never stored: archiving a scenario pauses its
+     * Exclusive badges without changing them, and an admin's own deactivation
+     * is independent of the scenario.
+     */
+    public boolean isAwardable(boolean scenarioLive) {
+        return active && (!isExclusive() || scenarioLive);
+    }
+
     public void activate() { this.active = true; }
     public void deactivate() { this.active = false; }
 
@@ -58,4 +92,6 @@ public class Achievement extends BaseEntity {
     public String getIconKey() { return iconKey; }
     public boolean isActive() { return active; }
     public String getRuleJson() { return ruleJson; }
+    public UUID getScenarioLineageId() { return scenarioLineageId; }
+    public String getScenarioTitleSnapshot() { return scenarioTitleSnapshot; }
 }

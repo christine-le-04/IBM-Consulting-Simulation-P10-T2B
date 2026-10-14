@@ -22,6 +22,10 @@ public class UserAchievement extends BaseEntity {
     @Column(name = "unlocked_at", nullable = false)
     private Instant unlockedAt;
 
+    /** The run whose completion unlocked this; null when awarded retroactively. */
+    @Column(name = "unlocked_by_engagement_id")
+    private UUID unlockedByEngagementId;
+
     protected UserAchievement() {}
 
     public static UserAchievement unlock(UUID userId, UUID achievementId) {
@@ -35,4 +39,5 @@ public class UserAchievement extends BaseEntity {
     public UUID getUserId() { return userId; }
     public UUID getAchievementId() { return achievementId; }
     public Instant getUnlockedAt() { return unlockedAt; }
+    public UUID getUnlockedByEngagementId() { return unlockedByEngagementId; }
 }

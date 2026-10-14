@@ -136,7 +136,7 @@ public class AssessmentService {
                 AssessmentFeedbackStatus.PENDING);
         assessmentRepository.save(assessment);
 
-        achievementEvaluationService.evaluateForUser(engagement.getUserId());
+        achievementEvaluationService.evaluateAfterEngagement(engagement.getUserId(), engagementId);
         completeAssessmentLifecycle(engagement, "Assessment generated and portfolio updated");
         eventPublisher.publishEvent(new AssessmentGeneratedEvent(engagementId, competencyScores, overallScore, outcome));
 

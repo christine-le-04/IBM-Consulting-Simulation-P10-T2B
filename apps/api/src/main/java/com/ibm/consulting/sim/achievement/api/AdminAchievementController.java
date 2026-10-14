@@ -1,5 +1,7 @@
 package com.ibm.consulting.sim.achievement.api;
 
+import com.ibm.consulting.sim.achievement.application.AchievementPreview;
+import com.ibm.consulting.sim.achievement.application.PreviewAchievementRequest;
 import com.ibm.consulting.sim.achievement.application.AchievementAdminView;
 import com.ibm.consulting.sim.achievement.application.AdminAchievementService;
 import com.ibm.consulting.sim.achievement.application.UpsertAchievementRequest;
@@ -36,6 +38,13 @@ public class AdminAchievementController {
     @ResponseStatus(HttpStatus.CREATED)
     AchievementAdminView create(@Valid @RequestBody UpsertAchievementRequest request) {
         return adminAchievementService.create(request);
+    }
+
+    /** Who would earn this draft now; nothing is saved or awarded. Pass achievementId when editing. */
+    @PostMapping("/preview")
+    AchievementPreview preview(@Valid @RequestBody PreviewAchievementRequest request,
+                               @RequestParam(required = false) UUID achievementId) {
+        return adminAchievementService.preview(request, achievementId);
     }
 
     @PutMapping("/{id}")

@@ -813,6 +813,7 @@ export type ConditionType =
     | 'MIN_COMPETENCY_SCORE'
     | 'MIN_DISTINCT_SCENARIOS_COMPLETED'
     | 'MIN_WIN_RATE_PERCENT'
+    | 'MIN_RUNS_MATCHING'
 
 export type LogicalOperator = 'AND' | 'OR'
 
@@ -825,6 +826,36 @@ export interface ConditionNode {
   type: ConditionType | null
   competencyName: string | null
   threshold: number | null
+  /** Only for MIN_RUNS_MATCHING: what one run must achieve, all together. */
+  run?: RunCriteria | null
+}
+
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
+export type AssessedStage = 'OUTREACH' | 'MEETING' | 'PROPOSAL'
+
+/** Requirements a single run must meet together; unset fields are not required. */
+export interface RunCriteria {
+  won: boolean | null
+  minOverallScore: number | null
+  competencyName: string | null
+  minCompetencyScore: number | null
+  minEveryCompetencyScore: number | null
+  minDifficulty: Difficulty | null
+  firstAttemptStages: AssessedStage[]
+  notARetry: boolean | null
+  maxHours: number | null
+}
+
+export type AchievementScope = 'GENERIC' | 'EXCLUSIVE'
+
+/** Who would earn a draft badge now; nothing is saved or awarded. */
+export interface AchievementPreview {
+  qualifyingLearners: number
+  /** Of those, how many already hold it (when editing). */
+  alreadyEarned: number
+  learnersChecked: number
+  /** False while an Exclusive badge's scenario is archived. */
+  awardable: boolean
 }
 
 export interface AchievementSummary {
@@ -835,6 +866,14 @@ export interface AchievementSummary {
   unlocked: boolean
   unlockedAt: string | null
   progressPercent: number
+  /** Optional so older payloads and fixtures still type-check; treated as GENERIC. */
+  scope?: AchievementScope
+  /** Exclusive badges only: the scenario's current title. */
+  scenarioTitle?: string | null
+  /** False while an Exclusive badge's scenario is archived. */
+  available?: boolean
+  /** The run whose completion unlocked the badge; null if awarded retroactively. */
+  unlockedByEngagementId?: string | null
 }
 
 export interface AchievementAdminView {
@@ -844,6 +883,12 @@ export interface AchievementAdminView {
   iconKey: string
   active: boolean
   rule: ConditionNode
+  scope?: AchievementScope
+  scenarioLineageId?: string | null
+  /** The scenario's current revision, for the picker. */
+  scenarioId?: string | null
+  scenarioTitle?: string | null
+  scenarioLive?: boolean | null
 }
 
 export interface UpsertAchievementRequest {
@@ -851,6 +896,8 @@ export interface UpsertAchievementRequest {
   description: string
   iconKey: string
   rule: ConditionNode
+  /** Null for a Generic badge; any revision of the scenario for an Exclusive one. */
+  scenarioId?: string | null
 }
 
 // ─── Admin: Scenario Authoring ────────────────────────────────────────────────

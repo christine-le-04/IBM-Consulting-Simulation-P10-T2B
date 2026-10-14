@@ -10,6 +10,10 @@ import {
   TextArea,
   Tag,
   InlineNotification,
+  RadioButton,
+  RadioButtonGroup,
+  Select,
+  SelectItem,
 } from '@carbon/react'
 import { Add, CheckmarkFilled, CloseFilled } from '@carbon/icons-react'
 import {
@@ -19,10 +23,13 @@ import {
   useUpdateAchievement,
 } from '@/api/hooks/useAdminAchievements'
 import AchievementRuleBuilder from '@/components/admin/AchievementRuleBuilder'
+import AchievementRuleInsight from '@/components/admin/AchievementRuleInsight'
+import { useAdminScenarioCatalog } from '@/api/hooks/useAdminScenarios'
 import LoadingState from '@/components/shared/LoadingState'
 import ErrorState from '@/components/shared/ErrorState'
 import type { AchievementAdminView, ConditionNode, UpsertAchievementRequest } from '@/api/types'
-import { achievementDescription } from '@/features/achievement/achievementPresentation'
+import { ACHIEVEMENT_ICONS, achievementDescription, achievementIcon } from '@/features/achievement/achievementPresentation'
+import { everyRunHasRequirement, pruneForScope } from '@/features/achievement/ruleScope'
 
 const DEFAULT_RULE: ConditionNode = {
   kind: 'GROUP',
@@ -36,21 +43,60 @@ const DEFAULT_RULE: ConditionNode = {
 }
 
 function emptyForm(): UpsertAchievementRequest {
-  return { name: '', description: '', iconKey: 'trophy', rule: DEFAULT_RULE }
+  return { name: '', description: '', iconKey: 'trophy', rule: DEFAULT_RULE, scenarioId: null }
+}
+
+/** Live scenarios an Exclusive badge can belong to, plus the current one if it is no longer Live. */
+function ScenarioPicker({ value, currentTitle, onChange }: {
+  value: string | null | undefined
+  currentTitle?: string | null
+  onChange: (scenarioId: string | null, title: string | null) => void
+}) {
+  const { data, isLoading } = useAdminScenarioCatalog({ status: 'ACTIVE', page: 0, size: 48 })
+  const live = data?.items ?? []
+  const missingCurrent = value && !live.some((scenario) => scenario.id === value)
+  return (
+    <Select
+      id="achievement-scenario"
+      labelText="Scenario"
+      helperText="Only runs of this scenario count, across all its revisions."
+      value={value ?? ''}
+      disabled={isLoading}
+      onChange={(e) => {
+        const id = e.target.value || null
+        const title = live.find((scenario) => scenario.id === id)?.title ?? (id === value ? currentTitle ?? null : null)
+        onChange(id, title)
+      }}
+    >
+      <SelectItem value="" text={isLoading ? 'Loading scenarios…' : 'Choose a scenario'} />
+      {missingCurrent && <SelectItem value={value} text={`${currentTitle ?? 'Current scenario'} (archived)`} />}
+      {live.map((scenario) => <SelectItem key={scenario.id} value={scenario.id} text={scenario.title} />)}
+    </Select>
+  )
 }
 
 function AchievementForm({
   initial,
+  initialScenarioTitle,
+  achievementId,
   onSubmit,
   onCancel,
   submitting,
 }: {
   initial: UpsertAchievementRequest
+  initialScenarioTitle?: string | null
+  /** Set when editing, so the preview can count current holders. */
+  achievementId?: string
   onSubmit: (request: UpsertAchievementRequest) => void
   onCancel: () => void
   submitting: boolean
 }) {
   const [form, setForm] = useState<UpsertAchievementRequest>(initial)
+  const [exclusive, setExclusive] = useState(Boolean(initial.scenarioId))
+  const [scenarioTitle, setScenarioTitle] = useState<string | null>(initialScenarioTitle ?? null)
+  const knownIcon = ACHIEVEMENT_ICONS.some((option) => option.key === form.iconKey)
+  const PreviewIcon = achievementIcon(form.iconKey)
+  const incomplete = !form.name.trim() || (exclusive && !form.scenarioId) || !everyRunHasRequirement(form.rule)
 
   return (
     <Tile>
@@ -67,23 +113,62 @@ function AchievementForm({
           value={form.description ?? ''}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
-        <TextInput
-          id="achievement-icon"
-          labelText="Icon key"
-          helperText="Identifier used by the frontend badge renderer (e.g. trophy, star, medal)"
-          value={form.iconKey}
-          onChange={(e) => setForm({ ...form, iconKey: e.target.value })}
-        />
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+          <Select
+            id="achievement-icon"
+            labelText="Icon"
+            value={form.iconKey}
+            onChange={(e) => setForm({ ...form, iconKey: e.target.value })}
+          >
+            {!knownIcon && <SelectItem value={form.iconKey} text={`${form.iconKey} (shown as trophy)`} />}
+            {ACHIEVEMENT_ICONS.map((option) => <SelectItem key={option.key} value={option.key} text={option.label} />)}
+          </Select>
+          <span aria-hidden style={{ paddingBottom: '0.5rem' }}><PreviewIcon size={24} /></span>
+        </div>
+
+        <RadioButtonGroup
+          legendText="Who can earn it"
+          name="achievement-scope"
+          valueSelected={exclusive ? 'EXCLUSIVE' : 'GENERIC'}
+          onChange={(value) => {
+            const isExclusive = value === 'EXCLUSIVE'
+            setExclusive(isExclusive)
+            // Conditions an Exclusive badge can't use are removed (development: no confirmation needed).
+            setForm(isExclusive ? { ...form, rule: pruneForScope(form.rule, true) } : { ...form, scenarioId: null })
+          }}
+        >
+          <RadioButton id="achievement-scope-generic" value="GENERIC" labelText="Generic: counts every scenario" />
+          <RadioButton id="achievement-scope-exclusive" value="EXCLUSIVE" labelText="Exclusive: one scenario only" />
+        </RadioButtonGroup>
+
+        {exclusive && (
+          <ScenarioPicker
+            value={form.scenarioId}
+            currentTitle={initialScenarioTitle}
+            onChange={(scenarioId, title) => {
+              setForm({ ...form, scenarioId })
+              setScenarioTitle(title)
+            }}
+          />
+        )}
 
         <div>
           <h5 style={{ marginBottom: '0.75rem' }}>Unlock rule</h5>
-          <AchievementRuleBuilder node={form.rule} onChange={(rule) => setForm({ ...form, rule })} />
+          <AchievementRuleBuilder node={form.rule} exclusive={exclusive} onChange={(rule) => setForm({ ...form, rule })} />
+          <AchievementRuleInsight
+            rule={form.rule}
+            exclusive={exclusive}
+            scenarioId={form.scenarioId}
+            scenarioTitle={scenarioTitle}
+            achievementId={achievementId}
+            ready={(!exclusive || Boolean(form.scenarioId)) && everyRunHasRequirement(form.rule)}
+          />
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Button
-            onClick={() => onSubmit(form)}
-            disabled={!form.name.trim() || submitting}
+            onClick={() => onSubmit({ ...form, scenarioId: exclusive ? form.scenarioId : null })}
+            disabled={incomplete || submitting}
           >
             Save achievement
           </Button>
@@ -109,7 +194,10 @@ function AchievementRow({ achievement }: { achievement: AchievementAdminView }) 
           description: achievement.description,
           iconKey: achievement.iconKey,
           rule: achievement.rule,
+          scenarioId: achievement.scope === 'EXCLUSIVE' ? achievement.scenarioId ?? null : null,
         }}
+        initialScenarioTitle={achievement.scenarioTitle}
+        achievementId={achievement.id}
         submitting={updateAchievement.isPending}
         onCancel={() => setEditing(false)}
         onSubmit={(request) => updateAchievement.mutate(request, { onSuccess: () => setEditing(false) })}
@@ -127,11 +215,21 @@ function AchievementRow({ achievement }: { achievement: AchievementAdminView }) 
               {achievementDescription(achievement.description)}
             </p>
           </div>
-          <Tag type={achievement.active ? 'green' : 'gray'}>{achievement.active ? 'Active' : 'Inactive'}</Tag>
+          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {achievement.scope === 'EXCLUSIVE' ? (
+              <Tag type="purple">Exclusive · {achievement.scenarioTitle ?? 'Unknown scenario'}</Tag>
+            ) : (
+              <Tag type="cool-gray">Generic</Tag>
+            )}
+            {achievement.scope === 'EXCLUSIVE' && achievement.scenarioLive === false && (
+              <Tag type="red">Scenario archived: can't be earned</Tag>
+            )}
+            <Tag type={achievement.active ? 'green' : 'gray'}>{achievement.active ? 'Active' : 'Inactive'}</Tag>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Button kind="tertiary" size="sm" onClick={() => setEditing(true)}>
-            Edit rule
+            Edit
           </Button>
           <Button
             kind={achievement.active ? 'danger--tertiary' : 'tertiary'}
@@ -176,7 +274,7 @@ export default function AchievementBuilderPage() {
           </div>
 
           {createAchievement.isError && (
-            <InlineNotification kind="error" title="Could not save achievement" subtitle="Check the rule tree and try again." />
+            <InlineNotification kind="error" title="Could not save achievement" subtitle={saveErrorMessage(createAchievement.error)} />
           )}
 
           {creating && (
@@ -203,4 +301,10 @@ export default function AchievementBuilderPage() {
       </Column>
     </Grid>
   )
+}
+
+/** The server's reason (e.g. an unknown competency) when there is one. */
+function saveErrorMessage(error: unknown): string {
+  const detail = (error as { response?: { data?: { detail?: string } } } | null)?.response?.data?.detail
+  return detail ?? 'Check the rule tree and try again.'
 }

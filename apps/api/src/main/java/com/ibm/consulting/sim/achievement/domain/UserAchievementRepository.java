@@ -9,4 +9,9 @@ public interface UserAchievementRepository {
     List<UserAchievement> findByUserId(UUID userId);
     boolean existsByUserIdAndAchievementId(UUID userId, UUID achievementId);
     boolean insertIfAbsent(UUID userId, UUID achievementId, Instant unlockedAt);
+
+    /** As above, recording the run whose completion unlocked it (null when retroactive). */
+    default boolean insertIfAbsent(UUID userId, UUID achievementId, Instant unlockedAt, UUID unlockedByEngagementId) {
+        return insertIfAbsent(userId, achievementId, unlockedAt);
+    }
 }

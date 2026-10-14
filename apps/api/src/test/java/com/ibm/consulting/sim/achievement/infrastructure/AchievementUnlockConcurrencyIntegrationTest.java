@@ -2,6 +2,7 @@ package com.ibm.consulting.sim.achievement.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.achievement.application.AchievementEvaluationService;
+import com.ibm.consulting.sim.achievement.application.ScenarioLineageLookup;
 import com.ibm.consulting.sim.achievement.application.AchievementFactSheetBuilder;
 import com.ibm.consulting.sim.achievement.application.AchievementRuleMapper;
 import com.ibm.consulting.sim.achievement.application.ConditionNode;
@@ -69,11 +70,12 @@ class AchievementUnlockConcurrencyIntegrationTest {
     @Test
     void concurrentEvaluationCreatesOneUnlockAndOneNewlyUnlockedResult() throws Exception {
         AchievementRuleCodec codec = new AchievementRuleCodec(new ObjectMapper());
-        String ruleJson = codec.encode(ConditionNode.leaf(ConditionType.MIN_ENGAGEMENTS_COMPLETED, null, 0));
+        String ruleJson = codec.encode(ConditionNode.leaf(ConditionType.MIN_ENGAGEMENTS_COMPLETED, null, 1));
+        Achievement firstStep = Achievement.create("First step", "Complete one task", "trophy", ruleJson);
         UUID userId = inTransaction(() -> {
             User user = User.create("achievement-" + UUID.randomUUID() + "@example.com", "hash", "Learner", UserRole.LEARNER);
             entityManager.persist(user);
-            entityManager.persist(Achievement.create("First step", "Complete one task", "trophy", ruleJson));
+            entityManager.persist(firstStep);
             entityManager.flush();
             return user.getId();
         });
@@ -81,18 +83,23 @@ class AchievementUnlockConcurrencyIntegrationTest {
         CountDownLatch existenceChecks = new CountDownLatch(2);
         UserAchievementRepository gatedUnlocks = gateExistenceChecks(unlockRepository, existenceChecks);
         AchievementFactSheetBuilder facts = mock(AchievementFactSheetBuilder.class);
-        when(facts.build(userId)).thenReturn(AchievementFactSheet.empty());
+        when(facts.build(userId)).thenReturn(new AchievementFactSheet(1, 0, 60, 60.0, 1, 0.0, java.util.Map.of()));
         AchievementEvaluationService service = new AchievementEvaluationService(
                 achievementRepository, gatedUnlocks, facts,
-                codec, new AchievementRuleMapper());
+                codec, new AchievementRuleMapper(), mock(ScenarioLineageLookup.class));
 
         List<List<Achievement>> results = runConcurrently(
                 () -> service.evaluateForUser(userId),
                 () -> service.evaluateForUser(userId));
 
-        List<UserAchievement> persisted = inTransaction(() -> unlockRepository.findByUserId(userId));
+        // Only this test's badge: the migrated database also holds the seeded starter badges.
+        List<UserAchievement> persisted = inTransaction(() -> unlockRepository.findByUserId(userId)).stream()
+                .filter(unlock -> unlock.getAchievementId().equals(firstStep.getId()))
+                .toList();
         assertThat(persisted).hasSize(1);
-        assertThat(results.stream().mapToInt(List::size).sum()).isEqualTo(1);
+        assertThat(results.stream().flatMap(List::stream)
+                .filter(achievement -> achievement.getId().equals(firstStep.getId()))
+                .count()).isEqualTo(1);
     }
 
     private UserAchievementRepository gateExistenceChecks(UserAchievementRepository delegate,

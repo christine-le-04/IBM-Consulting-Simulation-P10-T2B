@@ -14,7 +14,20 @@ public record AchievementFactSheet(
         double averageOverallScore,
         int distinctScenariosCompleted,
         double winRatePercent,
-        Map<String, Integer> bestCompetencyScores) {
+        Map<String, Integer> bestCompetencyScores,
+        java.util.List<RunRecord> runs) {
+
+    public AchievementFactSheet {
+        runs = runs == null ? java.util.List.of() : java.util.List.copyOf(runs);
+    }
+
+    /** Totals only, with no per-run detail. */
+    public AchievementFactSheet(int engagementsCompleted, int engagementsWon, int bestOverallScore,
+                                double averageOverallScore, int distinctScenariosCompleted, double winRatePercent,
+                                Map<String, Integer> bestCompetencyScores) {
+        this(engagementsCompleted, engagementsWon, bestOverallScore, averageOverallScore,
+                distinctScenariosCompleted, winRatePercent, bestCompetencyScores, java.util.List.of());
+    }
 
     public static AchievementFactSheet empty() {
         return new AchievementFactSheet(0, 0, 0, 0.0, 0, 0.0, Map.of());

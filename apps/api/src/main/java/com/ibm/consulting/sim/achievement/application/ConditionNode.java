@@ -28,9 +28,21 @@ public record ConditionNode(
         @Size(max = 20) List<@NotNull @Valid ConditionNode> children,
         ConditionType type,
         @Size(max = 200) String competencyName,
-        Double threshold) {
+        Double threshold,
+        com.ibm.consulting.sim.achievement.domain.RunCriteria run) {
 
     public enum Kind { GROUP, LEAF }
+
+    /** Any shape except a run condition. */
+    public ConditionNode(Kind kind, LogicalOperator operator, List<ConditionNode> children, ConditionType type,
+                         String competencyName, Double threshold) {
+        this(kind, operator, children, type, competencyName, threshold, null);
+    }
+
+    /** "At least {@code count} runs that each meet {@code criteria}." */
+    public static ConditionNode runs(int count, com.ibm.consulting.sim.achievement.domain.RunCriteria criteria) {
+        return new ConditionNode(Kind.LEAF, null, null, ConditionType.MIN_RUNS_MATCHING, null, (double) count, criteria);
+    }
 
     public static ConditionNode group(LogicalOperator operator, List<ConditionNode> children) {
         return new ConditionNode(Kind.GROUP, operator, children, null, null, null);

@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Checkbox, Pagination, Tag } from '@carbon/react'
-import { ArrowRight, TrophyFilled, Locked } from '@carbon/icons-react'
+import { ArrowRight, Locked } from '@carbon/icons-react'
 import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfolio'
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -18,7 +18,7 @@ import type { AchievementSummary, CompetencyTrend, CompletedEngagementView } fro
 import Choice from '@/components/shell/Choice'
 import IndustryArt from '@/components/shell/IndustryArt'
 import styles from './PortfolioPage.module.scss'
-import { achievementDescription } from '@/features/achievement/achievementPresentation'
+import { achievementDescription, achievementIcon, isExclusive, isPaused } from '@/features/achievement/achievementPresentation'
 import { useAuthStore } from '@/store/authStore'
 import { portfolioDifficultyLabel, portfolioPracticeFocus, portfolioTooltipLabel } from '@/features/portfolio/portfolioPresentation'
 
@@ -339,16 +339,29 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
 }
 
 function AchievementBadge({ achievement }: { achievement: AchievementSummary }) {
+  const Icon = achievementIcon(achievement.iconKey)
+  const paused = isPaused(achievement)
+  const classes = [styles.badge, achievement.unlocked ? '' : styles.badgeLocked, paused ? styles.badgePaused : '']
+    .filter(Boolean).join(' ')
   return (
-    <article className={`${styles.badge} ${achievement.unlocked ? '' : styles.badgeLocked}`}>
+    <article className={classes}>
       <div className={styles.badgeHead}>
-        {achievement.unlocked ? <TrophyFilled size={20} /> : <Locked size={20} />}
+        {achievement.unlocked ? <Icon size={20} /> : <Locked size={20} />}
         <strong>{achievement.name}</strong>
       </div>
+      {isExclusive(achievement) && achievement.scenarioTitle && (
+        <span className={styles.badgeScope}>Exclusive · {achievement.scenarioTitle}</span>
+      )}
       <p>{achievementDescription(achievement.description)}</p>
+      {paused && (
+        <p className={styles.badgeNote}>
+          This badge belongs to {achievement.scenarioTitle ?? 'a scenario'}, which is currently archived
+          {achievement.unlocked ? '.' : ', so it can\'t be earned right now.'}
+        </p>
+      )}
       {achievement.unlocked ? (
-        <Tag type="green" size="sm">Unlocked {achievement.unlockedAt ? new Date(achievement.unlockedAt).toLocaleDateString('en-GB') : ''}</Tag>
-      ) : (
+        <Tag type={paused ? 'gray' : 'green'} size="sm">Unlocked {achievement.unlockedAt ? new Date(achievement.unlockedAt).toLocaleDateString('en-GB') : ''}</Tag>
+      ) : !paused && (
         <div className={styles.badgeProgress}>
           <div className={styles.bar}><i style={{ width: `${achievement.progressPercent}%` }} /></div>
           <span>{Math.round(achievement.progressPercent)}% complete</span>

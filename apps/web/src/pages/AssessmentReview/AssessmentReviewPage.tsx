@@ -12,6 +12,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAssessment, useGenerateAssessment } from '@/api/hooks/useAssessment'
 import { engagementKeys, useEngagement } from '@/api/hooks/useEngagements'
 import { portfolioKeys } from '@/api/hooks/usePortfolio'
+import { useMyAchievements } from '@/api/hooks/useAchievements'
+import { achievementIcon, unlockedByRun } from '@/features/achievement/achievementPresentation'
 import { resolveEngagementRoute } from '@/api/engagementRouting'
 import { PHASE_LABEL } from '@/lifecycle/phases'
 import LoadingState from '@/components/shared/LoadingState'
@@ -19,6 +21,7 @@ import { useMentor } from '@/components/shell/useMentor'
 import { useAuthStore } from '@/store/authStore'
 import ErrorState from '@/components/shared/ErrorState'
 import styles from './AssessmentReviewPage.module.scss'
+import type { AchievementSummary } from '@/api/types'
 
 type OutcomePresentation = {
   label: string
@@ -76,6 +79,7 @@ export default function AssessmentReviewPage() {
   const { data: engagement } = useEngagement(engagementId!)
   const { data: assessment, isLoading, isError, error } = useAssessment(engagementId!)
   const generateAssessment = useGenerateAssessment(engagementId!)
+  const { data: achievements } = useMyAchievements()
 
   const notFound = isError && (error as { response?: { status?: number } })?.response?.status === 404
   const generationError = generateAssessment.error as
@@ -94,6 +98,7 @@ export default function AssessmentReviewPage() {
     void queryClient.invalidateQueries({ queryKey: engagementKeys.all })
     void queryClient.invalidateQueries({ queryKey: engagementKeys.detail(engagementId!) })
     void queryClient.invalidateQueries({ queryKey: portfolioKeys.summary })
+    void queryClient.invalidateQueries({ queryKey: ['achievements', 'me'] })
   }, [assessment, engagementId, generateAssessment.data, queryClient])
 
   useMentor('This is where the numbers live. Read the two things to work on; they are what I would coach you on.')
@@ -158,6 +163,8 @@ export default function AssessmentReviewPage() {
           <strong>{outcome.contractStatus}</strong>
         </div>
 
+        <UnlockedAchievements achievements={unlockedByRun(achievements, engagementId)} />
+
         <section className={styles.summary}>
           <h2 className={styles.label}>Reviewer’s summary</h2>
           {result.coachingPending ? <InlineLoading description="Preparing personalised AI coaching…" status="active" /> : <p>{readableCoaching(result.feedbackSummary)}</p>}
@@ -217,5 +224,26 @@ export default function AssessmentReviewPage() {
         </footer>
       </article>
     </div>
+  )
+}
+
+/** Badges earned by finishing this run. Stays visible on reload: the unlock records its run. */
+function UnlockedAchievements({ achievements }: { achievements: AchievementSummary[] }) {
+  if (achievements.length === 0) return null
+  return (
+    <section className={styles.achievementsUnlocked} aria-label="Achievements unlocked">
+      {achievements.map((achievement) => {
+        const Icon = achievementIcon(achievement.iconKey)
+        return (
+          <div key={achievement.id} className={styles.achievementUnlocked}>
+            <Icon size={24} />
+            <div>
+              <strong>Achievement unlocked: {achievement.name}</strong>
+              <p>{achievement.description}</p>
+            </div>
+          </div>
+        )
+      })}
+    </section>
   )
 }

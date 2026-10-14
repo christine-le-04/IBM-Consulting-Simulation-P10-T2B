@@ -379,6 +379,21 @@
   opacity: 0.85;
 }
 
+.badgePaused {
+  opacity: 0.6;
+  filter: grayscale(1);
+}
+
+.badgeScope {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--sim-ink-2);
+}
+
+.badgeNote {
+  font-style: italic;
+}
+
 .badgeProgress {
   display: grid;
   gap: 0.25rem;

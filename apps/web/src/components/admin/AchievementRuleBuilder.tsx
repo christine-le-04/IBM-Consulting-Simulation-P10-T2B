@@ -2,13 +2,15 @@ import {
   Button,
   Select,
   SelectItem,
-  TextInput,
   NumberInput,
   Tile,
   Stack,
 } from '@carbon/react'
+import { COMPETENCIES } from '@/features/achievement/achievementPresentation'
 import { Add, TrashCan } from '@carbon/icons-react'
 import type { ConditionNode, ConditionType, LogicalOperator } from '@/api/types'
+import RunCriteriaEditor from '@/components/admin/RunCriteriaEditor'
+import { allowedFor, newRunCriteria } from '@/features/achievement/ruleScope'
 
 const CONDITION_TYPE_OPTIONS: { value: ConditionType; label: string }[] = [
   { value: 'MIN_ENGAGEMENTS_COMPLETED', label: 'Minimum engagements completed' },
@@ -18,6 +20,7 @@ const CONDITION_TYPE_OPTIONS: { value: ConditionType; label: string }[] = [
   { value: 'MIN_COMPETENCY_SCORE', label: 'Minimum competency score' },
   { value: 'MIN_DISTINCT_SCENARIOS_COMPLETED', label: 'Minimum distinct scenarios completed' },
   { value: 'MIN_WIN_RATE_PERCENT', label: 'Minimum win rate (%)' },
+  { value: 'MIN_RUNS_MATCHING', label: 'Runs that achieve…' },
 ]
 
 function newLeaf(): ConditionNode {
@@ -34,12 +37,22 @@ interface Props {
   onRemove?: () => void
   /** Stable dot-separated path (e.g. "0.1.2") used to derive unique, non-random field ids. */
   path?: string
+  /** Exclusive badges hide career-wide conditions. */
+  exclusive?: boolean
+}
+
+/** Switching condition type resets the fields that belonged to the old type. */
+function withType(node: ConditionNode, type: ConditionType): ConditionNode {
+  if (type === 'MIN_RUNS_MATCHING') {
+    return { ...node, type, competencyName: null, threshold: 1, run: node.run ?? newRunCriteria() }
+  }
+  return { ...node, type, run: null, competencyName: type === 'MIN_COMPETENCY_SCORE' ? node.competencyName : null }
 }
 
 /** Recursive editor for an achievement rule tree (AND/OR groups of leaf conditions).
  *  Mirrors the backend's flat ConditionNode DTO exactly so the payload round-trips
  *  without any client-side transformation. */
-export default function AchievementRuleBuilder({ node, onChange, onRemove, path = '0' }: Props) {
+export default function AchievementRuleBuilder({ node, onChange, onRemove, path = '0', exclusive = false }: Props) {
   const isGroup = node.kind === 'GROUP'
   const depth = path.split('.').length - 1
 
@@ -104,6 +117,7 @@ export default function AchievementRuleBuilder({ node, onChange, onRemove, path 
                 onChange={(updated) => updateChild(index, updated)}
                 onRemove={(node.children?.length ?? 0) > 1 ? () => removeChild(index) : undefined}
                 path={`${path}.${index}`}
+                exclusive={exclusive}
               />
             ))}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -121,32 +135,43 @@ export default function AchievementRuleBuilder({ node, onChange, onRemove, path 
               id={`type-${path}`}
               labelText="Condition"
               value={node.type ?? 'MIN_ENGAGEMENTS_COMPLETED'}
-              onChange={(e) => onChange({ ...node, type: e.target.value as ConditionType })}
+              onChange={(e) => onChange(withType(node, e.target.value as ConditionType))}
               size="sm"
             >
-              {CONDITION_TYPE_OPTIONS.map((opt) => (
+              {CONDITION_TYPE_OPTIONS.filter((opt) => allowedFor(opt.value, exclusive)).map((opt) => (
                 <SelectItem key={opt.value} value={opt.value} text={opt.label} />
               ))}
             </Select>
 
             {node.type === 'MIN_COMPETENCY_SCORE' && (
-              <TextInput
+              <Select
                 id={`competency-${path}`}
-                labelText="Competency name"
+                labelText="Competency"
                 value={node.competencyName ?? ''}
-                onChange={(e) => onChange({ ...node, competencyName: e.target.value })}
+                onChange={(e) => onChange({ ...node, competencyName: e.target.value || null })}
                 size="sm"
-              />
+              >
+                <SelectItem value="" text="Choose a competency" />
+                {COMPETENCIES.map((competency) => (
+                  <SelectItem key={competency} value={competency} text={competency} />
+                ))}
+              </Select>
             )}
 
             <NumberInput
               id={`threshold-${path}`}
-              label="Threshold"
+              label={node.type === 'MIN_RUNS_MATCHING' ? 'Number of runs' : 'Threshold'}
               value={node.threshold ?? 0}
-              min={0}
+              min={1}
               onChange={(_e, state) => onChange({ ...node, threshold: Number(state?.value ?? 0) })}
               size="sm"
             />
+
+            {node.type === 'MIN_RUNS_MATCHING' && (
+              <div style={{ flexBasis: '100%' }}>
+                <RunCriteriaEditor path={path} value={node.run ?? newRunCriteria()} onChange={(run) => onChange({ ...node, run })} />
+              </div>
+            )}
           </div>
         )}
       </Stack>
