@@ -80,6 +80,15 @@ app:
       password: ${ADMIN_PASSWORD:}
       display-name: ${ADMIN_DISPLAY_NAME:Platform Administrator}
   identity:
+    request-limits:
+      trust-railway-real-ip: ${AUTH_TRUST_RAILWAY_REAL_IP:false}
+      login: ${AUTH_LOGIN_REQUESTS_PER_MINUTE:20}
+      register: ${AUTH_REGISTER_REQUESTS_PER_MINUTE:3}
+      recovery: ${AUTH_RECOVERY_REQUESTS_PER_MINUTE:5}
+      confirm: ${AUTH_CONFIRM_REQUESTS_PER_MINUTE:20}
+      refresh: ${AUTH_REFRESH_REQUESTS_PER_MINUTE:60}
+      global: ${AUTH_GLOBAL_REQUESTS_PER_MINUTE:1000}
+      maximum-tracked-clients: ${AUTH_MAX_TRACKED_CLIENTS:10000}
     refresh:
       lifetime: ${REFRESH_SESSION_LIFETIME:7d}
       secure-cookie: ${REFRESH_COOKIE_SECURE:true}
