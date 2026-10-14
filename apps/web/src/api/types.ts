@@ -89,6 +89,19 @@ export interface PlatformOverview {
   scenarios: ScenarioActivity[]
 }
 
+export interface LearnerProgressEntry {
+  engagementId: string
+  userId: string
+  displayName: string
+  email: string
+  scenarioId: string
+  scenarioTitle: string
+  state: EngagementState
+  overallScore: number | null
+  lastActivityAt: string
+  completedAt: string | null
+}
+
 export interface GameplayDifficultyProfile {
   level: 'EASY' | 'MEDIUM' | 'HARD'
   researchArtifactsPerAction: number
