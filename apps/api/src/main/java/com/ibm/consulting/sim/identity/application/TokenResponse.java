@@ -5,4 +5,10 @@ public record TokenResponse(
         String userId,
         String displayName,
         String role,
-        boolean onboardingRequired) {}
+        boolean onboardingRequired,
+        String sessionId,
+        long expiresAt) {
+    public TokenResponse(String accessToken, String userId, String displayName, String role, boolean onboardingRequired) {
+        this(accessToken, userId, displayName, role, onboardingRequired, null, 0);
+    }
+}

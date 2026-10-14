@@ -3,9 +3,11 @@ package com.ibm.consulting.sim.meeting.infrastructure.realtime;
 import com.ibm.consulting.sim.shared.config.CorsProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.StompWebSocketEndpointRegistration;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 import java.security.Principal;
 import java.util.List;
@@ -20,11 +22,31 @@ import static org.mockito.Mockito.when;
 class MeetingRealtimeContractTest {
 
     @Test
+    void sessionSecurityGuardsInboundOutboundAndTransportLifecycle() {
+        StompAuthChannelInterceptor auth = mock(StompAuthChannelInterceptor.class);
+        MeetingSubscriptionInterceptor ownership = mock(MeetingSubscriptionInterceptor.class);
+        WebSocketSessionSecurity security = mock(WebSocketSessionSecurity.class);
+        WebSocketConfig config = new WebSocketConfig(auth, ownership, new CorsProperties(), security);
+        ChannelRegistration inbound = mock(ChannelRegistration.class);
+        ChannelRegistration outbound = mock(ChannelRegistration.class);
+        WebSocketTransportRegistration transport = mock(WebSocketTransportRegistration.class);
+
+        config.configureClientInboundChannel(inbound);
+        config.configureClientOutboundChannel(outbound);
+        config.configureWebSocketTransport(transport);
+
+        verify(inbound).interceptors(auth, ownership);
+        verify(outbound).interceptors(security);
+        verify(transport).addDecoratorFactory(security);
+    }
+
+    @Test
     void websocketEndpointAndBrokerPrefixesMatchTheFrontendContract() {
         CorsProperties cors = new CorsProperties();
         cors.setAllowedOrigins(List.of("https://web.example.test"));
         WebSocketConfig config = new WebSocketConfig(
-                mock(StompAuthChannelInterceptor.class), mock(MeetingSubscriptionInterceptor.class), cors);
+                mock(StompAuthChannelInterceptor.class), mock(MeetingSubscriptionInterceptor.class), cors,
+                mock(WebSocketSessionSecurity.class));
         StompEndpointRegistry endpoints = mock(StompEndpointRegistry.class);
         StompWebSocketEndpointRegistration endpoint = mock(StompWebSocketEndpointRegistration.class);
         when(endpoints.addEndpoint("/ws")).thenReturn(endpoint);

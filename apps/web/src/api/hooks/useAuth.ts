@@ -2,15 +2,33 @@ import { useMutation } from '@tanstack/react-query'
 import apiClient from '@/api/client'
 import type { RegistrationResponse, TokenResponse } from '@/api/types'
 import { useAuthStore } from '@/store/authStore'
+import { ensureFreshAccessToken, sessionHeaders, withSessionLock } from '@/api/refreshSession'
+
+export function useLogout() {
+  return useMutation({
+    mutationFn: async () => {
+      await ensureFreshAccessToken()
+      return withSessionLock(async () => {
+        const token = useAuthStore.getState().token
+        await apiClient.post('/api/v1/auth/logout', undefined, { withCredentials: true, headers: sessionHeaders })
+        return token
+      })
+    },
+    onSuccess: (revokedToken) => {
+      // A delayed logout must never erase a newer login.
+      if (useAuthStore.getState().token === revokedToken) useAuthStore.getState().logout()
+    },
+  })
+}
 
 export function useLogin() {
   const login = useAuthStore((s) => s.login)
   return useMutation({
-    mutationFn: async (data: { email: string; password: string }) => {
-      const res = await apiClient.post<TokenResponse>('/api/v1/auth/login', data)
+    mutationFn: (data: { email: string; password: string }) => withSessionLock(async () => {
+      const res = await apiClient.post<TokenResponse>('/api/v1/auth/login', data, { withCredentials: true, headers: sessionHeaders })
+      login(res.data)
       return res.data
-    },
-    onSuccess: (data) => login(data),
+    }),
   })
 }
 

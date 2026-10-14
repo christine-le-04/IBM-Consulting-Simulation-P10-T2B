@@ -7,6 +7,7 @@ import com.ibm.consulting.sim.identity.application.PasswordResetService;
 import com.ibm.consulting.sim.identity.domain.PasswordResetToken;
 import com.ibm.consulting.sim.identity.domain.PasswordResetTokenRepository;
 import com.ibm.consulting.sim.identity.domain.User;
+import com.ibm.consulting.sim.identity.domain.AccessTokenRevocationStore;
 import com.ibm.consulting.sim.identity.domain.UserRepository;
 import com.ibm.consulting.sim.identity.domain.UserRole;
 import com.ibm.consulting.sim.shared.email.application.TransactionalEmailPublisher;
@@ -48,7 +49,7 @@ class JwtCredentialInvalidationTest {
         when(passwordEncoder.encode("NewStrongPass123!")).thenReturn("new-password-hash");
         when(passwordEncoder.matches("NewStrongPass123!", "new-password-hash")).thenReturn(true);
 
-        JwtTokenProvider tokenProvider = new JwtTokenProvider(JWT_SECRET, 60_000);
+        JwtTokenProvider tokenProvider = new JwtTokenProvider(JWT_SECRET, 60_000, mock(AccessTokenRevocationStore.class));
         String originalToken = tokenProvider.generateToken(user);
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokenProvider, users);
 

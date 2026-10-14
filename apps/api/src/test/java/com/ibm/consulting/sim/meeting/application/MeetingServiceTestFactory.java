@@ -21,6 +21,10 @@ import com.ibm.consulting.sim.scenario.domain.Persona;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -31,13 +35,52 @@ public final class MeetingServiceTestFactory {
 
     private MeetingServiceTestFactory() {}
 
+    /** Exercises real Spring transaction suspension/synchronization without a database. */
+    public static PlatformTransactionManager transactions() {
+        return new AbstractPlatformTransactionManager() {
+            private final ThreadLocal<TestTransaction> current = new ThreadLocal<>();
+            protected Object doGetTransaction() {
+                return current.get() == null ? new TestTransaction() : current.get();
+            }
+            protected boolean isExistingTransaction(Object transaction) {
+                return ((TestTransaction) transaction).active;
+            }
+            protected void doBegin(Object transaction, TransactionDefinition definition) {
+                ((TestTransaction) transaction).active = true;
+                current.set((TestTransaction) transaction);
+            }
+            protected void doCommit(DefaultTransactionStatus status) {}
+            protected void doRollback(DefaultTransactionStatus status) {}
+            protected Object doSuspend(Object transaction) {
+                current.remove();
+                return transaction;
+            }
+            protected void doResume(Object transaction, Object suspended) {
+                current.set((TestTransaction) suspended);
+            }
+            protected void doCleanupAfterCompletion(Object transaction) {
+                ((TestTransaction) transaction).active = false;
+                current.remove();
+            }
+        };
+    }
+
+    private static class TestTransaction { boolean active; }
+
+    public static MeetingService forImmediateTermination(
+            MeetingRepository meetings, ConversationTurnRepository turns, EngagementRepository engagements,
+            UUID engagementId, Persona persona, DifficultyProfile profile) {
+        return forImmediateTermination(meetings, turns, engagements, engagementId, persona, profile, transactions());
+    }
+
     public static MeetingService forImmediateTermination(
             MeetingRepository meetings,
             ConversationTurnRepository turns,
             EngagementRepository engagements,
             UUID engagementId,
             Persona persona,
-            DifficultyProfile profile) {
+            DifficultyProfile profile,
+            PlatformTransactionManager transactionManager) {
         PersonaStateRepository personaStates = mock(PersonaStateRepository.class);
         when(personaStates.findByEngagementId(engagementId))
                 .thenAnswer(ignored -> Optional.of(PersonaState.initial(engagementId, profile)));
@@ -63,7 +106,7 @@ public final class MeetingServiceTestFactory {
                 transcriptExporter,
                 mock(KnowledgeRetrievalService.class),
                 difficulty,
-                mock(GuidedMeetingResponseService.class));
+                mock(GuidedMeetingResponseService.class), transactionManager);
     }
 
     public static MeetingService forLifecycleCommands(
@@ -89,6 +132,6 @@ public final class MeetingServiceTestFactory {
                 mock(TranscriptExportService.class),
                 mock(KnowledgeRetrievalService.class),
                 difficulty,
-                mock(GuidedMeetingResponseService.class));
+                mock(GuidedMeetingResponseService.class), transactions());
     }
 }

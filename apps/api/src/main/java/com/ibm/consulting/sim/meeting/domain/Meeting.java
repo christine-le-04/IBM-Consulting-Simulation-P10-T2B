@@ -27,6 +27,10 @@ public class Meeting extends BaseEntity {
 
     private String transcriptStorageReference;
 
+    /** Durable admission for one AI exchange; no database lock is held during generation. */
+    private UUID turnRequestId;
+    private Instant turnRequestExpiresAt;
+
     @Enumerated(EnumType.STRING)
     private MeetingCompletionOutcome completionOutcome;
 
@@ -89,6 +93,29 @@ public class Meeting extends BaseEntity {
     }
 
     public UUID getEngagementId() { return engagementId; }
+
+    public boolean reserveTurn(UUID requestId, Instant now) {
+        if (turnRequestId != null && turnRequestExpiresAt != null && now.isBefore(turnRequestExpiresAt)) {
+            return false;
+        }
+        turnRequestId = requestId;
+        turnRequestExpiresAt = now.plusSeconds(300);
+        return true;
+    }
+
+    public boolean ownsTurn(UUID requestId, Instant now) {
+        return requestId.equals(turnRequestId) && turnRequestExpiresAt != null && now.isBefore(turnRequestExpiresAt);
+    }
+
+    public boolean releaseTurn(UUID requestId) {
+        // A timed-out worker must never clear a newer worker's reservation.
+        if (requestId.equals(turnRequestId)) {
+            turnRequestId = null;
+            turnRequestExpiresAt = null;
+            return true;
+        }
+        return false;
+    }
     public UUID getPersonaId() { return personaId; }
     public MeetingStatus getStatus() { return status; }
     public Instant getCompletedAt() { return completedAt; }

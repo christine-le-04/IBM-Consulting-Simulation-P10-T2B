@@ -57,7 +57,8 @@ class ProposalServiceTest {
         ProposalService service = new ProposalService(mock(ProposalRepository.class), engagements,
                 mock(ResearchEvidenceRepository.class), mock(PersonaStateRepository.class), meetings, turns,
                 mock(AiOrchestrationService.class), new ObjectMapper(), mock(PersonaCatalogService.class), difficulty,
-                new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE), mock(ApplicationEventPublisher.class));
+                new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE), mock(ApplicationEventPublisher.class),
+                com.ibm.consulting.sim.meeting.application.MeetingServiceTestFactory.transactions());
 
         var workspace = service.workspace(engagement.getId(), userId);
 
@@ -86,7 +87,7 @@ class ProposalServiceTest {
                 mock(ConversationTurnRepository.class), mock(AiOrchestrationService.class), new ObjectMapper(),
                 mock(PersonaCatalogService.class), mock(DifficultyProfileService.class),
                 new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE),
-                mock(ApplicationEventPublisher.class));
+                mock(ApplicationEventPublisher.class), com.ibm.consulting.sim.meeting.application.MeetingServiceTestFactory.transactions());
 
         service.saveDraft(engagementId, userId, draft());
 

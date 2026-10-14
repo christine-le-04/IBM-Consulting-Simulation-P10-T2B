@@ -139,7 +139,7 @@ class ProposalConcurrencyIntegrationTest {
                 mock(ResearchEvidenceRepository.class), mock(PersonaStateRepository.class), mock(MeetingRepository.class),
                 mock(ConversationTurnRepository.class), mock(AiOrchestrationService.class), new ObjectMapper(), personas,
                 difficulty, new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE),
-                mock(ApplicationEventPublisher.class));
+                mock(ApplicationEventPublisher.class), transactionManager);
     }
 
     private TestData persistDiscoveryCompleteEngagement() {

@@ -44,7 +44,7 @@ public class CredentialTokenService {
         return new ParsedCredential(parts[0], parts[1]);
     }
 
-    private String hash(String value) {
+    public String hash(String value) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(digest);

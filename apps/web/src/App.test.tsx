@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { Outlet } from 'react-router-dom'
 import App from './App'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore, sessionEventKey } from '@/store/authStore'
+import { refreshSession } from '@/api/refreshSession'
+
+vi.mock('@/api/refreshSession', () => ({ refreshSession: vi.fn() }))
 
 // Keep the real route guards; page data and the shell are covered separately.
 vi.mock('@/components/layout/AppShell', () => ({ default: () => <Outlet /> }))
@@ -28,20 +31,34 @@ function renderAt(path: string, role: string | null = null) {
 }
 
 beforeEach(() => {
+  vi.mocked(refreshSession).mockReset()
   useAuthStore.getState().logout()
   window.history.replaceState(null, '', '/')
 })
 
 describe('App account route access', () => {
+  it.each(['auth-storage', null])('signs out when another tab clears authentication storage (%s)', async (key) => {
+    renderAt('/dashboard', 'LEARNER')
+    expect(await screen.findByText('Command centre')).toBeInTheDocument()
+    localStorage.removeItem('auth-storage')
+    await act(async () => {
+      window.dispatchEvent(new StorageEvent('storage', { key, storageArea: localStorage }))
+    })
+    expect(await screen.findByText('Sign in page')).toBeInTheDocument()
+    expect(useAuthStore.getState().token).toBeNull()
+  })
+
   it('redirects an open login page when another tab signs in', async () => {
     renderAt('/login')
     expect(await screen.findByText('Sign in page')).toBeInTheDocument()
-    localStorage.setItem('auth-storage', JSON.stringify({ state: {
-      token: 'other-tab-token', userId: 'learner-1', role: 'LEARNER',
-    }, version: 0 }))
+    vi.mocked(refreshSession).mockImplementation(async () => {
+      const response = { accessToken: 'other-tab-token', userId: 'learner-1', role: 'LEARNER', displayName: 'Learner' }
+      useAuthStore.getState().renew(response)
+      return response
+    })
 
     await act(async () => {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'auth-storage', storageArea: localStorage }))
+      window.dispatchEvent(new StorageEvent('storage', { key: sessionEventKey, newValue: JSON.stringify({ type: 'login', nonce: 'new-session' }), storageArea: localStorage }))
     })
 
     expect(await screen.findByText('Command centre')).toBeInTheDocument()

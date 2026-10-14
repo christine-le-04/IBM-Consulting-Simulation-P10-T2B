@@ -97,6 +97,17 @@ public class PersonaState extends BaseEntity {
     }
 
     public UUID getEngagementId() { return engagementId; }
+
+    /** Independent, non-persisted state for prompt construction and outcome prediction. */
+    public PersonaState copyForEvaluation() {
+        PersonaState copy = new PersonaState();
+        copy.engagementId = engagementId;
+        copy.trust = trust;
+        copy.interest = interest;
+        copy.patience = patience;
+        copy.disclosedFacts.addAll(disclosedFacts);
+        return copy;
+    }
     public int getTrust() { return trust; }
     public int getInterest() { return interest; }
     public int getPatience() { return patience; }

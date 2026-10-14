@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import {
   Header,
@@ -10,9 +10,11 @@ import {
   HeaderGlobalAction,
   SkipToContent,
   Content,
+  InlineNotification,
 } from '@carbon/react'
 import { Logout } from '@carbon/icons-react'
 import { useAuthStore } from '@/store/authStore'
+import { useLogout } from '@/api/hooks/useAuth'
 import { isEngagementRoute } from '@/lifecycle/phases'
 import CaseFilePanel from '@/components/shell/CaseFilePanel'
 import EngagementBar from '@/components/shell/EngagementBar'
@@ -30,9 +32,9 @@ import styles from '@/lifecycle/lifecycle.module.scss'
  * Portfolio and logout stay pinned at the right on every page.
  */
 export default function AppShell() {
-  const { displayName, role, logout } = useAuthStore()
+  const { displayName, role } = useAuthStore()
+  const logout = useLogout()
   const location = useLocation()
-  const navigate = useNavigate()
   const canAccessAdmin = role === 'SCENARIO_AUTHOR' || role === 'REVIEWER' || role === 'ADMINISTRATOR'
   const onEngagement = isEngagementRoute(location.pathname)
   const usesFixedCanvas = /^\/dashboard\/engagements\/[^/]+\/(intelligence|outreach|proposal)$/.test(location.pathname)
@@ -58,8 +60,7 @@ export default function AppShell() {
   const mobileLinks = [...links, { to: '/dashboard/portfolio', label: 'Portfolio', end: false }]
 
   const handleLogout = () => {
-    logout()
-    navigate('/login')
+    if (!logout.isPending) logout.mutate()
   }
 
   return (
@@ -93,6 +94,7 @@ export default function AppShell() {
             aria-label={`Logout ${displayName ?? ''}`}
             tooltipAlignment="end"
             onClick={handleLogout}
+            aria-disabled={logout.isPending}
           >
             <Logout size={20} />
           </HeaderGlobalAction>
@@ -120,6 +122,9 @@ export default function AppShell() {
         {onEngagement && <MentorLine />}
         {onEngagement && <StepBrief />}
         <Content className={`${styles.shellContent} ${usesFixedCanvas ? styles.fixedShellContent : ''}`}>
+          {logout.isError && (
+            <InlineNotification kind="error" title="Could not sign out" subtitle="Please try again." hideCloseButton />
+          )}
           <Outlet />
         </Content>
       </div>

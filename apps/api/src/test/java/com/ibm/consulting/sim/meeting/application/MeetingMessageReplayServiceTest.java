@@ -27,6 +27,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.ibm.consulting.sim.meeting.domain.InvalidMeetingStateException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,11 +38,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +74,7 @@ class MeetingMessageReplayServiceTest {
         service = new MeetingService(meetingRepository, turnRepository, personaStateRepository,
                 preparationRepository, engagementRepository, personaCatalogService, evidenceRepository,
                 aiOrchestrationService, new ObjectMapper(), transcriptExportService,
-                knowledgeRetrievalService, difficultyProfileService, guidedResponseService);
+                knowledgeRetrievalService, difficultyProfileService, guidedResponseService, MeetingServiceTestFactory.transactions());
 
         when(meetingRepository.findByIdForUpdate(data.meeting().getId()))
                 .thenReturn(Optional.of(data.meeting()));
@@ -79,8 +83,6 @@ class MeetingMessageReplayServiceTest {
         when(difficultyProfileService.forEngagement(data.engagement())).thenReturn(data.profile());
         when(personaStateRepository.findByEngagementId(data.engagement().getId()))
                 .thenReturn(Optional.of(data.personaState()));
-        when(personaStateRepository.save(any(PersonaState.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(personaCatalogService.getPersona(data.meeting().getPersonaId())).thenReturn(data.persona());
         when(evidenceRepository.findByEngagementId(data.engagement().getId())).thenReturn(List.of());
         when(knowledgeRetrievalService.retrieveRelevantPassages(
@@ -92,6 +94,84 @@ class MeetingMessageReplayServiceTest {
         doReturn(PersonaTurnResponse.safeFallback("Let us discuss that."))
                 .when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
                         anyString(), anyInt(), any(), any());
+    }
+
+    @Test
+    void generationSuspendsAnExistingTransactionAndWritesResumeInsideTransactions() {
+        // The same manager is used by the outer caller and the service templates.
+        var transactions = MeetingServiceTestFactory.transactions();
+        service = new MeetingService(meetingRepository, turnRepository, personaStateRepository,
+                preparationRepository, engagementRepository, personaCatalogService, evidenceRepository,
+                aiOrchestrationService, new ObjectMapper(), transcriptExportService,
+                knowledgeRetrievalService, difficultyProfileService, guidedResponseService, transactions);
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(turnRepository.turns).isEmpty();
+            assertThat(data.personaState().getTrust()).isEqualTo(50);
+            return PersonaTurnResponse.safeFallback("Let us discuss that.");
+        }).when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
+                anyString(), anyInt(), any(), any());
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            return invocation.getArgument(0);
+        }).when(personaStateRepository).save(any(PersonaState.class));
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(ignored -> {
+            service.sendMessage(data.meeting().getId(), data.userId(), "What are your priorities?", "tx-boundary");
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+        });
+        assertThat(turnRepository.turns).hasSize(2);
+    }
+
+    @Test
+    void inFlightDuplicateDoesNotStartAnotherAiCall() {
+        doAnswer(invocation -> {
+            assertThatThrownBy(() -> service.sendMessage(data.meeting().getId(), data.userId(),
+                    "What are your priorities?", "in-flight"))
+                    .isInstanceOf(InvalidMeetingStateException.class)
+                    .hasMessageContaining("already being generated");
+            return PersonaTurnResponse.safeFallback("Let us discuss that.");
+        }).when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
+                anyString(), anyInt(), any(), any());
+        MeetingTurnResult first = service.sendMessage(data.meeting().getId(), data.userId(),
+                "What are your priorities?", "in-flight");
+        MeetingTurnResult replay = service.sendMessage(data.meeting().getId(), data.userId(),
+                "What are your priorities?", "in-flight");
+        assertThat(replay.personaTurn().id()).isEqualTo(first.personaTurn().id());
+        assertThat(turnRepository.turns).hasSize(2);
+        verify(aiOrchestrationService, times(1)).execute(eq("persona_dialogue"),
+                eq(data.engagement().getId()), anyString(), anyInt(), any(), any());
+    }
+
+    @Test
+    void expiredWorkerCannotPersistOrClearANewerReservation() {
+        UUID newerRequest = UUID.randomUUID();
+        Instant takeover = Instant.now().plusSeconds(301);
+        doAnswer(invocation -> {
+            assertThat(data.meeting().reserveTurn(newerRequest, takeover)).isTrue();
+            return PersonaTurnResponse.safeFallback("Stale reply");
+        }).when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
+                anyString(), anyInt(), any(), any());
+        assertThatThrownBy(() -> service.sendMessage(data.meeting().getId(), data.userId(),
+                "What are your priorities?", "old-worker"))
+                .isInstanceOf(InvalidMeetingStateException.class).hasMessageContaining("meeting changed");
+        assertThat(turnRepository.turns).isEmpty();
+        assertThat(data.meeting().ownsTurn(newerRequest, takeover)).isTrue();
+        assertThat(data.personaState().getTrust()).isEqualTo(50);
+    }
+
+    @Test
+    void changedRelationshipStateDiscardsGeneratedReplyBeforeWriting() {
+        doAnswer(invocation -> {
+            ReflectionTestUtils.setField(data.personaState(), "version", 1L);
+            return PersonaTurnResponse.safeFallback("Stale reply");
+        }).when(aiOrchestrationService).execute(eq("persona_dialogue"), eq(data.engagement().getId()),
+                anyString(), anyInt(), any(), any());
+        assertThatThrownBy(() -> service.sendMessage(data.meeting().getId(), data.userId(),
+                "What are your priorities?", "changed-state"))
+                .isInstanceOf(InvalidMeetingStateException.class).hasMessageContaining("meeting changed");
+        assertThat(turnRepository.turns).isEmpty();
+        assertThat(data.personaState().getTrust()).isEqualTo(50);
+        assertThat(data.meeting().reserveTurn(UUID.randomUUID(), Instant.now())).isTrue();
     }
 
     @Test
@@ -175,8 +255,11 @@ class MeetingMessageReplayServiceTest {
         when(meetingRepository.findAllByEngagementIdOrderByCreatedAtAsc(data.engagement().getId()))
                 .thenReturn(List.of(data.meeting()));
         when(engagementRepository.findById(data.engagement().getId())).thenReturn(Optional.of(data.engagement()));
-        doReturn(MeetingDebriefNarrative.fallback(false, List.of("Trust below target")))
-                .when(aiOrchestrationService).execute(eq("meeting_debrief"), eq(data.engagement().getId()),
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(invocation.<String>getArgument(2)).contains("Hello", "end of our time");
+            return MeetingDebriefNarrative.fallback(false, List.of("Trust below target"));
+        }).when(aiOrchestrationService).execute(eq("meeting_debrief"), eq(data.engagement().getId()),
                         anyString(), anyInt(), any(), any());
 
         MeetingTurnResult result = service.sendMessage(data.meeting().getId(), data.userId(), "Hello", "last-turn");
