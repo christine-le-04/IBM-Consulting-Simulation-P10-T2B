@@ -3,6 +3,20 @@ import apiClient from '@/api/client'
 import type { RegistrationResponse, TokenResponse } from '@/api/types'
 import { useAuthStore } from '@/store/authStore'
 
+export function useLogout() {
+  return useMutation({
+    mutationFn: async () => {
+      const token = useAuthStore.getState().token
+      await apiClient.post('/api/v1/auth/logout')
+      return token
+    },
+    onSuccess: (revokedToken) => {
+      // A delayed logout must never erase a newer login.
+      if (useAuthStore.getState().token === revokedToken) useAuthStore.getState().logout()
+    },
+  })
+}
+
 export function useLogin() {
   const login = useAuthStore((s) => s.login)
   return useMutation({

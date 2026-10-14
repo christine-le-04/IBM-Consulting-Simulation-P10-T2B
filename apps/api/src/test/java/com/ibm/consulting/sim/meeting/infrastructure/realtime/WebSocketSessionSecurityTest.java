@@ -1,6 +1,7 @@
 package com.ibm.consulting.sim.meeting.infrastructure.realtime;
 
 import com.ibm.consulting.sim.identity.domain.User;
+import com.ibm.consulting.sim.identity.domain.AccessTokenRevocationStore;
 import com.ibm.consulting.sim.identity.domain.UserRepository;
 import com.ibm.consulting.sim.identity.domain.UserRole;
 import com.ibm.consulting.sim.identity.infrastructure.JwtTokenProvider;
@@ -32,7 +33,8 @@ import static org.mockito.Mockito.*;
 class WebSocketSessionSecurityTest {
     private static final String SECRET = "test-secret-with-at-least-thirty-two-bytes";
     private final UserRepository users = mock(UserRepository.class);
-    private final JwtTokenProvider tokens = spy(new JwtTokenProvider(SECRET, 60000));
+    private final AccessTokenRevocationStore revocations = mock(AccessTokenRevocationStore.class);
+    private final JwtTokenProvider tokens = spy(new JwtTokenProvider(SECRET, 60000, revocations));
     private final WebSocketSessionSecurity security = new WebSocketSessionSecurity(tokens, users);
     private final StompAuthChannelInterceptor inbound = new StompAuthChannelInterceptor(security);
     private final WebSocketSession session = mock(WebSocketSession.class);
@@ -109,7 +111,7 @@ class WebSocketSessionSecurityTest {
 
     @Test
     void genuinelyExpiredJwtCannotConnect() throws Exception {
-        String expired = new JwtTokenProvider(SECRET, -60000).generateToken(user);
+        String expired = new JwtTokenProvider(SECRET, -60000, revocations).generateToken(user);
         assertThatThrownBy(() -> inbound.preSend(connectFrame(expired), channel))
                 .isInstanceOf(MessagingException.class).hasMessage("Socket authentication no longer valid");
         verify(session).close(CloseStatus.POLICY_VIOLATION);
