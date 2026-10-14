@@ -84,7 +84,7 @@ class ProposalLifecycleGuardTest {
                 mock(ResearchEvidenceRepository.class), mock(PersonaStateRepository.class), mock(MeetingRepository.class),
                 mock(ConversationTurnRepository.class), ai, new ObjectMapper(), mock(PersonaCatalogService.class),
                 difficulty, new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE),
-                mock(ApplicationEventPublisher.class));
+                mock(ApplicationEventPublisher.class), com.ibm.consulting.sim.meeting.application.MeetingServiceTestFactory.transactions());
         return new Fixture(service, engagements, ai, engagementId, userId);
     }
 

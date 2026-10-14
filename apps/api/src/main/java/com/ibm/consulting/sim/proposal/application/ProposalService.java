@@ -16,6 +16,9 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.ai.application.AiOrchestrationService;
@@ -72,6 +75,8 @@ public class ProposalService {
     private final DifficultyProfileService difficultyProfileService;
     private final CacheManager cacheManager;
     private final ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate feedbackReadTransaction;
+    private final TransactionTemplate withoutTransaction;
     /** Avoids duplicate provider calls when two browser requests review the same draft concurrently. */
     private final ConcurrentMap<String, CompletableFuture<ProposalReviewResponse>> reviewRequests = new ConcurrentHashMap<>();
 
@@ -86,7 +91,8 @@ public class ProposalService {
                            PersonaCatalogService personaCatalogService,
                            DifficultyProfileService difficultyProfileService,
                            CacheManager cacheManager,
-                           ApplicationEventPublisher eventPublisher) {
+                           ApplicationEventPublisher eventPublisher,
+                           PlatformTransactionManager transactionManager) {
         this.proposalRepository = proposalRepository;
         this.engagementRepository = engagementRepository;
         this.evidenceRepository = evidenceRepository;
@@ -99,6 +105,11 @@ public class ProposalService {
         this.difficultyProfileService = difficultyProfileService;
         this.cacheManager = cacheManager;
         this.eventPublisher = eventPublisher;
+        this.feedbackReadTransaction = new TransactionTemplate(transactionManager);
+        this.feedbackReadTransaction.setReadOnly(true);
+        this.feedbackReadTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.withoutTransaction = new TransactionTemplate(transactionManager);
+        this.withoutTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
     }
 
     @Transactional(readOnly = true)
@@ -129,11 +140,20 @@ public class ProposalService {
         return ProposalResponse.from(proposal);
     }
 
-    @Transactional(readOnly = true)
     public ProposalReviewResponse review(UUID engagementId, UUID userId, ProposalDraftContent content) {
+        return withoutTransaction.execute(ignored -> reviewSnapshot(engagementId, content,
+                feedbackReadTransaction.execute(read -> feedbackSnapshot(engagementId, userId))));
+    }
+
+    private FeedbackSnapshot feedbackSnapshot(UUID engagementId, UUID userId) {
         Engagement engagement = loadReviewableEngagement(engagementId, userId);
-        List<ProposalSource> sources = sources(engagement);
-        DifficultyProfile profile = difficultyProfileService.forEngagement(engagement);
+        return new FeedbackSnapshot(List.copyOf(sources(engagement)), difficultyProfileService.forEngagement(engagement));
+    }
+
+    private ProposalReviewResponse reviewSnapshot(UUID engagementId, ProposalDraftContent content,
+                                                  FeedbackSnapshot snapshot) {
+        List<ProposalSource> sources = snapshot.sources();
+        DifficultyProfile profile = snapshot.profile();
         String cacheKey = reviewCacheKey(engagementId, content, sources, profile);
         ProposalReviewResponse cachedReview = readCachedReview(cacheKey);
         if (cachedReview != null) {
@@ -168,13 +188,14 @@ public class ProposalService {
         return reviewResponse(content, sources, issues, alignment, narrative);
     }
 
-    @Transactional(readOnly = true)
     public ProposalChallengeResponse challenge(UUID engagementId, UUID userId, ProposalDraftContent content) {
-        Engagement engagement = loadReviewableEngagement(engagementId, userId);
-        List<ProposalSource> sources = sources(engagement);
-        return aiOrchestrationService.execute(
-                "proposal_challenge", engagementId, challengePrompt(content, sources), PROMPT_VERSION,
-                new ProposalChallengeParser(objectMapper), () -> deterministicConcerns(content, sources));
+        return withoutTransaction.execute(ignored -> {
+            List<ProposalSource> snapshot = feedbackReadTransaction.execute(read ->
+                    List.copyOf(sources(loadReviewableEngagement(engagementId, userId))));
+            return aiOrchestrationService.execute(
+                    "proposal_challenge", engagementId, challengePrompt(content, snapshot), PROMPT_VERSION,
+                    new ProposalChallengeParser(objectMapper), () -> deterministicConcerns(content, snapshot));
+        });
     }
 
     @Transactional
@@ -259,21 +280,31 @@ public class ProposalService {
         return ProposalResponse.from(proposal);
     }
 
-    @Transactional(readOnly = true)
     public ProposalDecisionExplanationResponse explainDecision(UUID engagementId, UUID userId) {
-        Proposal proposal = submittedProposal(engagementId, userId);
-        return aiOrchestrationService.execute("proposal_decision_explanation", engagementId,
-                decisionExplanationPrompt(proposal), PROMPT_VERSION, new ProposalDecisionExplanationParser(objectMapper),
-                () -> new ProposalDecisionExplanationResponse(deterministicDecisionExplanation(proposal)));
+        return decisionFeedback(engagementId, userId, false);
     }
 
-    @Transactional(readOnly = true)
     public ProposalDecisionExplanationResponse counterfactual(UUID engagementId, UUID userId) {
-        Proposal proposal = submittedProposal(engagementId, userId);
-        return aiOrchestrationService.execute("proposal_counterfactual", engagementId,
-                counterfactualPrompt(proposal), PROMPT_VERSION, new ProposalDecisionExplanationParser(objectMapper),
-                () -> new ProposalDecisionExplanationResponse(deterministicCounterfactual(proposal)));
+        return decisionFeedback(engagementId, userId, true);
     }
+
+    private ProposalDecisionExplanationResponse decisionFeedback(UUID engagementId, UUID userId, boolean counterfactual) {
+        return withoutTransaction.execute(ignored -> {
+            DecisionFeedbackSnapshot snapshot = feedbackReadTransaction.execute(read -> {
+                Proposal proposal = submittedProposal(engagementId, userId);
+                // Materialize prompts and fallbacks while lazy decision collections are available.
+                return counterfactual
+                        ? new DecisionFeedbackSnapshot(counterfactualPrompt(proposal), deterministicCounterfactual(proposal))
+                        : new DecisionFeedbackSnapshot(decisionExplanationPrompt(proposal), deterministicDecisionExplanation(proposal));
+            });
+            return aiOrchestrationService.execute(counterfactual ? "proposal_counterfactual" : "proposal_decision_explanation",
+                    engagementId, snapshot.prompt(), PROMPT_VERSION, new ProposalDecisionExplanationParser(objectMapper),
+                    () -> new ProposalDecisionExplanationResponse(snapshot.fallback()));
+        });
+    }
+
+    private record FeedbackSnapshot(List<ProposalSource> sources, DifficultyProfile profile) {}
+    private record DecisionFeedbackSnapshot(String prompt, String fallback) {}
 
     private ProposalReviewResponse reviewResponse(ProposalDraftContent content, List<ProposalSource> sources,
                                                   List<ProposalValidationIssue> issues,

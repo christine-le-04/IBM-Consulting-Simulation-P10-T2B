@@ -163,7 +163,8 @@ class LearnerOwnershipBoundaryTest {
         ProposalService service = new ProposalService(proposals, engagements, evidence, personaStates, meetings,
                 turns, ai, new ObjectMapper(), mock(PersonaCatalogService.class),
                 mock(DifficultyProfileService.class),
-                new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE), events);
+                new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE), events,
+                MeetingServiceTestFactory.transactions());
         UUID engagementId = UUID.randomUUID();
         UUID otherUserId = UUID.randomUUID();
         ProposalDraftContent draft = new ProposalDraftContent(
