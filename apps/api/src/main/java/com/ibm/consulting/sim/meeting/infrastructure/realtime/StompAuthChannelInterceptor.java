@@ -1,10 +1,7 @@
 package com.ibm.consulting.sim.meeting.infrastructure.realtime;
 
 import com.ibm.consulting.sim.identity.domain.User;
-import com.ibm.consulting.sim.identity.domain.UserRepository;
 import com.ibm.consulting.sim.identity.infrastructure.JwtTokenProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -17,9 +14,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.security.Principal;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Authenticates the STOMP {@code CONNECT} frame using the same JWT the rest of the
@@ -38,30 +33,21 @@ import java.util.UUID;
 @Component
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
-    private static final Logger log = LoggerFactory.getLogger(StompAuthChannelInterceptor.class);
+    private final WebSocketSessionSecurity sessionSecurity;
 
-    private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
-
-    public StompAuthChannelInterceptor(JwtTokenProvider jwtTokenProvider, UserRepository userRepository) {
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.userRepository = userRepository;
+    public StompAuthChannelInterceptor(WebSocketSessionSecurity sessionSecurity) {
+        this.sessionSecurity = sessionSecurity;
     }
 
     @Override
     public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-        if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-            String token = extractToken(accessor);
-            if (token == null || !jwtTokenProvider.isValid(token)) {
-                log.warn("WebSocket CONNECT rejected: missing or invalid token");
-                throw new org.springframework.messaging.MessagingException("Invalid or missing authentication token");
-            }
-            UUID userId = jwtTokenProvider.extractUserId(token);
-            User user = userRepository.findById(userId)
-                    .filter(User::isActive)
-                    .filter(candidate -> jwtTokenProvider.isValidForUser(token, candidate))
-                    .orElseThrow(() -> new org.springframework.messaging.MessagingException("Unknown or inactive user"));
+        if (accessor != null && (accessor.getCommand() == StompCommand.CONNECT
+                || accessor.getCommand() == StompCommand.SEND
+                || accessor.getCommand() == StompCommand.SUBSCRIBE)) {
+            User user = accessor.getCommand() == StompCommand.CONNECT
+                    ? sessionSecurity.connect(accessor.getSessionId(), extractToken(accessor))
+                    : sessionSecurity.authenticate(accessor.getSessionId());
             var authentication = new UsernamePasswordAuthenticationToken(
                     user, null, List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
             accessor.setUser(authentication);
