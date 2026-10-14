@@ -23,6 +23,9 @@ export const useSessionBoundary = create(() => ({
 
 useAuthStore.subscribe((current, previous) => {
   if (current.userId === previous.userId && current.token === previous.token && current.role === previous.role) return
+  // Renewal in the same server session must preserve forms, caches, and requests.
+  if (current.token && previous.token && current.sessionId && current.sessionId === previous.sessionId
+      && current.userId === previous.userId && current.role === previous.role) return
 
   const oldSession = useSessionBoundary.getState()
   sessionRequests.abort()

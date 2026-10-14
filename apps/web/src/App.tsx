@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore, sessionEventKey } from '@/store/authStore'
+import { refreshSession } from '@/api/refreshSession'
 import AppShell from '@/components/layout/AppShell'
 import ErrorBoundary from '@/components/shared/ErrorBoundary'
 import LoadingState from '@/components/shared/LoadingState'
@@ -59,12 +60,19 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 export default function App() {
   useEffect(() => {
     const syncSession = (event: StorageEvent) => {
-      if (event.storageArea === localStorage && (event.key === 'auth-storage' || event.key === null)) {
-        if (localStorage.getItem('auth-storage') === null) {
-          useAuthStore.getState().logout()
-        } else {
-          void useAuthStore.persist.rehydrate()
-        }
+      if (event.storageArea !== localStorage) return
+      if (event.key === sessionEventKey && event.newValue) {
+        try {
+          const notification: unknown = JSON.parse(event.newValue)
+          if (typeof notification !== 'object' || notification === null || !('type' in notification)) return
+          if (notification.type === 'logout') useAuthStore.getState().logout(false)
+          else if (notification.type === 'login') {
+            useAuthStore.getState().logout(false)
+            void refreshSession().catch(() => {})
+          }
+        } catch { /* Ignore malformed storage notifications. */ }
+      } else if (event.key === null || event.key === 'auth-storage') {
+        useAuthStore.getState().logout(false)
       }
     }
     window.addEventListener('storage', syncSession)

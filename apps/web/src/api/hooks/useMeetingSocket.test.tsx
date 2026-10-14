@@ -3,6 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useMeetingSocket } from './useMeetingSocket'
+import { useAuthStore } from '@/store/authStore'
 
 // captures the STOMP client the hook creates so tests can fire its callbacks
 const stomp = vi.hoisted(() => ({ clients: [] as Array<Record<string, (...args: never[]) => void>> }))
@@ -29,6 +30,17 @@ describe('live meeting connection errors', () => {
   beforeEach(() => {
     stomp.clients.length = 0
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  it('uses the renewed memory token when reconnecting', async () => {
+    const response = { accessToken: 'old-token', userId: 'learner', displayName: 'Learner', role: 'LEARNER', sessionId: 'session', expiresAt: Date.now() + 900000 }
+    useAuthStore.getState().renew(response)
+    const { client, unmount } = renderSocket()
+    useAuthStore.getState().renew({ ...response, accessToken: 'new-token' })
+    await client.beforeConnect()
+    expect(client.connectHeaders).toEqual({ Authorization: 'Bearer new-token' })
+    unmount()
+    useAuthStore.getState().logout(false)
   })
 
   it('explains a failed connection without infrastructure detail', () => {

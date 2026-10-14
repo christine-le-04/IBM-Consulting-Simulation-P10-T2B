@@ -5,6 +5,7 @@ import com.ibm.consulting.sim.identity.domain.UserRepository;
 import com.ibm.consulting.sim.identity.domain.UserRole;
 import com.ibm.consulting.sim.identity.infrastructure.JwtTokenProvider;
 import com.ibm.consulting.sim.identity.infrastructure.SecurityConfig;
+import com.ibm.consulting.sim.identity.application.RefreshSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -24,11 +25,13 @@ class LogoutControllerSecurityTest {
     @Autowired MockMvc mvc;
     @MockBean JwtTokenProvider tokens;
     @MockBean UserRepository users;
+    @MockBean RefreshSessionService sessions;
+    @MockBean RefreshCookieSupport cookies;
 
     @Test
     void anonymousLogoutIsUnauthorized() throws Exception {
         mvc.perform(post("/api/v1/auth/logout")).andExpect(status().isUnauthorized());
-        verify(tokens, never()).revokeToken(anyString());
+        verify(sessions, never()).logout(anyString(), any());
     }
 
     @Test
@@ -36,13 +39,13 @@ class LogoutControllerSecurityTest {
         authenticate();
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer valid-token"))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
-        verify(tokens).revokeToken("valid-token");
+        verify(sessions).logout("valid-token", null);
     }
 
     @Test
     void failedRevocationDoesNotPretendLogoutSucceededOrExposeDetails() throws Exception {
         authenticate();
-        doThrow(new IllegalStateException("sensitive backend detail")).when(tokens).revokeToken("valid-token");
+        doThrow(new IllegalStateException("sensitive backend detail")).when(sessions).logout("valid-token", null);
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer valid-token"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));

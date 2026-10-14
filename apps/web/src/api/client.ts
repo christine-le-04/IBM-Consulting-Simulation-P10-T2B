@@ -2,6 +2,11 @@ import axios, { CanceledError, type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/store/authStore'
 import { shouldInvalidateSession } from '@/api/authSession'
 import { useSessionBoundary } from '@/api/sessionBoundary'
+import { refreshSession } from '@/api/refreshSession'
+
+declare module 'axios' {
+  interface AxiosRequestConfig { sessionRefreshAttempted?: boolean }
+}
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -43,7 +48,7 @@ apiClient.interceptors.response.use(
     }
     return response
   },
-  (error) => {
+  async (error) => {
     if (isPreviousSession(error.config)) {
       return Promise.reject(new CanceledError('Session changed', error.config))
     }
@@ -54,15 +59,18 @@ apiClient.interceptors.response.use(
       // Only the request authenticated with the current token may invalidate the
       // current session. Anonymous login failures and late responses carrying an
       // older token must not erase a newer successful login.
-      if (shouldInvalidateSession(error.response.status, authorization, currentToken)) {
-        console.warn('Session invalidated after API rejected the current token', {
-          method: error.config?.method,
-          url: error.config?.url,
-        })
-        useAuthStore.getState().logout()
-        if (window.location.pathname !== '/login') {
-          window.location.assign('/login')
-        }
+      const config = error.config as InternalAxiosRequestConfig | undefined
+      if (config && currentToken && authorization?.startsWith('Bearer ')
+          && !config.sessionRefreshAttempted && config.url !== '/api/v1/auth/login'
+          && config.url !== '/api/v1/auth/logout') {
+        config.sessionRefreshAttempted = true
+        // A newer access JWT may already have been issued by the refresh timer.
+        if (shouldInvalidateSession(401, authorization, currentToken)) await refreshSession()
+        if (isPreviousSession(config)) throw new CanceledError('Session changed', config)
+        return apiClient.request(config)
+      }
+      if (shouldInvalidateSession(401, authorization, currentToken)) {
+        useAuthStore.getState().logout(false)
       }
     }
     return Promise.reject(error)

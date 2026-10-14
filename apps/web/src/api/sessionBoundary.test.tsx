@@ -136,14 +136,21 @@ describe('session privacy boundary', () => {
     expect(useAuthStore.getState().userId).toBe('account-b')
   })
 
-  it('rehydrated account changes clear the old session too', async () => {
+  it('restoring a different account from the server clears the old session too', () => {
     const previous = useSessionBoundary.getState()
-    localStorage.setItem('auth-storage', JSON.stringify({ state: {
-      token: 'account-b-token', userId: 'account-b', role: 'LEARNER', displayName: 'B',
-    }, version: 0 }))
-    await useAuthStore.persist.rehydrate()
+    useAuthStore.getState().renew({ accessToken: 'account-b-token', userId: 'account-b', role: 'LEARNER', displayName: 'B' })
     expect(previous.signal.aborted).toBe(true)
     expect(useAuthStore.getState().userId).toBe('account-b')
+  })
+
+  it('preserves caches and requests when renewing access within the same server session', () => {
+    useAuthStore.getState().renew({ accessToken: 'old-access', userId: 'account-a', role: 'LEARNER', displayName: 'A', sessionId: 'same-session' })
+    const previous = useSessionBoundary.getState()
+    previous.queryClient.setQueryData(['portfolio'], 'private portfolio')
+    useAuthStore.getState().renew({ accessToken: 'fresh-access', userId: 'account-a', role: 'LEARNER', displayName: 'A', sessionId: 'same-session' })
+    expect(useSessionBoundary.getState()).toBe(previous)
+    expect(previous.signal.aborted).toBe(false)
+    expect(previous.queryClient.getQueryData(['portfolio'])).toBe('private portfolio')
   })
 
   it('remounts local UI and never renders the previous portfolio for a new account', () => {

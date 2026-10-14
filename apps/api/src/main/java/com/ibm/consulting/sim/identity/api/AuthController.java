@@ -7,6 +7,9 @@ import com.ibm.consulting.sim.identity.application.RegistrationResponse;
 import com.ibm.consulting.sim.identity.application.RegisterUserUseCase;
 import com.ibm.consulting.sim.identity.application.TokenResponse;
 import com.ibm.consulting.sim.identity.application.LoginAttemptLimiter;
+import com.ibm.consulting.sim.identity.application.RefreshSessionService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import com.ibm.consulting.sim.identity.domain.InvalidCredentialsException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -24,16 +27,21 @@ public class AuthController {
     private final EmailVerificationService emailVerificationService;
     private final PasswordResetService passwordResetService;
     private final LoginAttemptLimiter loginAttemptLimiter;
+    private final RefreshSessionService refreshSessions;
+    private final RefreshCookieSupport refreshCookies;
 
     public AuthController(RegisterUserUseCase registerUseCase, AuthenticateUseCase authenticateUseCase,
                           EmailVerificationService emailVerificationService,
                           PasswordResetService passwordResetService,
-                          LoginAttemptLimiter loginAttemptLimiter) {
+                          LoginAttemptLimiter loginAttemptLimiter,
+                          RefreshSessionService refreshSessions, RefreshCookieSupport refreshCookies) {
         this.registerUseCase = registerUseCase;
         this.authenticateUseCase = authenticateUseCase;
         this.emailVerificationService = emailVerificationService;
         this.passwordResetService = passwordResetService;
         this.loginAttemptLimiter = loginAttemptLimiter;
+        this.refreshSessions = refreshSessions;
+        this.refreshCookies = refreshCookies;
     }
 
     record RegisterRequest(
@@ -62,10 +70,17 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    TokenResponse login(@Valid @RequestBody LoginRequest req) {
+    TokenResponse login(@Valid @RequestBody LoginRequest req, HttpServletRequest request, HttpServletResponse servletResponse) {
+        boolean browserSession = refreshCookies.isBrowserSession(request);
+        if (browserSession) refreshCookies.requireTrustedBrowser(request);
         loginAttemptLimiter.acquire(req.email());
         try {
             TokenResponse response = authenticateUseCase.execute(req.email(), req.password());
+            if (browserSession) {
+                var issued = refreshSessions.open(response);
+                refreshCookies.write(servletResponse, issued.refreshCookie(), issued.expiresAt());
+                response = issued.access();
+            }
             loginAttemptLimiter.recordSuccess(req.email());
             return response;
         } catch (InvalidCredentialsException exception) {

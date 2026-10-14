@@ -27,7 +27,8 @@ describe('server-side logout', () => {
     vi.mocked(apiClient.post).mockImplementation(() => new Promise((resolve) => { finish = resolve }))
     const { result } = setup()
     act(() => result.current.mutate())
-    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/api/v1/auth/logout'))
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/api/v1/auth/logout', undefined,
+      expect.objectContaining({ withCredentials: true, headers: { 'X-Session-Request': '1' } })))
     expect(useAuthStore.getState().token).toBe('account-a-token')
     await act(async () => { finish({ status: 204 }) })
     await waitFor(() => expect(useAuthStore.getState().token).toBeNull())

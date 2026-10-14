@@ -32,7 +32,9 @@ public class AuthenticateUseCase {
         if (!user.isEmailVerified()) {
             throw new EmailVerificationRequiredException();
         }
-        return new TokenResponse(jwtTokenProvider.generateToken(user), user.getId().toString(),
-                user.getDisplayName(), user.getRole().name(), user.requiresOnboarding());
+        String accessToken = jwtTokenProvider.generateToken(user);
+        return new TokenResponse(accessToken, user.getId().toString(),
+                user.getDisplayName(), user.getRole().name(), user.requiresOnboarding(), null,
+                jwtTokenProvider.parseToken(accessToken).getExpiration().getTime());
     }
 }

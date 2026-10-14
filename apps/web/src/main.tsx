@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import SessionQueryProvider from '@/api/SessionQueryProvider'
+import AuthSessionLifecycle from '@/api/AuthSessionLifecycle'
 import App from './App'
 import '@carbon/react/index.scss'
 import './styles/tokens.scss'
@@ -31,8 +32,10 @@ window.addEventListener('error', (event) => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <SessionQueryProvider>
-      <App />
-    </SessionQueryProvider>
+    <AuthSessionLifecycle>
+      <SessionQueryProvider>
+        <App />
+      </SessionQueryProvider>
+    </AuthSessionLifecycle>
   </React.StrictMode>
 )
