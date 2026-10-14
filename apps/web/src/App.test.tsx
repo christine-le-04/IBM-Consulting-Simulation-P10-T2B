@@ -33,6 +33,17 @@ beforeEach(() => {
 })
 
 describe('App account route access', () => {
+  it.each(['auth-storage', null])('signs out when another tab clears authentication storage (%s)', async (key) => {
+    renderAt('/dashboard', 'LEARNER')
+    expect(await screen.findByText('Command centre')).toBeInTheDocument()
+    localStorage.removeItem('auth-storage')
+    await act(async () => {
+      window.dispatchEvent(new StorageEvent('storage', { key, storageArea: localStorage }))
+    })
+    expect(await screen.findByText('Sign in page')).toBeInTheDocument()
+    expect(useAuthStore.getState().token).toBeNull()
+  })
+
   it('redirects an open login page when another tab signs in', async () => {
     renderAt('/login')
     expect(await screen.findByText('Sign in page')).toBeInTheDocument()

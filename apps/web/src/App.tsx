@@ -60,7 +60,11 @@ export default function App() {
   useEffect(() => {
     const syncSession = (event: StorageEvent) => {
       if (event.storageArea === localStorage && (event.key === 'auth-storage' || event.key === null)) {
-        void useAuthStore.persist.rehydrate()
+        if (localStorage.getItem('auth-storage') === null) {
+          useAuthStore.getState().logout()
+        } else {
+          void useAuthStore.persist.rehydrate()
+        }
       }
     }
     window.addEventListener('storage', syncSession)
