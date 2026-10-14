@@ -39,6 +39,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -48,6 +49,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,9 +59,11 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -85,6 +90,59 @@ class MeetingExchangeTransactionIntegrationTest {
     private final MeetingRepository meetingRepository = new EntityManagerMeetingRepository();
     private final ConversationTurnRepository turnRepository = new EntityManagerTurnRepository();
     private final PersonaStateRepository personaStateRepository = new EntityManagerPersonaStateRepository();
+
+    @Test
+    void aiWaitDoesNotRetainTheMeetingRowLock() {
+        TestData data = inTransaction(this::persistInProgressMeeting);
+        AiOrchestrationService ai = mock(AiOrchestrationService.class);
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            try (var executor = Executors.newSingleThreadExecutor()) {
+                // A separate connection must acquire this same row before the AI call returns.
+                var inspection = executor.submit(() -> inTransaction(() -> {
+                    entityManager.createNativeQuery("SET LOCAL lock_timeout = '2s'").executeUpdate();
+                    Meeting meeting = meetingRepository.findByIdForUpdate(data.meetingId()).orElseThrow();
+                    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+                    assertThat(turnRepository.countByMeetingId(data.meetingId())).isZero();
+                    return true;
+                }));
+                assertThat(inspection.get(3, TimeUnit.SECONDS)).isTrue();
+            }
+            return PersonaTurnResponse.safeFallback("I can continue safely now.");
+        }).when(ai).execute(eq("persona_dialogue"), eq(data.engagementId()), anyString(), anyInt(), any(), any());
+        service(data, ai).sendMessage(data.meetingId(), data.userId(), "What are your priorities?", MESSAGE_ID);
+        assertThat(inTransaction(() -> turnRepository.countByMeetingId(data.meetingId()))).isEqualTo(2);
+    }
+
+    @Test
+    void replyPersistenceFailureRollsBackBothTurnsAndReleasesReservation() {
+        TestData data = inTransaction(this::persistInProgressMeeting);
+        AiOrchestrationService ai = mock(AiOrchestrationService.class);
+        doReturn(PersonaTurnResponse.safeFallback("I can continue safely now."))
+                .when(ai).execute(eq("persona_dialogue"), eq(data.engagementId()), anyString(), anyInt(), any(), any());
+        ConversationTurnRepository failingTurns = spy(turnRepository);
+        doAnswer(invocation -> {
+            ConversationTurn turn = invocation.getArgument(0);
+            if (turn.getActor() == ConversationActor.PERSONA) throw new IllegalStateException("reply write failed");
+            return invocation.callRealMethod();
+        }).when(failingTurns).save(any(ConversationTurn.class));
+        assertThatThrownBy(() -> service(data, ai, failingTurns).sendMessage(
+                data.meetingId(), data.userId(), "What are your priorities?", MESSAGE_ID))
+                .isInstanceOf(IllegalStateException.class).hasMessage("reply write failed");
+        assertThat(inTransaction(() -> turnRepository.countByMeetingId(data.meetingId()))).isZero();
+        inTransaction(() -> {
+            PersonaState state = personaStateRepository.findByEngagementId(data.engagementId()).orElseThrow();
+            assertThat(state.getTrust()).isEqualTo(50);
+            assertThat(state.getInterest()).isEqualTo(50);
+            assertThat(state.getPatience()).isEqualTo(50);
+            Meeting meeting = meetingRepository.findByIdForUpdate(data.meetingId()).orElseThrow();
+            assertThat(meeting.getBehaviourLedger()).isEmpty();
+            UUID retry = UUID.randomUUID();
+            assertThat(meeting.reserveTurn(retry, java.time.Instant.now())).isTrue();
+            meeting.releaseTurn(retry);
+            return true;
+        });
+    }
 
     @Test
     void providerFailureRollsBackTheExchangeAndRetryPersistsExactlyOneTurnPair() {
@@ -126,6 +184,10 @@ class MeetingExchangeTransactionIntegrationTest {
     }
 
     private MeetingService service(TestData data, AiOrchestrationService ai) {
+        return service(data, ai, turnRepository);
+    }
+
+    private MeetingService service(TestData data, AiOrchestrationService ai, ConversationTurnRepository turns) {
         DifficultyProfileService difficulty = mock(DifficultyProfileService.class);
         when(difficulty.forEngagement(any(Engagement.class))).thenReturn(data.profile());
         PersonaCatalogService personas = mock(PersonaCatalogService.class);
@@ -135,14 +197,15 @@ class MeetingExchangeTransactionIntegrationTest {
         KnowledgeRetrievalService knowledge = mock(KnowledgeRetrievalService.class);
         when(knowledge.retrieveRelevantPassages(any(), any(), any(), anyString())).thenReturn(List.of());
 
-        return new MeetingService(meetingRepository, turnRepository, personaStateRepository,
+        return new MeetingService(meetingRepository, turns, personaStateRepository,
                 mock(MeetingPreparationRepository.class), new EntityManagerEngagementRepository(), personas,
                 evidence, ai, new ObjectMapper(), mock(TranscriptExportService.class), knowledge, difficulty,
-                mock(GuidedMeetingResponseService.class));
+                mock(GuidedMeetingResponseService.class), transactionManager);
     }
 
     private TestData persistInProgressMeeting() {
-        User user = User.create("exchange-user@example.com", "hash", "Exchange User", UserRole.LEARNER);
+        // Fixtures commit to the shared container database; each test needs its own account.
+        User user = User.create("exchange-user-" + UUID.randomUUID() + "@example.com", "hash", "Exchange User", UserRole.LEARNER);
         Scenario scenario = Scenario.create("Meeting exchange", "Technology", "Scenario", 3);
         Persona persona = Persona.create(scenario, "Client", "CIO", "Example Co", "Direct", "Risk",
                 "Budget", "Delivery");

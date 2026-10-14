@@ -74,7 +74,8 @@ class ProposalSubmissionServiceTest {
                 personaStateRepository, meetingRepository, turnRepository, aiOrchestrationService,
                 new ObjectMapper(), personaCatalogService, difficultyProfileService,
                 new ConcurrentMapCacheManager(CacheConfig.PROPOSAL_REVIEW_CACHE,
-                        CacheConfig.PROPOSAL_DECISION_NARRATIVE_CACHE), eventPublisher);
+                        CacheConfig.PROPOSAL_DECISION_NARRATIVE_CACHE), eventPublisher,
+                com.ibm.consulting.sim.meeting.application.MeetingServiceTestFactory.transactions());
         when(engagementRepository.findByIdAndUserIdForUpdate(data.engagement().getId(), data.userId()))
                 .thenReturn(Optional.of(data.engagement()));
         when(evidenceRepository.findByEngagementId(data.engagement().getId())).thenReturn(List.of(data.evidence()));

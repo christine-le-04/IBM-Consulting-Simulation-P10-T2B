@@ -31,7 +31,8 @@ public class KnowledgeRetrievalService {
         this.embeddingGateway = embeddingGateway;
     }
 
-    @Transactional(readOnly = true)
+    // Embedding is an external call; repository reads finish before it starts.
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public List<String> retrieveRelevantPassages(KnowledgeCollection collection, UUID scenarioId, UUID personaId,
                                                   String query) {
         var candidates = chunkRepository.findByCollectionAndScope(collection, scenarioId, personaId);

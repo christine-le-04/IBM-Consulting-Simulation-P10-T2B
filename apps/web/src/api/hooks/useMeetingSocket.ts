@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Client, type IMessage } from '@stomp/stompjs'
 import { useAuthStore } from '@/store/authStore'
+import { ensureFreshAccessToken } from '@/api/refreshSession'
 import { meetingKeys } from '@/api/hooks/useMeeting'
 import type { ConversationTurn, Meeting, MeetingBehaviourFeedback, MeetingResponseOptions, MeetingTermination, MeetingTurnResult, PersonaState } from '@/api/types'
 
@@ -104,6 +105,16 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
     })
+    client.beforeConnect = async () => {
+      try { await ensureFreshAccessToken() } catch {
+        if (disposed) return
+        setError('The live meeting is reconnecting. Please wait a moment.')
+      }
+      if (disposed) return
+      const currentToken = useAuthStore.getState().token
+      if (!currentToken) { void client.deactivate(); return }
+      client.connectHeaders = { Authorization: `Bearer ${currentToken}` }
+    }
 
     client.onConnect = () => {
       if (disposed) return
@@ -186,6 +197,8 @@ export function useMeetingSocket(meetingId: string): UsePersonaTurnStreamResult 
           pendingResolversRef.current = null
         }
       })
+      // Recover persisted turns missed while an expired socket was reconnecting.
+      void qc.invalidateQueries({ queryKey: meetingKeys.transcript(meetingId) })
     }
 
     client.onStompError = (frame) => {

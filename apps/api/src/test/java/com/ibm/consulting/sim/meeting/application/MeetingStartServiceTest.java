@@ -58,7 +58,7 @@ class MeetingStartServiceTest {
         service = new MeetingService(meetingRepository, turnRepository, personaStateRepository,
                 preparationRepository, engagementRepository, personaCatalogService, evidenceRepository,
                 aiOrchestrationService, new ObjectMapper(), transcriptExportService,
-                knowledgeRetrievalService, difficultyProfileService, guidedResponseService);
+                knowledgeRetrievalService, difficultyProfileService, guidedResponseService, MeetingServiceTestFactory.transactions());
     }
 
     @Test

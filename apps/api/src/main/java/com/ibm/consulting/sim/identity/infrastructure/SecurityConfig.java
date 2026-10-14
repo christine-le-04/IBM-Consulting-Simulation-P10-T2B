@@ -1,10 +1,11 @@
 package com.ibm.consulting.sim.identity.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ibm.consulting.sim.identity.domain.UserRepository;
+import com.ibm.consulting.sim.shared.infrastructure.cache.UpstashRestClient;
 import com.ibm.consulting.sim.shared.config.CorsProperties;
 import com.ibm.consulting.sim.shared.api.ApiAuthenticationEntryPoint;
 import com.ibm.consulting.sim.shared.infrastructure.observability.ObservabilityAuthenticationFilter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +28,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties(CorsProperties.class)
+@EnableConfigurationProperties({CorsProperties.class, AuthRequestLimitProperties.class})
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
@@ -43,7 +44,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, ApiAuthenticationEntryPoint authenticationEntryPoint)
+    SecurityFilterChain filterChain(HttpSecurity http, ApiAuthenticationEntryPoint authenticationEntryPoint,
+                                   AuthRequestLimitProperties requestLimits, ObjectMapper objectMapper,
+                                   ObjectProvider<UpstashRestClient> redis)
             throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -52,6 +55,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/prometheus").hasRole("OBSERVABILITY")
@@ -64,6 +68,8 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new AuthRequestLimitFilter(requestLimits, objectMapper, redis.getIfAvailable()),
+                        JwtAuthenticationFilter.class)
                     .addFilterBefore(observabilityFilter, JwtAuthenticationFilter.class)
                 .build();
     }

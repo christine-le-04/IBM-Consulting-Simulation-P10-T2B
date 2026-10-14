@@ -8,6 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.ai.application.AiOrchestrationService;
@@ -79,6 +82,8 @@ public class MeetingService {
     private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final DifficultyProfileService difficultyProfileService;
     private final GuidedMeetingResponseService guidedResponseService;
+    private final TransactionTemplate messageTransaction;
+    private final TransactionTemplate withoutTransaction;
 
     public MeetingService(MeetingRepository meetingRepository,
                            ConversationTurnRepository turnRepository,
@@ -92,7 +97,8 @@ public class MeetingService {
                            TranscriptExportService transcriptExportService,
                            KnowledgeRetrievalService knowledgeRetrievalService,
                            DifficultyProfileService difficultyProfileService,
-                           GuidedMeetingResponseService guidedResponseService) {
+                           GuidedMeetingResponseService guidedResponseService,
+                           PlatformTransactionManager transactionManager) {
         this.meetingRepository = meetingRepository;
         this.turnRepository = turnRepository;
         this.personaStateRepository = personaStateRepository;
@@ -106,6 +112,10 @@ public class MeetingService {
         this.knowledgeRetrievalService = knowledgeRetrievalService;
         this.difficultyProfileService = difficultyProfileService;
         this.guidedResponseService = guidedResponseService;
+        this.messageTransaction = new TransactionTemplate(transactionManager);
+        this.messageTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.withoutTransaction = new TransactionTemplate(transactionManager);
+        this.withoutTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
     }
 
     @Transactional
@@ -196,18 +206,44 @@ public class MeetingService {
     }
 
     /**
-     * Persists the learner's message, calls the persona-dialogue AI use case with a
-     * grounded prompt, validates and applies the structured response, then persists
-     * the persona's reply. Returns both turns plus the updated relationship state so
-     * the caller (SSE controller) can stream them to the client.
+     * Reserves an exchange in a short transaction, generates the dialogue and any
+     * closing debrief without a transaction, then atomically persists both turns
+     * and the relationship state after rechecking the reservation and snapshot.
      *
      * <p>Idempotent when {@code clientMessageId} is supplied: a retried/duplicated
      * request (double click, network retry) with the same key returns the
      * already-persisted turn pair instead of generating a second persona reply
      * (P0 fix — see incident: duplicate "Before we go further..." reply).
      */
-    @Transactional
     public MeetingTurnResult sendMessage(UUID meetingId, UUID userId, String learnerMessage, String clientMessageId) {
+        // Explicit suspension also protects non-proxied callers and future transactional callers.
+        return withoutTransaction.execute(ignored -> exchange(meetingId, userId, learnerMessage, clientMessageId));
+    }
+
+    private MeetingTurnResult exchange(UUID meetingId, UUID userId, String learnerMessage, String clientMessageId) {
+        UUID requestId = UUID.randomUUID();
+        PreparedTurn prepared = messageTransaction.execute(ignored ->
+                prepareTurn(meetingId, userId, learnerMessage, clientMessageId, requestId));
+        if (prepared.replay() != null) return prepared.replay();
+        try {
+            GeneratedTurn generated = generateTurn(prepared.context(), learnerMessage);
+            return messageTransaction.execute(ignored ->
+                    persistTurn(meetingId, userId, learnerMessage, requestId, prepared.context(), generated));
+        } catch (RuntimeException | Error failure) {
+            try {
+                messageTransaction.executeWithoutResult(ignored -> meetingRepository.findByIdForUpdate(meetingId)
+                        .ifPresent(meeting -> {
+                            if (meeting.releaseTurn(requestId)) meetingRepository.save(meeting);
+                        }));
+            } catch (RuntimeException cleanupFailure) {
+                log.warn("Meeting reply reservation cleanup failed for {}; expiry will permit retry", meetingId, cleanupFailure);
+            }
+            throw failure;
+        }
+    }
+
+    private PreparedTurn prepareTurn(UUID meetingId, UUID userId, String learnerMessage,
+                                     String clientMessageId, UUID requestId) {
         Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
                 .orElseThrow(() -> new NotFoundException("Meeting", meetingId));
         // Single ownership-validating fetch — the resulting Engagement is reused
@@ -219,7 +255,7 @@ public class MeetingService {
         if (clientMessageId != null && !clientMessageId.isBlank()) {
             MeetingTurnResult replay = tryReplayExisting(meeting, clientMessageId);
             if (replay != null) {
-                return replay;
+                return PreparedTurn.completed(replay);
             }
         }
         if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
@@ -237,9 +273,12 @@ public class MeetingService {
         MeetingTurnResult contentDuplicateReplay =
                 tryReplayRecentDuplicate(meeting, existingTurns, learnerMessage);
         if (contentDuplicateReplay != null) {
-            return contentDuplicateReplay;
+            return PreparedTurn.completed(contentDuplicateReplay);
         }
 
+        if (!meeting.reserveTurn(requestId, java.time.Instant.now())) {
+            throw new InvalidMeetingStateException("A client reply is already being generated. Wait for it before sending again.");
+        }
         PersonaProfile persona = personaCatalogService.getPersona(meeting.getPersonaId());
         PersonaState state = personaStateRepository.findByEngagementId(meeting.getEngagementId())
                 .orElseGet(() -> PersonaState.initial(meeting.getEngagementId(), profile));
@@ -261,15 +300,32 @@ public class MeetingService {
                     "I find that language unacceptable and unprofessional. I am ending this meeting.",
                     "professionalism_breach");
             turnRepository.save(personaTurn);
+            meeting.releaseTurn(requestId);
             completeAutomatically(meeting, engagement, state, immediateTermination.get());
-            return new MeetingTurnResult(
+            return PreparedTurn.completed(new MeetingTurnResult(
                     ConversationTurnResponse.from(learnerTurn),
                     ConversationTurnResponse.from(personaTurn),
                     PersonaStateResponse.from(state),
                     List.of("professionalism_breach"),
-                    MeetingTerminationResponse.from(immediateTermination.get()));
+                    MeetingTerminationResponse.from(immediateTermination.get())));
         }
 
+        meetingRepository.save(meeting);
+        return new PreparedTurn(null, new TurnContext(meeting, engagement, profile, persona,
+                state.copyForEvaluation(), state.getVersion(), engagement.getVersion(),
+                List.copyOf(evidence), List.copyOf(existingTurns), List.copyOf(recentTurns),
+                learnerTurn, learnerTurnCount, conclusionRequired));
+    }
+
+    private GeneratedTurn generateTurn(TurnContext context, String learnerMessage) {
+        Meeting meeting = context.meeting();
+        Engagement engagement = context.engagement();
+        DifficultyProfile profile = context.profile();
+        PersonaProfile persona = context.persona();
+        PersonaState state = context.state().copyForEvaluation();
+        List<ResearchEvidence> evidence = context.evidence();
+        List<ConversationTurn> recentTurns = context.recentTurns();
+        boolean conclusionRequired = context.conclusionRequired();
         List<String> retrievedKnowledge = knowledgeRetrievalService.retrieveRelevantPassages(
                 KnowledgeCollection.SCENARIO_TRUTH, engagement.getScenarioId(), persona.getId(), learnerMessage);
 
@@ -287,8 +343,24 @@ public class MeetingService {
                     throw new AiProviderException("Client reply unavailable; no meeting turn was consumed. Please try again.");
                 });
 
-        turnRepository.save(learnerTurn);
+        EvaluatedTurn evaluated = evaluateTurn(context, state, learnerMessage, aiResponse);
+        MeetingDebriefNarrative debrief = null;
+        if (evaluated.complete()) {
+            List<ConversationTurn> transcript = new java.util.ArrayList<>(context.existingTurns());
+            transcript.add(context.learnerTurn());
+            transcript.add(ConversationTurn.personaTurn(meeting.getId(), context.learnerTurn().getSequence() + 1,
+                    evaluated.response().spokenResponse(), String.join(",", combineSignals(evaluated.response()))));
+            debrief = createDebrief(meeting, state, profile, MeetingCompletionPolicy.evaluate(state, profile), transcript);
+        }
+        return new GeneratedTurn(aiResponse, debrief);
+    }
 
+    private EvaluatedTurn evaluateTurn(TurnContext context, PersonaState state, String learnerMessage,
+                                      PersonaTurnResponse aiResponse) {
+        DifficultyProfile profile = context.profile();
+        long learnerTurnCount = context.learnerTurnCount();
+        boolean conclusionRequired = context.conclusionRequired();
+        List<ConversationTurn> existingTurns = context.existingTurns();
         if (!conclusionRequired) {
             aiResponse = MeetingClosingResponsePolicy.keepOpen(aiResponse);
         }
@@ -299,8 +371,6 @@ public class MeetingService {
         MeetingBehaviourAssessment assessment = PersonaStateEngine.assess(aiResponse, learnerMessage, priorLearnerMessages);
         var appliedDelta = PersonaStateEngine.apply(state, aiResponse, profile, (int) learnerTurnCount + 1, assessment);
         assessment = assessment.withRelationshipDelta(appliedDelta);
-        meeting.recordBehaviourAssessment(nextSequence, assessment);
-        personaStateRepository.save(state);
 
         var relationshipTermination = MeetingSafetyPolicy.evaluate(learnerMessage, state)
                 .filter(decision -> decision.reason() == MeetingTerminationReason.RELATIONSHIP_THRESHOLD_BREACH);
@@ -319,6 +389,38 @@ public class MeetingService {
             aiResponse = MeetingClosingResponsePolicy.keepOpen(aiResponse);
         }
 
+        boolean complete = relationshipTermination.isEmpty() && (turnLimitReached
+                || MeetingNaturalCompletionPolicy.shouldConclude(state, profile,
+                        aiResponse.meetingSignals(), (int) learnerTurnCount + 1));
+        return new EvaluatedTurn(aiResponse, assessment, relationshipTermination.orElse(null), complete);
+    }
+
+    private MeetingTurnResult persistTurn(UUID meetingId, UUID userId, String learnerMessage, UUID requestId,
+                                          TurnContext context, GeneratedTurn generated) {
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
+                .orElseThrow(() -> new NotFoundException("Meeting", meetingId));
+        Engagement engagement = engagementRepository.findByIdAndUserId(meeting.getEngagementId(), userId)
+                .orElseThrow(() -> new NotFoundException("Meeting", meetingId));
+        PersonaState state = personaStateRepository.findByEngagementId(meeting.getEngagementId())
+                .orElseGet(() -> PersonaState.initial(meeting.getEngagementId(), context.profile()));
+        if (!meeting.ownsTurn(requestId, java.time.Instant.now()) || meeting.getStatus() != MeetingStatus.IN_PROGRESS
+                || turnRepository.countByMeetingId(meetingId) != context.existingTurns().size()
+                || !java.util.Objects.equals(state.getVersion(), context.stateVersion())
+                || !java.util.Objects.equals(engagement.getVersion(), context.engagementVersion())) {
+            throw new InvalidMeetingStateException("The meeting changed while generating a reply. Reload it before trying again.");
+        }
+        DifficultyProfile profile = context.profile();
+        long learnerTurnCount = context.learnerTurnCount();
+        int nextSequence = context.learnerTurn().getSequence();
+        ConversationTurn learnerTurn = context.learnerTurn();
+        EvaluatedTurn evaluated = evaluateTurn(context, state, learnerMessage, generated.response());
+        PersonaTurnResponse aiResponse = evaluated.response();
+        MeetingBehaviourAssessment assessment = evaluated.assessment();
+        var relationshipTermination = java.util.Optional.ofNullable(evaluated.termination());
+        boolean turnLimitReached = learnerTurnCount + 1 >= profile.meetingTurnLimit();
+        turnRepository.save(learnerTurn);
+        meeting.recordBehaviourAssessment(nextSequence, assessment);
+        personaStateRepository.save(state);
         String signals = String.join(",", combineSignals(aiResponse));
         ConversationTurn personaTurn = ConversationTurn.personaTurn(
                 meeting.getId(), nextSequence + 1, aiResponse.spokenResponse(), signals);
@@ -331,15 +433,17 @@ public class MeetingService {
         MeetingResponse completedMeeting = null;
         if (relationshipTermination.isEmpty() && MeetingNaturalCompletionPolicy.shouldConclude(
                 state, profile, aiResponse.meetingSignals(), (int) learnerTurnCount + 1)) {
-            completedMeeting = completeMeeting(meeting, engagement, state, profile);
+            completedMeeting = completeMeeting(meeting, engagement, state, profile, generated.debrief());
         } else if (relationshipTermination.isEmpty() && turnLimitReached) {
-            completedMeeting = completeMeeting(meeting, engagement, state, profile);
+            completedMeeting = completeMeeting(meeting, engagement, state, profile, generated.debrief());
         }
         MeetingResponseOptionsResponse nextResponseOptions = completedMeeting == null && relationshipTermination.isEmpty()
                 ? guidedResponseService.cachePreGenerated(
                         meeting.getId(), personaTurn.getSequence(), profile, aiResponse.guidedResponseOptions())
                 : null;
 
+        meeting.releaseTurn(requestId);
+        meetingRepository.save(meeting);
         return new MeetingTurnResult(
                 ConversationTurnResponse.from(learnerTurn),
                 ConversationTurnResponse.from(personaTurn),
@@ -351,6 +455,21 @@ public class MeetingService {
                 completedMeeting,
                 MeetingBehaviourFeedbackResponse.from(assessment));
     }
+
+    private record PreparedTurn(MeetingTurnResult replay, TurnContext context) {
+        static PreparedTurn completed(MeetingTurnResult result) { return new PreparedTurn(result, null); }
+    }
+
+    private record TurnContext(Meeting meeting, Engagement engagement, DifficultyProfile profile,
+                               PersonaProfile persona, PersonaState state, Long stateVersion, Long engagementVersion,
+                               List<ResearchEvidence> evidence, List<ConversationTurn> existingTurns,
+                               List<ConversationTurn> recentTurns, ConversationTurn learnerTurn,
+                               long learnerTurnCount, boolean conclusionRequired) {}
+
+    private record GeneratedTurn(PersonaTurnResponse response, MeetingDebriefNarrative debrief) {}
+
+    private record EvaluatedTurn(PersonaTurnResponse response, MeetingBehaviourAssessment assessment,
+                                 MeetingTerminationDecision termination, boolean complete) {}
 
     /**
      * Content-based duplicate guard, independent of {@code clientMessageId} (that key
@@ -446,10 +565,8 @@ public class MeetingService {
     }
 
     private MeetingResponse completeMeeting(Meeting meeting, Engagement engagement, PersonaState state,
-                                            DifficultyProfile profile) {
+                                            DifficultyProfile profile, MeetingDebriefNarrative debrief) {
         MeetingCompletionDecision decision = MeetingCompletionPolicy.evaluate(state, profile);
-        List<ConversationTurn> turns = turnRepository.findByMeetingIdOrderBySequenceAsc(meeting.getId());
-        MeetingDebriefNarrative debrief = createDebrief(meeting, state, profile, decision, turns);
 
         meeting.complete(decision.outcome(), debrief.feedback(), debrief.tips());
         meeting.snapshotPerformance(state);

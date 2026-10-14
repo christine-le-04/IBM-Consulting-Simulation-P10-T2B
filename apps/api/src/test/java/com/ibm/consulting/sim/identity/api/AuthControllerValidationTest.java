@@ -1,6 +1,7 @@
 package com.ibm.consulting.sim.identity.api;
 
 import com.ibm.consulting.sim.identity.application.AuthenticateUseCase;
+import com.ibm.consulting.sim.identity.application.RefreshSessionService;
 import com.ibm.consulting.sim.identity.application.EmailVerificationService;
 import com.ibm.consulting.sim.identity.application.PasswordResetService;
 import com.ibm.consulting.sim.identity.application.RegisterUserUseCase;
@@ -32,6 +33,8 @@ import static org.hamcrest.Matchers.not;
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerValidationTest {
+    @MockBean RefreshSessionService refreshSessions;
+    @MockBean RefreshCookieSupport refreshCookies;
 
     @Autowired MockMvc mockMvc;
     @MockBean RegisterUserUseCase registerUserUseCase;

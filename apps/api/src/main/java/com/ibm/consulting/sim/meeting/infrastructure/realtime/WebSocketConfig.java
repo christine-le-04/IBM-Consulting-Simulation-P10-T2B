@@ -2,11 +2,13 @@ package com.ibm.consulting.sim.meeting.infrastructure.realtime;
 
 import com.ibm.consulting.sim.shared.config.CorsProperties;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 /**
  * Real-time transport for the live meeting chat (see
@@ -32,18 +34,22 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  */
 @Configuration
 @EnableWebSocketMessageBroker
+@EnableScheduling
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthChannelInterceptor authInterceptor;
     private final MeetingSubscriptionInterceptor subscriptionInterceptor;
     private final CorsProperties corsProperties;
+    private final WebSocketSessionSecurity sessionSecurity;
 
     public WebSocketConfig(StompAuthChannelInterceptor authInterceptor,
                             MeetingSubscriptionInterceptor subscriptionInterceptor,
-                            CorsProperties corsProperties) {
+                            CorsProperties corsProperties,
+                            WebSocketSessionSecurity sessionSecurity) {
         this.authInterceptor = authInterceptor;
         this.subscriptionInterceptor = subscriptionInterceptor;
         this.corsProperties = corsProperties;
+        this.sessionSecurity = sessionSecurity;
     }
 
     @Override
@@ -69,5 +75,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // (SUBSCRIBE), since the subscription check reads the Principal the auth
         // interceptor attaches to the STOMP session.
         registration.interceptors(authInterceptor, subscriptionInterceptor);
+    }
+
+    @Override
+    public void configureClientOutboundChannel(ChannelRegistration registration) {
+        registration.interceptors(sessionSecurity);
+    }
+
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        registration.addDecoratorFactory(sessionSecurity);
     }
 }

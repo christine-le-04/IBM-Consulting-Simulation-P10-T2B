@@ -46,7 +46,7 @@ class MeetingRetryServiceTest {
         service = new MeetingService(meetings, turns, states, mock(MeetingPreparationRepository.class),
                 engagements, mock(PersonaCatalogService.class), evidence, mock(AiOrchestrationService.class),
                 new ObjectMapper(), mock(TranscriptExportService.class), mock(KnowledgeRetrievalService.class),
-                difficulty, mock(GuidedMeetingResponseService.class));
+                difficulty, mock(GuidedMeetingResponseService.class), MeetingServiceTestFactory.transactions());
         when(engagements.findByIdAndUserId(engagement.getId(), userId)).thenReturn(Optional.of(engagement));
         when(engagements.findByIdAndUserIdForUpdate(engagement.getId(), userId)).thenReturn(Optional.of(engagement));
         when(engagements.findById(engagement.getId())).thenReturn(Optional.of(engagement));

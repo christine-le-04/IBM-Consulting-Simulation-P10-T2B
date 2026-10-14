@@ -87,12 +87,21 @@ describe('LoginPage sign in', () => {
 
   it('offers another confirmation link when the email is not verified', () => {
     const error = new AxiosError('Unverified account')
-    error.response = { status: 403 } as NonNullable<AxiosError['response']>
+    error.response = { status: 403, data: { type: 'https://consulting-sim.ibm.com/problems/email-verification-required' } } as NonNullable<AxiosError['response']>
     vi.mocked(useLogin).mockReturnValue({ mutate: loginMutate, isError: true, error } as unknown as ReturnType<typeof useLogin>)
     renderPage('/login')
 
     expect(screen.getByText('Confirm your email first')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Resend confirmation' })).toHaveAttribute('href', '/verify-email')
+  })
+
+  it('does not describe a rejected browser origin as an unverified email', () => {
+    const error = new AxiosError('Forbidden')
+    error.response = { status: 403, data: { type: 'https://consulting-sim.ibm.com/problems/forbidden' } } as NonNullable<AxiosError['response']>
+    vi.mocked(useLogin).mockReturnValue({ mutate: loginMutate, isError: true, error } as unknown as ReturnType<typeof useLogin>)
+    renderPage('/login')
+    expect(screen.getByText('Login failed')).toBeInTheDocument()
+    expect(screen.queryByText('Confirm your email first')).not.toBeInTheDocument()
   })
 
   it('keeps the entered credentials when login fails', async () => {

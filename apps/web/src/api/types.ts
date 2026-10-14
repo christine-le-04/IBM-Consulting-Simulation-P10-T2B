@@ -6,6 +6,8 @@ export interface TokenResponse {
   displayName: string
   role: string
   onboardingRequired?: boolean
+  sessionId?: string | null
+  expiresAt?: number
 }
 
 // ─── Scenario ────────────────────────────────────────────────────────────────

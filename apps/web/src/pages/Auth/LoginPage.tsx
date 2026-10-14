@@ -14,7 +14,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useLogin } from '@/api/hooks/useAuth'
 import PublicHeader from '@/components/layout/PublicHeader'
-import { isAxiosError } from 'axios'
+import { getApiProblem } from '@/api/problemDetails'
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -36,7 +36,7 @@ export default function LoginPage() {
     login.mutate(data, { onSuccess: () => navigate('/dashboard') })
   }
 
-  const verificationRequired = isAxiosError(login.error) && login.error.response?.status === 403
+  const verificationRequired = getApiProblem(login.error, '').type === 'https://consulting-sim.ibm.com/problems/email-verification-required'
 
   return (
     <div style={{ minHeight: '100vh', background: '#ffffff' }}>
