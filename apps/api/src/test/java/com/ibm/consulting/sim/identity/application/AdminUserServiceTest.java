@@ -30,6 +30,15 @@ class AdminUserServiceTest {
 
     @InjectMocks AdminUserService service;
 
+    @Test
+    void logsDeletedUserIdentityWithoutCredentials() {
+        User user = User.create("deleted@example.com", "private-hash", "Deleted User", UserRole.LEARNER);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        service.deleteUser(user.getId(), UUID.randomUUID());
+        verify(userRepository).delete(user);
+        verify(auditLogger).recordAdmin(AuditAction.ADMIN_USER_DELETED, "USER", user.getId().toString(), "deleted@example.com");
+    }
+
     // audit logging - change user role
     @Test
     void logsRoleChanged() {
