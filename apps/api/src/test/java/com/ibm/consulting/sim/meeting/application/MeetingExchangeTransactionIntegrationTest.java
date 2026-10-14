@@ -204,7 +204,8 @@ class MeetingExchangeTransactionIntegrationTest {
     }
 
     private TestData persistInProgressMeeting() {
-        User user = User.create("exchange-user@example.com", "hash", "Exchange User", UserRole.LEARNER);
+        // Fixtures commit to the shared container database; each test needs its own account.
+        User user = User.create("exchange-user-" + UUID.randomUUID() + "@example.com", "hash", "Exchange User", UserRole.LEARNER);
         Scenario scenario = Scenario.create("Meeting exchange", "Technology", "Scenario", 3);
         Persona persona = Persona.create(scenario, "Client", "CIO", "Example Co", "Direct", "Risk",
                 "Budget", "Delivery");
