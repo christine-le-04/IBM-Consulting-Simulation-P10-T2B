@@ -4,6 +4,20 @@ export const LEARNER_STAGES = ['Research', 'Outreach', 'Preparation', 'Meeting',
 export type LearnerStage = typeof LEARNER_STAGES[number]
 export type LearnerStatus = 'IN_PROGRESS' | 'STUCK' | 'COMPLETED' | 'MEETING_FAILED'
 
+export const LEARNER_STATUSES: LearnerStatus[] = ['IN_PROGRESS', 'STUCK', 'COMPLETED', 'MEETING_FAILED']
+export const STATUS_LABEL: Record<LearnerStatus, string> = {
+  IN_PROGRESS: 'In progress',
+  STUCK: 'Stuck',
+  COMPLETED: 'Completed',
+  MEETING_FAILED: 'Meeting failed',
+}
+export const STATUS_TAG: Record<LearnerStatus, 'blue' | 'red' | 'green' | 'warm-gray'> = {
+  IN_PROGRESS: 'blue',
+  STUCK: 'red',
+  COMPLETED: 'green',
+  MEETING_FAILED: 'warm-gray',
+}
+
 export const DEFAULT_STUCK_DAYS = 3
 const DAY_MS = 24 * 60 * 60 * 1000
 
