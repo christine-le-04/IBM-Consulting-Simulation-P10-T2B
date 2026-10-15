@@ -81,6 +81,24 @@ class AnnouncementPersistenceTest {
         jdbc.update("DELETE FROM admin_audit_events");
     }
 
+    @Test void unreadFilterAndBulkReadRespectIdentityAudienceAndNewArrivals() {
+        User learner = user();
+        User other = user();
+        UUID first = adminService.publish("First", "First message");
+        UUID hidden = adminService.publish("Private", "Not for learners", java.util.Set.of(UserRole.ADMINISTRATOR));
+        var snapshot = service.list(learner.getId(), 0, 20);
+        UUID later = adminService.publish("Later", "New arrival");
+        jdbc.update("UPDATE announcements SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(snapshot.readThrough().plusSeconds(1)), later);
+        service.markAllRead(learner.getId(), snapshot.readThrough());
+        var unread = service.list(learner.getId(), 0, 20, true);
+        assertThat(unread.items()).extracting(AnnouncementService.Item::id).containsExactly(later);
+        assertThat(unread.totalElements()).isEqualTo(1);
+        assertThat(service.list(other.getId(), 0, 20).unreadCount()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads WHERE announcement_id = ?", Long.class, hidden)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads WHERE announcement_id = ?", Long.class, first)).isEqualTo(1);
+    }
+
     @Test void customAnnouncementIsSharedAndAuditedAndKeepsPlainText() {
         String message = "First line\n<script>example</script>";
         var id = adminService.publish(" Maintenance ", " " + message + " ");

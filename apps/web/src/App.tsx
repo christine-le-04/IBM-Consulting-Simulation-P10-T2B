@@ -31,6 +31,7 @@ const AiOperationsPage = lazy(() => import('@/pages/Admin/AiOperationsPage'))
 const LearnerProgressPage = lazy(() => import('@/pages/Admin/LearnerProgressPage'))
 const AuditLogPage = lazy(() => import('@/pages/Admin/AuditLogPage'))
 const AnnouncementsPage = lazy(() => import('@/pages/Admin/AnnouncementsPage'))
+const ScenarioAnnouncementPage = lazy(() => import('@/pages/Announcements/ScenarioAnnouncementPage'))
 const LearnerRunPage = lazy(() => import('@/pages/Admin/LearnerRunPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -124,6 +125,7 @@ export default function App() {
           }
         >
           <Route index element={<CommandCentrePage />} />
+          <Route path="scenarios/:scenarioId" element={<ScenarioAnnouncementPage />} />
           <Route path="engagements/:engagementId/intelligence" element={<ClientIntelligencePage />} />
           <Route path="engagements/:engagementId/contact" element={<ChooseContactPage />} />
           <Route path="engagements/:engagementId/outreach" element={<RequireContact><OutreachWorkspacePage /></RequireContact>} />

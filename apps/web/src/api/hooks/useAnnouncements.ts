@@ -23,6 +23,7 @@ export interface AnnouncementFeed {
   unreadCount: number
   page: number
   size: number
+  readThrough?: string
 }
 
 // Fallbacks support scenario announcements returned by an API during a rolling deployment.
@@ -44,12 +45,12 @@ export function usePublishAnnouncement() {
   })
 }
 
-export function useAnnouncements(page: number) {
+export function useAnnouncements(page: number, unreadOnly = false) {
   const userId = useAuthStore((state) => state.userId)
   return useQuery({
-    queryKey: ['announcements', userId, page],
+    queryKey: ['announcements', userId, page, unreadOnly],
     queryFn: async ({ signal }) => (await apiClient.get<AnnouncementFeed>('/api/v1/announcements', {
-      params: { page, size: 20 }, signal,
+      params: { page, size: 20, unreadOnly }, signal,
     })).data,
     enabled: Boolean(userId),
     // Covers offline clients, missed socket events and API instances using separate in-memory brokers.
@@ -62,6 +63,14 @@ export function useReadAnnouncements() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (ids: string[]) => apiClient.post('/api/v1/announcements/read', { ids }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['announcements'] }) },
+  })
+}
+
+export function useMarkAllAnnouncementsRead() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (through: string) => apiClient.post('/api/v1/announcements/read-all', { through }),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ['announcements'] }) },
   })
 }

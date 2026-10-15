@@ -22,11 +22,19 @@ public class AnnouncementController {
     @GetMapping
     public ResponseEntity<AnnouncementService.Feed> list(@AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") @Min(0) @Max(100000) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list(user.getId(), page, size));
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
+            @RequestParam(defaultValue = "false") boolean unreadOnly) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list(user.getId(), page, size, unreadOnly));
     }
 
     public record ReadRequest(@NotEmpty @Size(max = 50) List<@NotNull UUID> ids) {}
+    public record ReadAllRequest(@NotNull java.time.Instant through) {}
+
+    @PostMapping("/read-all")
+    public ResponseEntity<Void> markAllRead(@AuthenticationPrincipal User user, @Valid @RequestBody ReadAllRequest request) {
+        service.markAllRead(user.getId(), request.through());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
 
     @PostMapping("/read")
     public ResponseEntity<Void> markRead(@AuthenticationPrincipal User user, @Valid @RequestBody ReadRequest request) {

@@ -42,10 +42,10 @@ class AnnouncementControllerTest {
         for (UserRole role : UserRole.values()) {
             User user = User.create(role + "@example.test", "hash", role.name(), role);
             var auth = new UsernamePasswordAuthenticationToken(user, null, List.of());
-            when(service.list(user.getId(), 0, 20)).thenReturn(new AnnouncementService.Feed(List.of(), 0, 0, 0, 20));
+            when(service.list(user.getId(), 0, 20, false)).thenReturn(new AnnouncementService.Feed(List.of(), 0, 0, 0, 20));
             mvc.perform(get("/api/v1/announcements").with(authentication(auth)))
                     .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
-            verify(service).list(user.getId(), 0, 20);
+            verify(service).list(user.getId(), 0, 20, false);
         }
     }
 
