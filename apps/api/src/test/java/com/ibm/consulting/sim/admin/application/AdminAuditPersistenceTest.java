@@ -28,7 +28,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 
 @DataJpaTest
-@Import({AuditLogger.class, AdminAuditService.class})
+@Import({AuditLogger.class, AdminAuditService.class, AdminAuditRetention.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -46,6 +46,7 @@ class AdminAuditPersistenceTest {
     @Autowired PlatformTransactionManager manager;
     @Autowired EntityManager entityManager;
     @Autowired JdbcTemplate jdbc;
+    @org.springframework.boot.test.mock.mockito.MockBean com.ibm.consulting.sim.identity.domain.UserRepository users;
     @BeforeEach void clearEvents() { repository.deleteAllInBatch(); }
     @AfterEach void clearIdentity() { SecurityContextHolder.clearContext(); }
 
@@ -86,5 +87,39 @@ class AdminAuditPersistenceTest {
         assertThat(service.list(null, null, null, null, null, 0, 1).items()).hasSize(1);
         assertThatThrownBy(() -> service.list(null, null, null, today.plusDays(1), today, 0, 25))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test void deletedUserTargetKeepsItsNameAndEmail() {
+        User target = User.create(UUID.randomUUID() + "@example.com", "private-hash", "Target Account", UserRole.LEARNER);
+        new TransactionTemplate(manager).executeWithoutResult(status -> entityManager.persist(target));
+        org.mockito.Mockito.when(users.findById(target.getId())).thenAnswer(ignored ->
+                java.util.Optional.ofNullable(entityManager.find(User.class, target.getId())));
+        new TransactionTemplate(manager).executeWithoutResult(status -> {
+            logger.recordAdmin(AuditAction.ADMIN_USER_DELETED, "USER", target.getId().toString(), target.getEmail());
+            entityManager.remove(entityManager.find(User.class, target.getId()));
+        });
+        var page = service.list("Target Account", null, null, null, null, 0, 25);
+        assertThat(page.totalElements()).isEqualTo(1);
+        assertThat(page.items().getFirst().targetDisplayName()).isEqualTo("Target Account");
+        assertThat(page.items().getFirst().targetEmail()).isEqualTo(target.getEmail());
+        assertThat(page.items().getFirst().targetRole()).isEqualTo("LEARNER");
+    }
+
+    @Test void hidesExpiredEventsAndDeletesOnlyThoseBeforeTheCutoff() {
+        java.time.Instant now = java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        var policy = new AdminAuditRetention(repository, 90, java.time.Clock.fixed(now, ZoneOffset.UTC));
+        var limited = new AdminAuditService(repository, policy);
+        logger.recordAdmin(AuditAction.ADMIN_USER_CREATED, "USER", "expired");
+        logger.recordAdmin(AuditAction.ADMIN_USER_CREATED, "USER", "boundary");
+        logger.recordAdmin(AuditAction.ADMIN_USER_CREATED, "USER", "recent");
+        jdbc.update("UPDATE admin_audit_events SET occurred_at = ? WHERE target_id = 'expired'",
+                java.sql.Timestamp.from(policy.cutoff().minusSeconds(1)));
+        jdbc.update("UPDATE admin_audit_events SET occurred_at = ? WHERE target_id = 'boundary'",
+                java.sql.Timestamp.from(policy.cutoff()));
+        assertThat(limited.list(null, null, null, null, null, 0, 25).items())
+                .extracting(AdminAuditService.AuditItem::targetId).containsExactlyInAnyOrder("boundary", "recent");
+        Integer removed = new TransactionTemplate(manager).execute(status -> policy.purgeExpired());
+        assertThat(removed).isEqualTo(1);
+        assertThat(repository.count()).isEqualTo(2);
     }
 }

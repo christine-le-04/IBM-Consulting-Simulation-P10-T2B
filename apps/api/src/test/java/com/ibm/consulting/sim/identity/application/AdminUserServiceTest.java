@@ -35,8 +35,9 @@ class AdminUserServiceTest {
         User user = User.create("deleted@example.com", "private-hash", "Deleted User", UserRole.LEARNER);
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         service.deleteUser(user.getId(), UUID.randomUUID());
-        verify(userRepository).delete(user);
-        verify(auditLogger).recordAdmin(AuditAction.ADMIN_USER_DELETED, "USER", user.getId().toString(), "deleted@example.com");
+        var order = org.mockito.Mockito.inOrder(userRepository, auditLogger);
+        order.verify(auditLogger).recordAdmin(AuditAction.ADMIN_USER_DELETED, "USER", user.getId().toString(), "deleted@example.com");
+        order.verify(userRepository).delete(user);
     }
 
     // audit logging - change user role

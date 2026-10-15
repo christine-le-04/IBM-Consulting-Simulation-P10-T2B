@@ -40,10 +40,11 @@ class AdminAuditControllerTest {
 
     @Test @WithMockUser(roles = "ADMINISTRATOR") void returnsBoundedPageWithoutBrowserCaching() throws Exception {
         when(service.list(isNull(), isNull(), isNull(), isNull(), isNull(), eq(0), eq(25)))
-                .thenReturn(new AdminAuditService.AuditPage(List.of(), 0, 0, 25, 0, List.of(AuditAction.values())));
+                .thenReturn(new AdminAuditService.AuditPage(List.of(), 0, 0, 25, 0, List.of(AuditAction.values()), 90));
         mvc.perform(get("/api/v1/admin/audit-events")).andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.items").isArray()).andExpect(jsonPath("$.size").value(25))
+                .andExpect(jsonPath("$.retentionDays").value(90))
                 .andExpect(jsonPath("$.actions").isArray());
     }
 

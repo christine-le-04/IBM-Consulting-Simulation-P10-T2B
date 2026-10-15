@@ -20,6 +20,9 @@ public class AdminAuditEvent {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 64) private AuditAction action;
     @Column(nullable = false, length = 40) private String targetType;
     @Column(nullable = false, length = 100) private String targetId;
+    @Column(length = 80) private String targetDisplayName;
+    @Column(length = 255) private String targetEmail;
+    @Column(length = 40) private String targetRole;
     @Column(columnDefinition = "text") private String details;
 
     protected AdminAuditEvent() {}
@@ -44,6 +47,11 @@ public class AdminAuditEvent {
     private static String bounded(String value, int length) {
         return value == null ? null : value.substring(0, Math.min(value.length(), length));
     }
+    public void snapshotTarget(User target) {
+        targetDisplayName = bounded(target.getDisplayName(), 80);
+        targetEmail = bounded(target.getEmail(), 255);
+        targetRole = target.getRole() == null ? null : target.getRole().name();
+    }
     public UUID getId() { return id; }
     public Instant getOccurredAt() { return occurredAt; }
     public UUID getActorId() { return actorId; }
@@ -53,5 +61,8 @@ public class AdminAuditEvent {
     public AuditAction getAction() { return action; }
     public String getTargetType() { return targetType; }
     public String getTargetId() { return targetId; }
+    public String getTargetDisplayName() { return targetDisplayName; }
+    public String getTargetEmail() { return targetEmail; }
+    public String getTargetRole() { return targetRole; }
     public String getDetails() { return details; }
 }

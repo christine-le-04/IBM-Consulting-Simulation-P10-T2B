@@ -27,7 +27,8 @@ import com.ibm.consulting.sim.meeting.application.MeetingServiceTestFactory;
 class AuditLoggerTest {
 
     private final AdminAuditEventRepository repository = mock(AdminAuditEventRepository.class);
-    private final AuditLogger auditLogger = new AuditLogger(repository);
+    private final com.ibm.consulting.sim.identity.domain.UserRepository users = mock(com.ibm.consulting.sim.identity.domain.UserRepository.class);
+    private final AuditLogger auditLogger = new AuditLogger(repository, users);
     private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
     private Logger targetLogger;
 
@@ -123,5 +124,23 @@ class AuditLoggerTest {
             status.setRollbackOnly();
         });
         assertThat(appender.list).isEmpty();
+    }
+
+    @Test
+    void snapshotsUserTargetBeforeAccountDeletionAndDoesNotFollowLaterChanges() {
+        User target = mock(User.class);
+        UUID targetId = UUID.randomUUID();
+        when(users.findById(targetId)).thenReturn(java.util.Optional.of(target));
+        when(target.getDisplayName()).thenReturn("Target User");
+        when(target.getEmail()).thenReturn("target@example.com");
+        when(target.getRole()).thenReturn(com.ibm.consulting.sim.identity.domain.UserRole.LEARNER);
+        auditLogger.recordAdmin(AuditAction.ADMIN_USER_DELETED, "USER", targetId.toString(), "target@example.com");
+        when(target.getDisplayName()).thenReturn("Changed name");
+        ArgumentCaptor<AdminAuditEvent> saved = ArgumentCaptor.forClass(AdminAuditEvent.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getTargetDisplayName()).isEqualTo("Target User");
+        assertThat(saved.getValue().getTargetEmail()).isEqualTo("target@example.com");
+        assertThat(saved.getValue().getTargetRole()).isEqualTo("LEARNER");
+        org.mockito.Mockito.verify(target, org.mockito.Mockito.never()).getPasswordHash();
     }
 }

@@ -126,8 +126,8 @@ public class AdminUserService {
                 && userRepository.countByRoleAndActive(UserRole.ADMINISTRATOR, true) <= 1) {
             throw new IllegalArgumentException("The last active administrator cannot be deleted.");
         }
-        userRepository.delete(user);
         auditLogger.recordAdmin(AuditAction.ADMIN_USER_DELETED, "USER", userId.toString(), user.getEmail());
+        userRepository.delete(user);
     }
 
     private User findUser(UUID userId) {
