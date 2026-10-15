@@ -46,11 +46,26 @@ class AdminAnnouncementControllerTest {
 
     @Test @WithMockUser(roles = "ADMINISTRATOR") void administratorCanPublish() throws Exception {
         UUID id = UUID.randomUUID();
-        when(service.publish("Maintenance", "The platform will restart tonight.")).thenReturn(id);
+        when(service.publish("Maintenance", "The platform will restart tonight.", null)).thenReturn(id);
         mvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.id").value(id.toString()));
-        verify(service).publish("Maintenance", "The platform will restart tonight.");
+        verify(service).publish("Maintenance", "The platform will restart tonight.", null);
+    }
+
+    @Test @WithMockUser(roles = "ADMINISTRATOR") void acceptsSelectedRolesAndRejectsInvalidAudiences() throws Exception {
+        mvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Learner notice\",\"message\":\"Hello\",\"targetRoles\":[\"LEARNER\",\"REVIEWER\"]}"))
+                .andExpect(status().isCreated());
+        verify(service).publish("Learner notice", "Hello", java.util.Set.of(
+                com.ibm.consulting.sim.identity.domain.UserRole.LEARNER, com.ibm.consulting.sim.identity.domain.UserRole.REVIEWER));
+        clearInvocations(service);
+        for (String roles : List.of("[]", "[null]", "[\"UNKNOWN\"]")) {
+            mvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"Notice\",\"message\":\"Hello\",\"targetRoles\":" + roles + "}"))
+                    .andExpect(status().isBadRequest());
+        }
+        verifyNoInteractions(service);
     }
 
     @Test @WithMockUser(roles = "ADMINISTRATOR") void blankAndOversizedContentIsRejected() throws Exception {

@@ -86,6 +86,48 @@ class AnnouncementPersistenceTest {
         verifyNoInteractions(messaging);
     }
 
+    @Test void roleAudienceFiltersFeedCountsAndReadReceiptsOnTheServer() {
+        User learner = user();
+        User reviewer = user();
+        jdbc.update("UPDATE users SET role = 'REVIEWER' WHERE id = ?", reviewer.getId());
+        UUID publicId = adminService.publish("Everyone", "Public update");
+        UUID privateId = adminService.publish("Learners", "Learner update", java.util.Set.of(UserRole.LEARNER));
+        assertThat(service.list(learner.getId(), 0, 20).totalElements()).isEqualTo(2);
+        var reviewerFeed = service.list(reviewer.getId(), 0, 20);
+        assertThat(reviewerFeed.totalElements()).isEqualTo(1);
+        assertThat(reviewerFeed.unreadCount()).isEqualTo(1);
+        assertThat(reviewerFeed.items()).extracting(AnnouncementService.Item::id).containsExactly(publicId);
+        service.markRead(reviewer.getId(), List.of(privateId, publicId));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads WHERE user_id = ? AND announcement_id = ?",
+                Long.class, reviewer.getId(), privateId)).isZero();
+        assertThat(service.list(reviewer.getId(), 0, 20).unreadCount()).isZero();
+        assertThat(service.list(learner.getId(), 0, 20).unreadCount()).isEqualTo(2);
+    }
+
+    @Test void changingRolesImmediatelyChangesAnnouncementVisibility() {
+        User learner = user();
+        UUID learnerNotice = adminService.publish("Learners", "Private", java.util.Set.of(UserRole.LEARNER));
+        UUID staffNotice = adminService.publish("Staff", "Private", java.util.Set.of(UserRole.REVIEWER, UserRole.ADMINISTRATOR));
+        assertThat(service.list(learner.getId(), 0, 20).items()).extracting(AnnouncementService.Item::id).containsExactly(learnerNotice);
+        jdbc.update("UPDATE users SET role = 'REVIEWER' WHERE id = ?", learner.getId());
+        assertThat(service.list(learner.getId(), 0, 20).items()).extracting(AnnouncementService.Item::id).containsExactly(staffNotice);
+        service.markRead(learner.getId(), List.of(learnerNotice));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads", Long.class)).isZero();
+    }
+
+    @Test void targetedPublicationRollsBackItsAudienceAndRejectsAnEmptyRoleSelection() {
+        assertThatThrownBy(() -> adminService.publish("Title", "Message", java.util.Set.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        new TransactionTemplate(manager).executeWithoutResult(status -> {
+            adminService.publish("Learners", "Private", java.util.Set.of(UserRole.LEARNER));
+            status.setRollbackOnly();
+        });
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_roles", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcements", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM admin_audit_events", Long.class)).isZero();
+        verifyNoInteractions(messaging);
+    }
+
     @Test void upgradeFromV78PreservesExistingAnnouncementsAndReadReceipts() throws Exception {
         String schema = "announcement_upgrade_" + UUID.randomUUID().toString().replace("-", "");
         try (var connection = jdbc.getDataSource().getConnection(); var statement = connection.createStatement()) {

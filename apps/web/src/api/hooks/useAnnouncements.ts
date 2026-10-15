@@ -16,6 +16,7 @@ export interface Announcement {
   createdAt: string
   read: boolean
 }
+export type AnnouncementRole = 'LEARNER' | 'SCENARIO_AUTHOR' | 'REVIEWER' | 'ADMINISTRATOR'
 export interface AnnouncementFeed {
   items: Announcement[]
   totalElements: number
@@ -33,7 +34,7 @@ export const announcementMessage = (item: Announcement) => item.message ?? (item
 export function usePublishAnnouncement() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { title: string; message: string }) =>
+    mutationFn: async (input: { title: string; message: string; targetRoles?: AnnouncementRole[] }) =>
       (await apiClient.post<{ id: string }>('/api/v1/admin/announcements', input)).data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['announcements'] })

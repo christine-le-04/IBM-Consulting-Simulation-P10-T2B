@@ -39,6 +39,32 @@ describe('AnnouncementsPage', () => {
     expect(screen.getByLabelText('Message')).toHaveValue('')
   })
 
+  it('requires a role selection and sends only the selected roles', () => {
+    render(<AnnouncementsPage />)
+    fill()
+    fireEvent.change(screen.getByLabelText('Recipients'), { target: { value: 'ROLES' } })
+    expect(screen.getByRole('button', { name: 'Publish to selected roles' })).toBeDisabled()
+    fireEvent.click(screen.getByLabelText('Learners'))
+    fireEvent.click(screen.getByLabelText('Reviewers'))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish to selected roles' }))
+    expect(mutate).toHaveBeenLastCalledWith({ title: 'Maintenance', message: 'Restart tonight.', targetRoles: ['LEARNER', 'REVIEWER'] }, expect.any(Object))
+    fireEvent.change(screen.getByLabelText('Recipients'), { target: { value: 'ALL' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publish to all users' }))
+    expect(mutate).toHaveBeenLastCalledWith({ title: 'Maintenance', message: 'Restart tonight.' }, expect.any(Object))
+  })
+
+  it('confirms the selected audience without resetting it to everyone', () => {
+    mutate.mockImplementation((_input, callbacks) => callbacks.onSuccess())
+    render(<AnnouncementsPage />)
+    fill()
+    fireEvent.change(screen.getByLabelText('Recipients'), { target: { value: 'ROLES' } })
+    fireEvent.click(screen.getByLabelText('Learners'))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish to selected roles' }))
+    expect(screen.getByText('Your update is available to learners in their announcement bell.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Recipients')).toHaveValue('ROLES')
+    expect(screen.getByLabelText('Learners')).toBeChecked()
+  })
+
   it('preserves failed submissions and allows retrying', () => {
     const view = render(<AnnouncementsPage />)
     fill()
