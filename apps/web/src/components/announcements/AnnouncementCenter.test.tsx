@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useAnnouncements, useReadAnnouncements, useAnnouncementUpdates, type AnnouncementFeed } from '@/api/hooks/useAnnouncements'
 import AnnouncementCenter from './AnnouncementCenter'
 
-vi.mock('@/api/hooks/useAnnouncements', () => ({
+vi.mock('@/api/hooks/useAnnouncements', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/api/hooks/useAnnouncements')>(),
   useAnnouncements: vi.fn(), useReadAnnouncements: vi.fn(), useAnnouncementUpdates: vi.fn(),
 }))
 const mutate = vi.fn()
@@ -33,6 +34,22 @@ describe('AnnouncementCenter', () => {
     expect(document.querySelector('script')).toBeNull()
     expect(useAnnouncementUpdates).toHaveBeenCalled()
     expect(refetch).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+    open()
+    expect(screen.queryByRole('region', { name: 'Announcements' })).not.toBeInTheDocument()
+  })
+
+  it('shows custom administrator titles and messages as plain text', () => {
+    setup({ data: { ...data, items: [{ ...data.items[0], kind: 'ADMIN_MESSAGE', scenarioId: null, scenarioTitle: null,
+      title: 'Maintenance', message: 'Tonight\n<script>test</script>' }] } })
+    render(<AnnouncementCenter />)
+    open()
+    expect(screen.getByText('From the administration team')).toBeInTheDocument()
+    expect(screen.getByText('Maintenance')).toBeInTheDocument()
+    expect(screen.getByText(/<script>test<\/script>/)).toBeInTheDocument()
+    expect(document.querySelector('script')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Maintenance as read' }))
+    expect(mutate).toHaveBeenLastCalledWith(['published'])
   })
 
   it('marks only displayed unread items and supports individual reads', () => {

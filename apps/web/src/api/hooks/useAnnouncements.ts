@@ -8,9 +8,11 @@ import { useAuthStore } from '@/store/authStore'
 
 export interface Announcement {
   id: string
-  scenarioId: string
-  kind: 'SCENARIO_PUBLISHED' | 'SCENARIO_ARCHIVED'
-  scenarioTitle: string
+  scenarioId: string | null
+  kind: 'SCENARIO_PUBLISHED' | 'SCENARIO_ARCHIVED' | 'ADMIN_MESSAGE'
+  scenarioTitle: string | null
+  title?: string
+  message?: string
   createdAt: string
   read: boolean
 }
@@ -20,6 +22,24 @@ export interface AnnouncementFeed {
   unreadCount: number
   page: number
   size: number
+}
+
+// Fallbacks support scenario announcements returned by an API during a rolling deployment.
+export const announcementTitle = (item: Announcement) => item.title ?? item.scenarioTitle ?? 'Announcement'
+export const announcementMessage = (item: Announcement) => item.message ?? (item.kind === 'SCENARIO_PUBLISHED'
+  ? 'A scenario is now available in the catalogue.'
+  : item.kind === 'SCENARIO_ARCHIVED' ? 'This scenario is no longer available for new runs. Existing runs are kept.' : '')
+
+export function usePublishAnnouncement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { title: string; message: string }) =>
+      (await apiClient.post<{ id: string }>('/api/v1/admin/announcements', input)).data,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['announcements'] })
+      void qc.invalidateQueries({ queryKey: ['admin', 'audit-events'] })
+    },
+  })
 }
 
 export function useAnnouncements(page: number) {

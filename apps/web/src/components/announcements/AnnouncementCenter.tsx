@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, HeaderGlobalAction, InlineLoading, InlineNotification, Tag } from '@carbon/react'
 import { Notification } from '@carbon/icons-react'
-import { useAnnouncements, useAnnouncementUpdates, useReadAnnouncements } from '@/api/hooks/useAnnouncements'
+import { announcementTitle, announcementMessage, useAnnouncements, useAnnouncementUpdates, useReadAnnouncements } from '@/api/hooks/useAnnouncements'
 import styles from './AnnouncementCenter.module.css'
 
 export default function AnnouncementCenter() {
@@ -39,7 +39,7 @@ export default function AnnouncementCenter() {
       {unread > 0 && <span className={styles.badge} aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
     </HeaderGlobalAction>
     {open && <section id="announcement-panel" aria-label="Announcements" className={styles.panel} ref={panel} tabIndex={-1}>
-      <div className={styles.heading}><h2>Announcements</h2><Button kind="ghost" size="sm" onClick={() => { setOpen(false); trigger.current?.focus() }}>Close</Button></div>
+      <div className={styles.heading}><h2>Announcements</h2></div>
       <p aria-live="polite">{unread} unread</p>
       {feed.isLoading && <InlineLoading description="Loading announcements" />}
       {feed.isError && <InlineNotification kind="error" title="Announcements unavailable" subtitle="Try again in a moment." hideCloseButton />}
@@ -48,12 +48,12 @@ export default function AnnouncementCenter() {
       {unreadIds.length > 0 && <Button kind="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate(unreadIds)}>Mark this page as read</Button>}
       {feed.data?.items.length === 0 && <p>No announcements yet.</p>}
       <ul className={styles.list}>{feed.data?.items.map((item) => <li key={item.id} className={item.read ? '' : styles.unread}>
-        <div><strong>{item.kind === 'SCENARIO_PUBLISHED' ? 'Scenario published' : 'Scenario archived'}</strong>{!item.read && <Tag type="blue">Unread</Tag>}</div>
-        <p>{item.scenarioTitle}</p>
-        <p>{item.kind === 'SCENARIO_PUBLISHED' ? 'A scenario is now available in the catalogue.' : 'This scenario is no longer available for new runs. Existing runs are kept.'}</p>
+        <div><strong>{item.kind === 'SCENARIO_PUBLISHED' ? 'Scenario published' : item.kind === 'SCENARIO_ARCHIVED' ? 'Scenario archived' : 'From the administration team'}</strong>{!item.read && <Tag type="blue">Unread</Tag>}</div>
+        <p><strong>{announcementTitle(item)}</strong></p>
+        <p className={styles.message}>{announcementMessage(item)}</p>
         <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
         {!item.read && <Button kind="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate([item.id])}
-          aria-label={`Mark ${item.scenarioTitle} as read`}>Mark as read</Button>}
+          aria-label={`Mark ${announcementTitle(item)} as read`}>Mark as read</Button>}
       </li>)}</ul>
       {feed.data && feed.data.totalElements > feed.data.size && <div className={styles.paging}>
         <Button kind="ghost" size="sm" disabled={page === 0 || feed.isFetching} onClick={() => setPage((value) => value - 1)}>Newer</Button>

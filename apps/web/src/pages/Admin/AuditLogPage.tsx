@@ -5,7 +5,7 @@ import { useAdminAuditEvents, type AdminAuditFilters } from '@/api/hooks/useAdmi
 import ErrorState from '@/components/shared/ErrorState'
 import styles from './AuditLogPage.module.css'
 
-const targets = ['USER', 'SCENARIO', 'LEAD', 'KNOWLEDGE_DOCUMENT', 'ACHIEVEMENT']
+const targets = ['USER', 'SCENARIO', 'LEAD', 'KNOWLEDGE_DOCUMENT', 'ACHIEVEMENT', 'ANNOUNCEMENT']
 const label = (value: string) => value.replace(/^ADMIN_/, '').toLowerCase().replaceAll('_', ' ').replace(/^./, (first) => first.toUpperCase())
 const emptyFilters = { search: '', action: '', targetType: '', from: '', to: '' }
 const formatTime = (value: string) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
