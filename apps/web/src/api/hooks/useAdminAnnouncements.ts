@@ -10,7 +10,9 @@ export interface SentAnnouncement {
   targetRoles: AnnouncementRole[]
   createdAt: string
   withdrawnAt: string | null
-  status: 'PUBLISHED' | 'WITHDRAWN'
+  status: 'PUBLISHED' | 'WITHDRAWN' | 'SCHEDULED' | 'EXPIRED'
+  publishAt?: string
+  expiresAt?: string | null
 }
 export interface SentAnnouncementsPage { items: SentAnnouncement[]; totalElements: number; page: number; size: number }
 export const recipientRoles: { value: AnnouncementRole; label: string }[] = [

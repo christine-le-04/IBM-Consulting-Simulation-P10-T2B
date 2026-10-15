@@ -9,6 +9,10 @@ import styles from './AnnouncementsPage.module.css'
 export default function AnnouncementsPage() {
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
+  const [publishAt, setPublishAt] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
+  const [dateError, setDateError] = useState('')
+  const [wasScheduled, setWasScheduled] = useState(false)
   const [published, setPublished] = useState(false)
   const [audience, setAudience] = useState('ALL')
   const [targetRoles, setTargetRoles] = useState<AnnouncementRole[]>([])
@@ -22,10 +26,17 @@ export default function AnnouncementsPage() {
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim() || !message.trim() || !hasRecipients || publish.isPending) return
+    const publication = publishAt ? new Date(publishAt).getTime() : Date.now()
+    if (!Number.isFinite(publication) || (publishAt && publication <= Date.now()) ||
+      (expiresAt && (!Number.isFinite(new Date(expiresAt).getTime()) || new Date(expiresAt).getTime() <= publication))) {
+      setDateError('Choose a future publication time and an expiry after publication.'); return
+    }
+    setDateError('')
     setPublished(false)
     const recipientLabel = audience === 'ALL' ? 'all users' : roles.filter((role) => targetRoles.includes(role.value)).map((role) => role.label.toLowerCase()).join(', ')
-    publish.mutate({ title: title.trim(), message: message.trim(), ...(audience === 'ROLES' ? { targetRoles } : {}) }, {
-      onSuccess: () => { setTitle(''); setMessage(''); setPublishedAudience(recipientLabel); setPublished(true); setHistoryPage(0) },
+    publish.mutate({ title: title.trim(), message: message.trim(), ...(audience === 'ROLES' ? { targetRoles } : {}),
+      ...(publishAt ? { publishAt: new Date(publishAt).toISOString() } : {}), ...(expiresAt ? { expiresAt: new Date(expiresAt).toISOString() } : {}) }, {
+      onSuccess: () => { setWasScheduled(Boolean(publishAt)); setPublishAt(''); setExpiresAt(''); setTitle(''); setMessage(''); setPublishedAudience(recipientLabel); setPublished(true); setHistoryPage(0) },
     })
   }
 
@@ -38,8 +49,9 @@ export default function AnnouncementsPage() {
     <div className={styles.layout}>
       <section className={styles.compose} aria-labelledby="compose-heading">
         <h2 id="compose-heading">New announcement</h2>
-        <p>Choose who should receive this update. It will be published immediately and remain available when recipients next sign in. Role targeting follows each account's current role.</p>
-        {published && <InlineNotification kind="success" title="Announcement published" subtitle={`Your update is available to ${publishedAudience} in their announcement bell.`} hideCloseButton />}
+        <p>Choose recipients and optionally schedule publication or expiry. Role targeting follows each account's current role.</p>
+        {published && <InlineNotification kind="success" title={wasScheduled ? 'Announcement scheduled' : 'Announcement published'} subtitle={wasScheduled ? `Your update will appear for ${publishedAudience} at the scheduled time.` : `Your update is available to ${publishedAudience} in their announcement bell.`} hideCloseButton />}
+        {dateError && <InlineNotification kind="error" title="Check announcement dates" subtitle={dateError} hideCloseButton />}
         {publish.isError && <InlineNotification kind="error" title="Announcement could not be published"
           subtitle={getProblemDetail(publish.error, 'Please try again. Your message has been kept.')} hideCloseButton />}
         <Form onSubmit={submit} className={styles.form}>
@@ -60,6 +72,12 @@ export default function AnnouncementsPage() {
           <TextArea id="announcement-message" labelText="Message" value={message} required maxLength={4000} rows={8} disabled={publish.isPending}
             helperText={`${message.length}/4000 characters. Plain text; line breaks are preserved.`}
             onChange={(event) => { setMessage(event.target.value); setPublished(false) }} />
+          <TextInput id="announcement-publish-at" type="datetime-local" labelText="Publish at (optional)" value={publishAt}
+            disabled={publish.isPending} helperText="Your local time. Leave empty to publish immediately."
+            onChange={(event) => { setPublishAt(event.target.value); setDateError(''); setPublished(false) }} />
+          <TextInput id="announcement-expires-at" type="datetime-local" labelText="Expires at (optional)" value={expiresAt}
+            disabled={publish.isPending} helperText="Your local time. Leave empty to keep the announcement available."
+            onChange={(event) => { setExpiresAt(event.target.value); setDateError(''); setPublished(false) }} />
           <Button type="submit" renderIcon={Send} disabled={!title.trim() || !message.trim() || !hasRecipients || publish.isPending}>
             {publish.isPending ? 'Publishing…' : audience === 'ALL' ? 'Publish to all users' : 'Publish to selected roles'}
           </Button>
@@ -74,10 +92,12 @@ export default function AnnouncementsPage() {
         {feed.data?.items.length === 0 && <p>No announcements yet.</p>}
         <ul className={styles.list}>{feed.data?.items.map((item) => <li key={item.id}>
           <h3>{item.title}</h3>
-          <Tag type={item.status === 'WITHDRAWN' ? 'gray' : 'green'}>{item.status === 'WITHDRAWN' ? 'Withdrawn' : 'Published'}</Tag>
+          <Tag type={item.status === 'PUBLISHED' ? 'green' : item.status === 'SCHEDULED' ? 'blue' : 'gray'}>
+            {{ PUBLISHED: 'Published', WITHDRAWN: 'Withdrawn', SCHEDULED: 'Scheduled', EXPIRED: 'Expired' }[item.status]}</Tag>
           <p>Sent to: {audienceLabel(item.audience, item.targetRoles)}</p>
           <p className={styles.message}>{item.message}</p>
-          <time dateTime={item.createdAt}>Published: {new Date(item.createdAt).toLocaleString()}</time>
+          <time dateTime={item.publishAt ?? item.createdAt}>{item.status === 'SCHEDULED' ? 'Publishes' : 'Publication'}: {new Date(item.publishAt ?? item.createdAt).toLocaleString()}</time>
+          {item.expiresAt && <p>Expires: {new Date(item.expiresAt).toLocaleString()}</p>}
           {item.withdrawnAt && <p>Withdrawn: {new Date(item.withdrawnAt).toLocaleString()}</p>}
           {item.status !== 'WITHDRAWN' && <Button kind="danger--ghost" size="sm" onClick={() => setWithdrawTarget(item)}>Withdraw</Button>}
         </li>)}</ul>

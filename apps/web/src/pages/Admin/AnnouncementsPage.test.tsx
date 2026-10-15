@@ -28,6 +28,20 @@ function fill() {
 describe('AnnouncementsPage', () => {
   beforeEach(() => { vi.resetAllMocks(); setup() })
 
+  it('sends scheduled times as UTC and rejects expiry before publication', () => {
+    render(<AnnouncementsPage />)
+    fill()
+    fireEvent.change(screen.getByLabelText('Publish at (optional)'), { target: { value: '2099-10-16T09:00' } })
+    fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '2099-10-16T08:00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publish to all users' }))
+    expect(mutate).not.toHaveBeenCalled()
+    expect(screen.getByText('Check announcement dates')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Expires at (optional)'), { target: { value: '2099-10-17T09:00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publish to all users' }))
+    expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ publishAt: new Date('2099-10-16T09:00').toISOString(),
+      expiresAt: new Date('2099-10-17T09:00').toISOString() }), expect.any(Object))
+  })
+
   it('publishes trimmed content to everyone and clears the form only on success', () => {
     render(<AnnouncementsPage />)
     expect(screen.getByRole('button', { name: 'Publish to all users' })).toBeDisabled()

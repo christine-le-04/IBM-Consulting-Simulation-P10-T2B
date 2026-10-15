@@ -52,6 +52,8 @@ class AnnouncementTransactionTest {
     @BeforeEach void clear() { reset(messaging, jdbc, audit); }
 
     @Test void customPublicationJoinsAuditAndBroadcastsOnlyAfterCommit() {
+        when(jdbc.queryForObject("SELECT CURRENT_TIMESTAMP", java.sql.Timestamp.class))
+                .thenReturn(java.sql.Timestamp.from(java.time.Instant.now()));
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             var id = adminService.publish(" Maintenance ", " Restart tonight. ");
             verify(audit).recordAdmin(AuditAction.ADMIN_ANNOUNCEMENT_PUBLISHED, "ANNOUNCEMENT", id.toString(), "Maintenance");

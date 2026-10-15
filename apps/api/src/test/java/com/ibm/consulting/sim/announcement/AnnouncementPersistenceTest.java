@@ -37,7 +37,7 @@ import static org.mockito.ArgumentMatchers.*;
 
 @DataJpaTest
 @Import({AnnouncementService.class, AdminAnnouncementService.class, AnnouncementBroadcaster.class, AuditLogger.class,
-        com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory.class})
+        com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory.class, com.ibm.consulting.sim.announcement.application.AnnouncementSchedule.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -57,6 +57,41 @@ class AnnouncementPersistenceTest {
     @MockBean UserRepository users;
     @Autowired AdminAnnouncementService adminService;
     @Autowired com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory history;
+    @Autowired com.ibm.consulting.sim.announcement.application.AnnouncementSchedule schedule;
+
+    @Test void scheduledAndExpiredAnnouncementsStayOutOfFeedsAndTransitionsNotifyOnce() {
+        User recipient = user();
+        java.time.Instant future = java.time.Instant.now().plusSeconds(3600);
+        UUID id = adminService.publish("Scheduled", "Later", null, future, future.plusSeconds(3600));
+        assertThat(service.list(recipient.getId(), 0, 20).items()).isEmpty();
+        service.markRead(recipient.getId(), List.of(id));
+        assertThat(history.list(0, 20).items().getFirst().status()).isEqualTo("SCHEDULED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads", Long.class)).isZero();
+        reset(messaging);
+        jdbc.update("UPDATE announcements SET publish_at = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id = ?", id);
+        schedule.notifyTransitions(); schedule.notifyTransitions();
+        verify(messaging, times(1)).convertAndSend(eq("/topic/announcements"), any(AnnouncementService.Created.class));
+        assertThat(service.list(recipient.getId(), 0, 20).unreadCount()).isEqualTo(1);
+        jdbc.update("UPDATE announcements SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id = ?", id);
+        schedule.notifyTransitions(); schedule.notifyTransitions();
+        verify(messaging, times(2)).convertAndSend(eq("/topic/announcements"), any(AnnouncementService.Created.class));
+        assertThat(service.list(recipient.getId(), 0, 20).unreadCount()).isZero();
+        assertThat(history.list(0, 20).items().getFirst().status()).isEqualTo("EXPIRED");
+        assertThatThrownBy(() -> adminService.publish("Bad", "Time", null, future, future.minusSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adminService.publish("Bad", "Past", null, java.time.Instant.EPOCH, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test void withdrawnScheduledAnnouncementDoesNotPublish() {
+        UUID id = adminService.publish("Cancelled", "Later", null, java.time.Instant.now().plusSeconds(3600), null);
+        history.withdraw(id);
+        reset(messaging);
+        jdbc.update("UPDATE announcements SET publish_at = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id = ?", id);
+        schedule.notifyTransitions();
+        verifyNoInteractions(messaging);
+        assertThat(service.list(user().getId(), 0, 20).items()).isEmpty();
+    }
 
     @Test void adminHistoryIncludesOtherRoleMessagesAndWithdrawalPreservesHistoryWithoutUnreadCounts() {
         User learner = user();
@@ -88,9 +123,9 @@ class AnnouncementPersistenceTest {
         UUID hidden = adminService.publish("Private", "Not for learners", java.util.Set.of(UserRole.ADMINISTRATOR));
         var snapshot = service.list(learner.getId(), 0, 20);
         UUID later = adminService.publish("Later", "New arrival");
-        jdbc.update("UPDATE announcements SET created_at = ? WHERE id = ?",
-                java.sql.Timestamp.from(snapshot.readThrough().plusSeconds(1)), later);
-        service.markAllRead(learner.getId(), snapshot.readThrough());
+        jdbc.update("UPDATE announcements SET publish_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(snapshot.readThrough().minusSeconds(20)), first);
+        service.markAllRead(learner.getId(), snapshot.readThrough().minusSeconds(10));
         var unread = service.list(learner.getId(), 0, 20, true);
         assertThat(unread.items()).extracting(AnnouncementService.Item::id).containsExactly(later);
         assertThat(unread.totalElements()).isEqualTo(1);

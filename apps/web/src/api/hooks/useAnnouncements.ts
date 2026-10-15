@@ -35,7 +35,7 @@ export const announcementMessage = (item: Announcement) => item.message ?? (item
 export function usePublishAnnouncement() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { title: string; message: string; targetRoles?: AnnouncementRole[] }) =>
+    mutationFn: async (input: { title: string; message: string; targetRoles?: AnnouncementRole[]; publishAt?: string; expiresAt?: string }) =>
       (await apiClient.post<{ id: string }>('/api/v1/admin/announcements', input)).data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['announcements'] })

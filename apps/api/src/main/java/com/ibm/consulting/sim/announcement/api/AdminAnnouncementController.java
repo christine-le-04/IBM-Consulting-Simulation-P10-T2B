@@ -41,12 +41,13 @@ public class AdminAnnouncementController {
 
     public record PublishRequest(@NotBlank @Size(max = 120) String title,
                                  @NotBlank @Size(max = 4000) String message,
-                                 @Size(min = 1, max = 4) Set<@NotNull UserRole> targetRoles) {}
+                                 @Size(min = 1, max = 4) Set<@NotNull UserRole> targetRoles,
+                                 java.time.Instant publishAt, java.time.Instant expiresAt) {}
     public record Published(UUID id) {}
 
     @PostMapping
     public ResponseEntity<Published> publish(@Valid @RequestBody PublishRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
-                .body(new Published(service.publish(request.title(), request.message(), request.targetRoles())));
+                .body(new Published(service.publish(request.title(), request.message(), request.targetRoles(), request.publishAt(), request.expiresAt())));
     }
 }

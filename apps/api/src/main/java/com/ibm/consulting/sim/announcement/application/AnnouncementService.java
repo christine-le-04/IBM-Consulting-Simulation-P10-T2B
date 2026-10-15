@@ -20,7 +20,8 @@ public class AnnouncementService {
                 OR (a.audience = 'USERS' AND EXISTS (SELECT 1 FROM announcement_recipients recipient
                     WHERE recipient.announcement_id = a.id AND recipient.user_id = u.id)))))
             """;
-    static final String ELIGIBLE = "a.withdrawn_at IS NULL AND " + VISIBLE;
+    static final String ELIGIBLE = "a.withdrawn_at IS NULL AND a.publish_at <= CURRENT_TIMESTAMP "
+            + "AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP) AND " + VISIBLE;
     private final JdbcTemplate jdbc;
     private final ApplicationEventPublisher events;
 
@@ -65,10 +66,10 @@ public class AnnouncementService {
                 FROM announcements a LEFT JOIN announcement_reads r
                   ON r.announcement_id = a.id AND r.user_id = ?
                 WHERE %s
-                ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?
+                ORDER BY a.publish_at DESC, a.id DESC LIMIT ? OFFSET ?
                 """.formatted(ELIGIBLE + (unreadOnly ? " AND r.user_id IS NULL" : "")), (rs, row) -> new Item(rs.getObject("id", UUID.class), rs.getObject("scenario_id", UUID.class),
                 Kind.valueOf(rs.getString("kind")), rs.getString("scenario_title"),
-                rs.getTimestamp("created_at").toInstant(), rs.getBoolean("is_read"),
+                rs.getTimestamp("publish_at").toInstant(), rs.getBoolean("is_read"),
                 rs.getString("display_title"), rs.getString("display_message")), userId, userId, size, (long) page * size);
         long total = jdbc.queryForObject("SELECT count(*) FROM announcements a WHERE " + ELIGIBLE, Long.class, userId);
         long unread = jdbc.queryForObject("""
@@ -84,7 +85,7 @@ public class AnnouncementService {
         jdbc.update("""
                 INSERT INTO announcement_reads (user_id, announcement_id)
                 SELECT ?, a.id FROM announcements a WHERE %s
-                AND a.created_at <= LEAST(?, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING
+                AND a.publish_at <= LEAST(?, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING
                 """.formatted(ELIGIBLE), userId, userId, java.sql.Timestamp.from(through));
     }
 

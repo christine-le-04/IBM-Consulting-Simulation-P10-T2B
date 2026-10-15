@@ -3,6 +3,7 @@ import { announcementAuditContent, formatAnnouncementAuditDetails } from './anno
 
 const actions: Record<string, { label: string; summary: string }> = {
   ADMIN_ANNOUNCEMENT_PUBLISHED: { label: 'Announcement published', summary: 'An announcement was published.' },
+  ADMIN_ANNOUNCEMENT_SCHEDULED: { label: 'Announcement scheduled', summary: 'An announcement was scheduled for later publication.' },
   ADMIN_ANNOUNCEMENT_WITHDRAWN: { label: 'Announcement withdrawn', summary: 'The announcement was withdrawn from recipient feeds.' },
   ADMIN_USER_CREATED: { label: 'User created', summary: 'A user account was created.' },
   ADMIN_USER_DELETED: { label: 'User deleted', summary: 'The user account was deleted.' },
@@ -54,7 +55,7 @@ function documentTitle(details: string | null) {
 }
 export function auditTargetName(item: AdminAuditEvent) {
   if (item.action === 'ADMIN_ANNOUNCEMENT_WITHDRAWN') return auditText(item.details)
-  if (item.targetType === 'ANNOUNCEMENT' && item.action === 'ADMIN_ANNOUNCEMENT_PUBLISHED' && item.details) {
+  if (item.targetType === 'ANNOUNCEMENT' && ['ADMIN_ANNOUNCEMENT_PUBLISHED', 'ADMIN_ANNOUNCEMENT_SCHEDULED'].includes(item.action) && item.details) {
     return auditText(announcementAuditContent(item.details).message)
   }
   if (item.targetType === 'KNOWLEDGE_DOCUMENT') return documentTitle(item.details)
@@ -89,6 +90,7 @@ export function auditDetails(item: AdminAuditEvent) {
   const fallback = actions[item.action]?.summary ?? 'An administrative change was recorded.'
   if (!item.details) return item.action === 'ADMIN_ANNOUNCEMENT_PUBLISHED' ? 'No additional details' : fallback
   switch (item.action) {
+    case 'ADMIN_ANNOUNCEMENT_SCHEDULED':
     case 'ADMIN_ANNOUNCEMENT_PUBLISHED': return auditText(formatAnnouncementAuditDetails(item.details)) || fallback
     case 'ADMIN_USER_CREATED':
     case 'ADMIN_USER_DELETED': {

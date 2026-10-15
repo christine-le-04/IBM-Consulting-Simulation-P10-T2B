@@ -21,20 +21,24 @@ public class AdminAnnouncementHistory {
         this.jdbc = jdbc; this.audit = audit; this.events = events;
     }
     public record Entry(UUID id, String title, String message, String audience, List<String> targetRoles,
-                        Instant createdAt, Instant withdrawnAt, String status) {}
+                        Instant createdAt, Instant withdrawnAt, String status, Instant publishAt, Instant expiresAt) {}
     public record Page(List<Entry> items, long totalElements, int page, int size) {}
 
     @Transactional(readOnly = true)
     public Page list(int page, int size) {
         var items = jdbc.query("""
                 SELECT a.*, ARRAY(SELECT ar.role FROM announcement_roles ar
-                    WHERE ar.announcement_id = a.id ORDER BY ar.role) AS target_roles
+                    WHERE ar.announcement_id = a.id ORDER BY ar.role) AS target_roles,
+                    CASE WHEN withdrawn_at IS NOT NULL THEN 'WITHDRAWN'
+                         WHEN expires_at <= CURRENT_TIMESTAMP THEN 'EXPIRED'
+                         WHEN publish_at > CURRENT_TIMESTAMP THEN 'SCHEDULED' ELSE 'PUBLISHED' END AS status
                 FROM announcements a WHERE kind = 'ADMIN_MESSAGE'
                 ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?
                 """, (rs, row) -> new Entry(rs.getObject("id", UUID.class), rs.getString("title"), rs.getString("message"),
                 rs.getString("audience"), Arrays.asList((String[]) rs.getArray("target_roles").getArray()),
                 rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("withdrawn_at") == null ? null : rs.getTimestamp("withdrawn_at").toInstant(),
-                rs.getTimestamp("withdrawn_at") == null ? "PUBLISHED" : "WITHDRAWN"), size, (long) page * size);
+                rs.getString("status"), rs.getTimestamp("publish_at").toInstant(),
+                rs.getTimestamp("expires_at") == null ? null : rs.getTimestamp("expires_at").toInstant()), size, (long) page * size);
         return new Page(items, jdbc.queryForObject("SELECT count(*) FROM announcements WHERE kind = 'ADMIN_MESSAGE'", Long.class), page, size);
     }
 
