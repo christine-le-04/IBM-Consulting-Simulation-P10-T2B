@@ -17,14 +17,20 @@ public final class AchievementRuleEvaluator {
     }
 
     /**
-     * Progress toward satisfying {@code condition}, from 0 to 100. For a group, AND
-     * progress is the minimum of its children (every child must reach 100), OR
-     * progress is the maximum (any single child reaching 100 satisfies the group).
+     * Progress towards the rule, 0–100. A learner with no completed run in the
+     * achievement's scope has made no progress, whatever the rule says: no badge
+     * (above all an Exclusive one) can be earned without playing, even if a
+     * threshold of 0 would otherwise be met trivially.
      */
     public static double progress(AchievementCondition condition, AchievementFactSheet facts) {
+        if (facts.engagementsCompleted() == 0) return 0.0;
+        return progressOf(condition, facts);
+    }
+
+    private static double progressOf(AchievementCondition condition, AchievementFactSheet facts) {
         if (condition instanceof ConditionGroup group) {
             List<Double> childProgress = group.children().stream()
-                    .map(child -> progress(child, facts))
+                    .map(child -> progressOf(child, facts))
                     .toList();
             return switch (group.operator()) {
                 case AND -> childProgress.stream().mapToDouble(Double::doubleValue).min().orElse(0.0);
@@ -48,6 +54,7 @@ public final class AchievementRuleEvaluator {
             case MIN_COMPETENCY_SCORE -> facts.bestCompetencyScores().getOrDefault(leaf.competencyName(), 0);
             case MIN_DISTINCT_SCENARIOS_COMPLETED -> facts.distinctScenariosCompleted();
             case MIN_WIN_RATE_PERCENT -> facts.winRatePercent();
+            case MIN_RUNS_MATCHING -> facts.runs().stream().filter(leaf.run()::matches).count();
         };
     }
 }

@@ -1,5 +1,6 @@
 package com.ibm.consulting.sim.achievement.api;
 
+import com.ibm.consulting.sim.achievement.application.AchievementEvaluationService;
 import com.ibm.consulting.sim.achievement.application.AchievementQueryService;
 import com.ibm.consulting.sim.achievement.application.AchievementSummary;
 import com.ibm.consulting.sim.identity.domain.User;
@@ -16,13 +17,22 @@ import java.util.List;
 public class AchievementController {
 
     private final AchievementQueryService achievementQueryService;
+    private final AchievementEvaluationService achievementEvaluationService;
 
-    public AchievementController(AchievementQueryService achievementQueryService) {
+    public AchievementController(AchievementQueryService achievementQueryService,
+                                 AchievementEvaluationService achievementEvaluationService) {
         this.achievementQueryService = achievementQueryService;
+        this.achievementEvaluationService = achievementEvaluationService;
     }
 
+    /**
+     * Evaluates before listing, so a learner who already qualifies for a badge
+     * (one added by a migration, or one missed earlier) receives it here. The
+     * unlock is idempotent, so repeated reads are safe.
+     */
     @GetMapping("/me")
     List<AchievementSummary> myAchievements(@AuthenticationPrincipal User user) {
+        achievementEvaluationService.evaluateForUser(user.getId());
         return achievementQueryService.listForUser(user.getId());
     }
 }

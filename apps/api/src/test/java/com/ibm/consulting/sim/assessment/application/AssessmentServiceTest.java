@@ -33,6 +33,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -78,7 +79,7 @@ class AssessmentServiceTest {
                         || event.getState() == EngagementState.COMPLETED)
                 .extracting(event -> event.getState())
                 .containsExactly(EngagementState.REVIEW, EngagementState.COMPLETED);
-        verify(achievementEvaluationService).evaluateForUser(data.userId());
+        verify(achievementEvaluationService).evaluateAfterEngagement(eq(data.userId()), any());
         verify(eventPublisher).publishEvent(any(AssessmentGeneratedEvent.class));
     }
 
@@ -100,7 +101,7 @@ class AssessmentServiceTest {
         assertThat(data.engagement().getEvents())
                 .filteredOn(event -> event.getState() == EngagementState.COMPLETED)
                 .hasSize(1);
-        verify(achievementEvaluationService, times(1)).evaluateForUser(data.userId());
+        verify(achievementEvaluationService, times(1)).evaluateAfterEngagement(eq(data.userId()), any());
         verify(eventPublisher, times(1)).publishEvent(any(AssessmentGeneratedEvent.class));
     }
 
@@ -114,7 +115,7 @@ class AssessmentServiceTest {
 
         assertThat(assessmentRepository.assessment).isEmpty();
         assertThat(data.engagement().getState()).isEqualTo(EngagementState.PREPARING);
-        verify(achievementEvaluationService, never()).evaluateForUser(any());
+        verify(achievementEvaluationService, never()).evaluateAfterEngagement(any(), any());
         verify(eventPublisher, never()).publishEvent(any(Object.class));
         verify(engagementRepository, never()).save(any());
     }
@@ -160,7 +161,7 @@ class AssessmentServiceTest {
                 .isInstanceOf(NotFoundException.class);
         assertThat(assessmentRepository.assessment).isEmpty();
         assertThat(data.engagement().getState()).isEqualTo(EngagementState.CLIENT_DECISION);
-        verify(achievementEvaluationService, never()).evaluateForUser(any());
+        verify(achievementEvaluationService, never()).evaluateAfterEngagement(any(), any());
     }
 
     @Test

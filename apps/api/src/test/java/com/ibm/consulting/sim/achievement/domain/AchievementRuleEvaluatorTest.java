@@ -63,9 +63,28 @@ class AchievementRuleEvaluatorTest {
     }
 
     @Test
-    void leafConditionWithZeroThresholdIsAlwaysSatisfied() {
-        LeafCondition condition = new LeafCondition(ConditionType.MIN_ENGAGEMENTS_COMPLETED, null, 0);
-        assertThat(AchievementRuleEvaluator.isSatisfied(condition, AchievementFactSheet.empty())).isTrue();
+    void aZeroThresholdIsNotMetWithoutACompletedRun() {
+        LeafCondition condition = new LeafCondition(ConditionType.MIN_AVERAGE_OVERALL_SCORE, null, 0);
+
+        assertThat(AchievementRuleEvaluator.isSatisfied(condition, AchievementFactSheet.empty())).isFalse();
+        assertThat(AchievementRuleEvaluator.progress(condition, AchievementFactSheet.empty())).isZero();
+    }
+
+    @Test
+    void aZeroThresholdIsMetOnceTheLearnerHasACompletedRun() {
+        LeafCondition condition = new LeafCondition(ConditionType.MIN_AVERAGE_OVERALL_SCORE, null, 0);
+        AchievementFactSheet oneRun = new AchievementFactSheet(1, 0, 40, 40.0, 1, 0.0, java.util.Map.of());
+
+        assertThat(AchievementRuleEvaluator.isSatisfied(condition, oneRun)).isTrue();
+    }
+
+    @Test
+    void noRuleCanBeSatisfiedWithoutAnyCompletedRun() {
+        AchievementCondition anything = new ConditionGroup(LogicalOperator.OR, java.util.List.of(
+                new LeafCondition(ConditionType.MIN_BEST_OVERALL_SCORE, null, 0),
+                new LeafCondition(ConditionType.MIN_WIN_RATE_PERCENT, null, 0)));
+
+        assertThat(AchievementRuleEvaluator.isSatisfied(anything, AchievementFactSheet.empty())).isFalse();
     }
 
     @Test

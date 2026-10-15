@@ -108,7 +108,7 @@ class AssessmentConcurrencyIntegrationTest {
         assertThat(responses).extracting(AssessmentResponse::id).containsOnly(responses.getFirst().id());
         assertThat(persisted.getState()).isEqualTo(EngagementState.COMPLETED);
         assertThat(lifecycleEvents).extracting(row -> row[1]).containsExactlyInAnyOrder(1L, 1L);
-        verify(achievements, times(1)).evaluateForUser(data.userId());
+        verify(achievements, times(1)).evaluateAfterEngagement(org.mockito.ArgumentMatchers.eq(data.userId()), org.mockito.ArgumentMatchers.any());
         verify(events, times(1)).publishEvent((Object) org.mockito.ArgumentMatchers.any());
     }
 

@@ -16,7 +16,7 @@ public class AchievementRuleMapper {
             List<AchievementCondition> children = node.children().stream().map(this::toDomain).toList();
             return new ConditionGroup(node.operator(), children);
         }
-        return new LeafCondition(node.type(), node.competencyName(), node.threshold());
+        return new LeafCondition(node.type(), node.competencyName(), node.threshold(), node.run());
     }
 
     public ConditionNode toDto(AchievementCondition condition) {
@@ -24,6 +24,7 @@ public class AchievementRuleMapper {
             return ConditionNode.group(group.operator(), group.children().stream().map(this::toDto).toList());
         }
         LeafCondition leaf = (LeafCondition) condition;
-        return ConditionNode.leaf(leaf.type(), leaf.competencyName(), leaf.threshold());
+        return new ConditionNode(ConditionNode.Kind.LEAF, null, null, leaf.type(), leaf.competencyName(),
+                leaf.threshold(), leaf.run());
     }
 }

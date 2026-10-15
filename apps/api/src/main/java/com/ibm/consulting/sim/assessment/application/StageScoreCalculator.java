@@ -1,5 +1,6 @@
 package com.ibm.consulting.sim.assessment.application;
 
+import com.ibm.consulting.sim.assessment.domain.Competencies;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.assessment.domain.CompetencyScore;
@@ -24,7 +25,7 @@ final class StageScoreCalculator {
         List<OutreachAttempt> scored = resolved.stream().filter(StageScoreCalculator::hasOutreachScore).toList();
         int outreachBest = scored.stream().mapToInt(a -> (a.getScorePersonalisation() + a.getScoreRelevance()
                 + a.getScoreClarity() + a.getScoreCallToAction()) / 4).max().orElse(0);
-        CompetencyScore outreachScore = CompetencyScore.stage("Outreach Effectiveness", "OUTREACH",
+        CompetencyScore outreachScore = CompetencyScore.stage(Competencies.OUTREACH_EFFECTIVENESS, "OUTREACH",
                 outreachBest, resolved.size(), (int) resolved.stream()
                         .filter(a -> a.getOutreachRound() == engagement.getOutreachRound()).count(),
                 Math.max(0, engagement.getOutreachRound() - 1), resolved.size() == scored.size());
@@ -49,7 +50,7 @@ final class StageScoreCalculator {
         int meetingResets = (int) engagement.getEvents().stream()
                 .filter(e -> e.getDescription().equals("Meeting retries exhausted; revise preparation before trying again"))
                 .count();
-        CompetencyScore meetingScore = CompetencyScore.stage("Relationship Building", "MEETING",
+        CompetencyScore meetingScore = CompetencyScore.stage(Competencies.RELATIONSHIP_BUILDING, "MEETING",
                 meetingBest, completedCount, currentCount, meetingResets, completeMeetingHistory);
 
         int proposalBest = 0;
@@ -79,7 +80,7 @@ final class StageScoreCalculator {
                 }
             }
         }
-        CompetencyScore proposalScore = CompetencyScore.stage("Solution Alignment", "PROPOSAL",
+        CompetencyScore proposalScore = CompetencyScore.stage(Competencies.SOLUTION_ALIGNMENT, "PROPOSAL",
                 proposalBest, proposalCount, proposalCount, 0,
                 proposalCount <= 1 || savedProposalScores >= proposalCount);
         return List.of(outreachScore, meetingScore, proposalScore);
