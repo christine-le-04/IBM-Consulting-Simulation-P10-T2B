@@ -3,56 +3,28 @@ import { Renew, UserMultiple } from '@carbon/icons-react'
 import { useDeferredValue, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAdminLearnerProgress } from '@/api/hooks/useAdminLearnerProgress'
-import type { LearnerProgressEntry } from '@/api/types'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
 import {
   DEFAULT_STUCK_DAYS,
   LEARNER_STAGES,
+  LEARNER_STATUSES as STATUSES,
   type LearnerStage,
   type LearnerStatus,
   relativeTime,
-  stageIndexOf,
+  STATUS_LABEL,
+  STATUS_TAG,
   stageOf,
-  stateLabel,
   statusOf,
   summarise,
 } from '@/features/admin/learnerProgress'
+import LearnerStageBar from './LearnerStageBar'
 import shared from './AdminOperationsPage.module.css'
 import styles from './LearnerProgressPage.module.css'
 
 const PAGE_SIZES = [25, 50, 100]
-const STATUSES: LearnerStatus[] = ['IN_PROGRESS', 'STUCK', 'COMPLETED', 'MEETING_FAILED']
-const STATUS_LABEL: Record<LearnerStatus, string> = {
-  IN_PROGRESS: 'In progress',
-  STUCK: 'Stuck',
-  COMPLETED: 'Completed',
-  MEETING_FAILED: 'Meeting failed',
-}
-const STATUS_TAG: Record<LearnerStatus, 'blue' | 'red' | 'green' | 'warm-gray'> = {
-  IN_PROGRESS: 'blue',
-  STUCK: 'red',
-  COMPLETED: 'green',
-  MEETING_FAILED: 'warm-gray',
-}
 
 const isStatus = (value: string | null): value is LearnerStatus => STATUSES.includes(value as LearnerStatus)
-
-function StageBar({ entry }: { entry: LearnerProgressEntry }) {
-  const current = stageIndexOf(entry.state)
-  const done = entry.state === 'COMPLETED'
-  return <div className={styles.stage}>
-    <div className={styles.stageBar} aria-hidden="true">
-      {LEARNER_STAGES.map((stage, index) => {
-        const tone = index < current || done ? styles.segmentDone
-          : index === current ? (entry.state === 'MEETING_FAILED' ? styles.segmentFailed : styles.segmentCurrent)
-            : ''
-        return <span key={stage} className={`${styles.segment} ${tone}`} />
-      })}
-    </div>
-    <span className={styles.stageLabel}>{stageOf(entry.state)} · {stateLabel(entry.state)}</span>
-  </div>
-}
 
 function SummaryTile({ label, value, detail, active, onClick }: {
   label: string
@@ -102,6 +74,8 @@ export default function LearnerProgressPage() {
   const summary = summarise(entries, now)
   const hasFilters = Boolean(search.trim() || scenarioFilter || stageFilter || statusFilter)
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize)
+  // The run page links back here with the status filter still applied.
+  const listUrl = statusFilter ? `/dashboard/admin/learners?status=${statusFilter}` : '/dashboard/admin/learners'
 
   const applyStatus = (status: LearnerStatus | '') => {
     setStatusFilter(status)
@@ -177,9 +151,12 @@ export default function LearnerProgressPage() {
               <tbody>{visible.map((entry) => {
                 const status = statusOf(entry, now)
                 return <tr key={entry.engagementId}>
-                  <td><div className={shared.personCell}><div><strong>{entry.displayName}</strong><span>{entry.email}</span></div></div></td>
+                  <td><div className={shared.personCell}><div>
+                    <Link className={styles.runLink} to={`/dashboard/admin/learners/${entry.engagementId}`} state={{ from: listUrl }}>{entry.displayName}</Link>
+                    <span>{entry.email}</span>
+                  </div></div></td>
                   <td>{entry.scenarioTitle}</td>
-                  <td><StageBar entry={entry} /></td>
+                  <td><LearnerStageBar entry={entry} /></td>
                   <td className={styles.score}>{entry.overallScore ?? '—'}</td>
                   <td><time dateTime={entry.lastActivityAt} title={new Date(entry.lastActivityAt).toLocaleString()}>{relativeTime(entry.lastActivityAt, now)}</time></td>
                   <td><Tag type={STATUS_TAG[status]}>{STATUS_LABEL[status]}</Tag></td>

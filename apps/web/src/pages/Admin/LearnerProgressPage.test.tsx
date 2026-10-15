@@ -100,6 +100,12 @@ describe('LearnerProgressPage', () => {
     expect(rowNames()).toHaveLength(3)
   })
 
+  it('links each learner to their run page', () => {
+    setup(learners)
+    renderPage()
+    expect(screen.getByRole('link', { name: 'Ben Ng' })).toHaveAttribute('href', '/dashboard/admin/learners/e2')
+  })
+
   it('filters by scenario and stage', () => {
     setup(learners)
     renderPage()

@@ -12,6 +12,7 @@ button.tile { cursor: pointer; }button.tile:hover { border-color: #78a9ff; }
 .segmentDone { background: #161616; }.segmentCurrent { background: #0f62fe; }.segmentFailed { background: #8a3800; }
 .stage .stageLabel { margin: 0; color: #525252; font-size: var(--sim-font-caption); }
 .score { font-variant-numeric: tabular-nums; }
+.runLink { display: block; color: #0f62fe; font-weight: 600; text-decoration: none; }.runLink:hover { text-decoration: underline; }
 .empty,.noResults { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; padding: 3rem 2rem; margin-top: 1.25rem; border: 1px solid #e0e0e0; background: #fff; }
 .empty svg { color: #8d8d8d; }.empty h2,.noResults h2 { margin: 0; font-size: var(--sim-font-section); font-weight: 400; }.empty p { max-width: 32rem; margin: 0; color: #525252; }
 .legend { margin: 1rem 0 0; color: #525252; font-size: var(--sim-font-caption); }
