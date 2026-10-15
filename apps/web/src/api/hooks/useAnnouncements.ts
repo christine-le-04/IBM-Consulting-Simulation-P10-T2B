@@ -38,6 +38,7 @@ export function usePublishAnnouncement() {
       (await apiClient.post<{ id: string }>('/api/v1/admin/announcements', input)).data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['announcements'] })
+      void qc.invalidateQueries({ queryKey: ['admin', 'announcements'] })
       void qc.invalidateQueries({ queryKey: ['admin', 'audit-events'] })
     },
   })

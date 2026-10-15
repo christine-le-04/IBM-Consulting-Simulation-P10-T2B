@@ -1,14 +1,10 @@
 import { FormEvent, useState } from 'react'
-import { Button, Checkbox, Form, Heading, InlineLoading, InlineNotification, Select, SelectItem, TextArea, TextInput } from '@carbon/react'
+import { Button, Checkbox, Form, Heading, InlineLoading, InlineNotification, Modal, Pagination, Select, SelectItem, Tag, TextArea, TextInput } from '@carbon/react'
 import { Send } from '@carbon/icons-react'
-import { announcementMessage, announcementTitle, useAnnouncements, usePublishAnnouncement, type AnnouncementRole } from '@/api/hooks/useAnnouncements'
+import { usePublishAnnouncement, type AnnouncementRole } from '@/api/hooks/useAnnouncements'
+import { audienceLabel, recipientRoles as roles, useAdminAnnouncements, useWithdrawAnnouncement, type SentAnnouncement } from '@/api/hooks/useAdminAnnouncements'
 import { getProblemDetail } from '@/api/problemDetails'
 import styles from './AnnouncementsPage.module.css'
-
-const roles: { value: AnnouncementRole; label: string }[] = [
-  { value: 'LEARNER', label: 'Learners' }, { value: 'SCENARIO_AUTHOR', label: 'Scenario authors' },
-  { value: 'REVIEWER', label: 'Reviewers' }, { value: 'ADMINISTRATOR', label: 'Administrators' },
-]
 
 export default function AnnouncementsPage() {
   const [title, setTitle] = useState('')
@@ -19,14 +15,17 @@ export default function AnnouncementsPage() {
   const [publishedAudience, setPublishedAudience] = useState('')
   const hasRecipients = audience === 'ALL' || targetRoles.length > 0
   const publish = usePublishAnnouncement()
-  const feed = useAnnouncements(0)
+  const [historyPage, setHistoryPage] = useState(0)
+  const feed = useAdminAnnouncements(historyPage)
+  const withdraw = useWithdrawAnnouncement()
+  const [withdrawTarget, setWithdrawTarget] = useState<SentAnnouncement | null>(null)
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim() || !message.trim() || !hasRecipients || publish.isPending) return
     setPublished(false)
     const recipientLabel = audience === 'ALL' ? 'all users' : roles.filter((role) => targetRoles.includes(role.value)).map((role) => role.label.toLowerCase()).join(', ')
     publish.mutate({ title: title.trim(), message: message.trim(), ...(audience === 'ROLES' ? { targetRoles } : {}) }, {
-      onSuccess: () => { setTitle(''); setMessage(''); setPublishedAudience(recipientLabel); setPublished(true) },
+      onSuccess: () => { setTitle(''); setMessage(''); setPublishedAudience(recipientLabel); setPublished(true); setHistoryPage(0) },
     })
   }
 
@@ -67,18 +66,30 @@ export default function AnnouncementsPage() {
         </Form>
       </section>
       <section className={styles.history} aria-labelledby="recent-announcements">
-        <h2 id="recent-announcements">Recent announcements</h2>
-        <p>Latest updates visible to your role, including automatic scenario announcements. Updates sent only to other roles will not appear here.</p>
+        <h2 id="recent-announcements">Sent announcements</h2>
+        <p>All administrator-published updates, including messages sent only to other roles. Withdrawing a notice removes it from recipient feeds and preserves its audit history.</p>
         {feed.isLoading && <InlineLoading description="Loading announcements" />}
         {feed.isError && <><InlineNotification kind="error" title="Recent announcements unavailable" subtitle="You can still compose an announcement." hideCloseButton />
           <Button kind="ghost" size="sm" onClick={() => void feed.refetch()}>Try again</Button></>}
         {feed.data?.items.length === 0 && <p>No announcements yet.</p>}
         <ul className={styles.list}>{feed.data?.items.map((item) => <li key={item.id}>
-          <h3>{announcementTitle(item)}</h3>
-          <p className={styles.message}>{announcementMessage(item)}</p>
-          <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
+          <h3>{item.title}</h3>
+          <Tag type={item.status === 'WITHDRAWN' ? 'gray' : 'green'}>{item.status === 'WITHDRAWN' ? 'Withdrawn' : 'Published'}</Tag>
+          <p>Sent to: {audienceLabel(item.audience, item.targetRoles)}</p>
+          <p className={styles.message}>{item.message}</p>
+          <time dateTime={item.createdAt}>Published: {new Date(item.createdAt).toLocaleString()}</time>
+          {item.withdrawnAt && <p>Withdrawn: {new Date(item.withdrawnAt).toLocaleString()}</p>}
+          {item.status !== 'WITHDRAWN' && <Button kind="danger--ghost" size="sm" onClick={() => setWithdrawTarget(item)}>Withdraw</Button>}
         </li>)}</ul>
+        {feed.data && feed.data.totalElements > 20 && <Pagination page={historyPage + 1} pageSize={20} pageSizes={[20]}
+          totalItems={feed.data.totalElements} onChange={({ page }) => setHistoryPage(page - 1)} />}
       </section>
     </div>
+    {withdrawTarget && <Modal open modalHeading="Withdraw announcement?" primaryButtonText="Withdraw announcement" secondaryButtonText="Cancel"
+      danger primaryButtonDisabled={withdraw.isPending} onRequestClose={() => { if (!withdraw.isPending) setWithdrawTarget(null) }}
+      onRequestSubmit={() => { if (!withdraw.isPending) withdraw.mutate(withdrawTarget.id, { onSuccess: () => setWithdrawTarget(null) }) }}>
+      <p>Withdraw “{withdrawTarget.title}” from recipient feeds? The message and audit record will remain in sent history.</p>
+      {withdraw.isError && <InlineNotification kind="error" title="Could not withdraw announcement" subtitle="Please try again." hideCloseButton />}
+    </Modal>}
   </main>
 }

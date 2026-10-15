@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AdminAnnouncementControllerTest {
     @Autowired MockMvc mvc;
     @MockBean AdminAnnouncementService service;
+    @MockBean com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory history;
     @MockBean JwtTokenProvider tokens;
     @MockBean UserRepository users;
     private static final String ENDPOINT = "/api/v1/admin/announcements";
@@ -35,6 +37,8 @@ class AdminAnnouncementControllerTest {
     @Test void anonymousUsersCannotPublish() throws Exception {
         mvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON).content(BODY)).andExpect(status().isUnauthorized());
         verifyNoInteractions(service);
+        mvc.perform(get(ENDPOINT)).andExpect(status().isUnauthorized());
+        mvc.perform(post(ENDPOINT + "/" + UUID.randomUUID() + "/withdraw")).andExpect(status().isUnauthorized());
     }
 
     @ParameterizedTest @ValueSource(strings = {"LEARNER", "SCENARIO_AUTHOR", "REVIEWER"})
@@ -42,6 +46,19 @@ class AdminAnnouncementControllerTest {
         mvc.perform(post(ENDPOINT).with(user("other").roles(role)).contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(service);
+        mvc.perform(get(ENDPOINT).with(user("other").roles(role))).andExpect(status().isForbidden());
+        mvc.perform(post(ENDPOINT + "/" + UUID.randomUUID() + "/withdraw").with(user("other").roles(role)))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(history);
+    }
+
+    @Test @WithMockUser(roles = "ADMINISTRATOR") void adminCanPageHistoryAndWithdraw() throws Exception {
+        when(history.list(0, 20)).thenReturn(new com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory.Page(List.of(), 0, 0, 20));
+        mvc.perform(get(ENDPOINT)).andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+        mvc.perform(get(ENDPOINT + "?size=51")).andExpect(status().isBadRequest());
+        UUID id = UUID.randomUUID();
+        mvc.perform(post(ENDPOINT + "/" + id + "/withdraw")).andExpect(status().isNoContent());
+        verify(history).withdraw(id);
     }
 
     @Test @WithMockUser(roles = "ADMINISTRATOR") void administratorCanPublish() throws Exception {

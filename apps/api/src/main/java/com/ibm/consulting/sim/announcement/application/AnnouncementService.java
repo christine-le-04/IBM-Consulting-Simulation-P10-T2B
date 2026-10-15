@@ -13,13 +13,14 @@ import java.util.UUID;
 @Service
 public class AnnouncementService {
     // Resolve the role from the account, never from client-supplied filters or stale JWT claims.
-    private static final String VISIBLE = """
+    static final String VISIBLE = """
             (a.audience = 'ALL' OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND (
                 (a.audience = 'ROLES' AND EXISTS (SELECT 1 FROM announcement_roles ar
                     WHERE ar.announcement_id = a.id AND ar.role = u.role))
                 OR (a.audience = 'USERS' AND EXISTS (SELECT 1 FROM announcement_recipients recipient
                     WHERE recipient.announcement_id = a.id AND recipient.user_id = u.id)))))
             """;
+    static final String ELIGIBLE = "a.withdrawn_at IS NULL AND " + VISIBLE;
     private final JdbcTemplate jdbc;
     private final ApplicationEventPublisher events;
 
@@ -55,15 +56,15 @@ public class AnnouncementService {
                   ON r.announcement_id = a.id AND r.user_id = ?
                 WHERE %s
                 ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?
-                """.formatted(VISIBLE), (rs, row) -> new Item(rs.getObject("id", UUID.class), rs.getObject("scenario_id", UUID.class),
+                """.formatted(ELIGIBLE), (rs, row) -> new Item(rs.getObject("id", UUID.class), rs.getObject("scenario_id", UUID.class),
                 Kind.valueOf(rs.getString("kind")), rs.getString("scenario_title"),
                 rs.getTimestamp("created_at").toInstant(), rs.getBoolean("is_read"),
                 rs.getString("display_title"), rs.getString("display_message")), userId, userId, size, (long) page * size);
-        long total = jdbc.queryForObject("SELECT count(*) FROM announcements a WHERE " + VISIBLE, Long.class, userId);
+        long total = jdbc.queryForObject("SELECT count(*) FROM announcements a WHERE " + ELIGIBLE, Long.class, userId);
         long unread = jdbc.queryForObject("""
                 SELECT count(*) FROM announcements a WHERE %s AND NOT EXISTS (
                   SELECT 1 FROM announcement_reads r WHERE r.announcement_id = a.id AND r.user_id = ?)
-                """.formatted(VISIBLE), Long.class, userId, userId);
+                """.formatted(ELIGIBLE), Long.class, userId, userId);
         return new Feed(items, total, unread, page, size);
     }
 
@@ -74,7 +75,7 @@ public class AnnouncementService {
             jdbc.update("""
                     INSERT INTO announcement_reads (user_id, announcement_id)
                     SELECT ?, a.id FROM announcements a WHERE a.id = ? AND %s ON CONFLICT DO NOTHING
-                    """.formatted(VISIBLE), userId, id, userId);
+                    """.formatted(ELIGIBLE), userId, id, userId);
         }
     }
 }

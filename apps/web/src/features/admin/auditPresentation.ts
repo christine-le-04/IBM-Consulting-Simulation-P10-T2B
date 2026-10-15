@@ -3,6 +3,7 @@ import { announcementAuditContent, formatAnnouncementAuditDetails } from './anno
 
 const actions: Record<string, { label: string; summary: string }> = {
   ADMIN_ANNOUNCEMENT_PUBLISHED: { label: 'Announcement published', summary: 'An announcement was published.' },
+  ADMIN_ANNOUNCEMENT_WITHDRAWN: { label: 'Announcement withdrawn', summary: 'The announcement was withdrawn from recipient feeds.' },
   ADMIN_USER_CREATED: { label: 'User created', summary: 'A user account was created.' },
   ADMIN_USER_DELETED: { label: 'User deleted', summary: 'The user account was deleted.' },
   ADMIN_USER_ROLE_CHANGED: { label: 'User role changed', summary: 'The user’s role was updated.' },
@@ -52,6 +53,7 @@ function documentTitle(details: string | null) {
   return details ? auditText(/^scenario [^,]+, title: ([\s\S]*)$/.exec(details)?.[1]) : ''
 }
 export function auditTargetName(item: AdminAuditEvent) {
+  if (item.action === 'ADMIN_ANNOUNCEMENT_WITHDRAWN') return auditText(item.details)
   if (item.targetType === 'ANNOUNCEMENT' && item.action === 'ADMIN_ANNOUNCEMENT_PUBLISHED' && item.details) {
     return auditText(announcementAuditContent(item.details).message)
   }

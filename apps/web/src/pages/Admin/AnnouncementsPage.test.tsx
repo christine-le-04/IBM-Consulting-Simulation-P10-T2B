@@ -2,15 +2,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useAnnouncements, usePublishAnnouncement } from '@/api/hooks/useAnnouncements'
 import AnnouncementsPage from './AnnouncementsPage'
+import { useAdminAnnouncements, useWithdrawAnnouncement } from '@/api/hooks/useAdminAnnouncements'
+vi.mock('@/api/hooks/useAdminAnnouncements', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/api/hooks/useAdminAnnouncements')>(),
+  useAdminAnnouncements: vi.fn(), useWithdrawAnnouncement: vi.fn(),
+}))
 
 vi.mock('@/api/hooks/useAnnouncements', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/api/hooks/useAnnouncements')>(),
   useAnnouncements: vi.fn(), usePublishAnnouncement: vi.fn(),
 }))
 const mutate = vi.fn()
+const withdraw = vi.fn()
 function setup(overrides = {}) {
   vi.mocked(usePublishAnnouncement).mockReturnValue({ mutate, isPending: false, isError: false, ...overrides } as unknown as ReturnType<typeof usePublishAnnouncement>)
   vi.mocked(useAnnouncements).mockReturnValue({ data: { items: [] }, isLoading: false, isError: false } as unknown as ReturnType<typeof useAnnouncements>)
+  vi.mocked(useAdminAnnouncements).mockReturnValue({ data: { items: [], totalElements: 0 }, isLoading: false, isError: false } as unknown as ReturnType<typeof useAdminAnnouncements>)
+  vi.mocked(useWithdrawAnnouncement).mockReturnValue({ mutate: withdraw, isPending: false, isError: false } as unknown as ReturnType<typeof useWithdrawAnnouncement>)
 }
 function fill() {
   fireEvent.change(screen.getByLabelText('Title'), { target: { value: ' Maintenance ' } })
@@ -74,6 +82,19 @@ describe('AnnouncementsPage', () => {
     expect(screen.getByLabelText('Title')).toHaveValue(' Maintenance ')
     expect(screen.getByLabelText('Message')).toHaveValue(' Restart tonight. ')
     expect(screen.getByRole('button', { name: 'Publish to all users' })).toBeEnabled()
+  })
+
+  it('shows sent history for other roles and confirms withdrawal', () => {
+    vi.mocked(useAdminAnnouncements).mockReturnValue({ data: { items: [{ id: 'notice', title: 'Learner update', message: 'Hello learners',
+      audience: 'ROLES', targetRoles: ['LEARNER'], createdAt: '2026-10-16T00:00:00Z', withdrawnAt: null, status: 'PUBLISHED' }], totalElements: 1 },
+      isLoading: false, isError: false } as unknown as ReturnType<typeof useAdminAnnouncements>)
+    render(<AnnouncementsPage />)
+    expect(screen.getByText('Learner update')).toBeInTheDocument()
+    expect(screen.getByText('Sent to: Learners')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Withdraw' }))
+    expect(withdraw).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Withdraw announcement' }))
+    expect(withdraw).toHaveBeenCalledWith('notice', expect.any(Object))
   })
 
   it('blocks blank text and repeat submissions while publishing', () => {

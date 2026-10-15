@@ -36,7 +36,8 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
 @DataJpaTest
-@Import({AnnouncementService.class, AdminAnnouncementService.class, AnnouncementBroadcaster.class, AuditLogger.class})
+@Import({AnnouncementService.class, AdminAnnouncementService.class, AnnouncementBroadcaster.class, AuditLogger.class,
+        com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -55,6 +56,24 @@ class AnnouncementPersistenceTest {
     @MockBean SimpMessagingTemplate messaging;
     @MockBean UserRepository users;
     @Autowired AdminAnnouncementService adminService;
+    @Autowired com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory history;
+
+    @Test void adminHistoryIncludesOtherRoleMessagesAndWithdrawalPreservesHistoryWithoutUnreadCounts() {
+        User learner = user();
+        UUID id = adminService.publish("Learners only", "Private notice", java.util.Set.of(UserRole.LEARNER));
+        assertThat(history.list(0, 20).items().getFirst().targetRoles()).containsExactly("LEARNER");
+        assertThat(history.list(0, 20).items().getFirst().createdAt()).isNotNull();
+        assertThat(service.list(learner.getId(), 0, 20).unreadCount()).isEqualTo(1);
+        history.withdraw(id);
+        history.withdraw(id);
+        assertThat(service.list(learner.getId(), 0, 20).items()).isEmpty();
+        assertThat(service.list(learner.getId(), 0, 20).unreadCount()).isZero();
+        service.markRead(learner.getId(), List.of(id));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads", Long.class)).isZero();
+        assertThat(history.list(0, 20).items().getFirst().status()).isEqualTo("WITHDRAWN");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM admin_audit_events WHERE action = 'ADMIN_ANNOUNCEMENT_WITHDRAWN'", Long.class)).isEqualTo(1);
+        assertThatThrownBy(() -> history.withdraw(UUID.randomUUID())).isInstanceOf(com.ibm.consulting.sim.shared.domain.NotFoundException.class);
+    }
 
     @BeforeEach void clear() {
         jdbc.update("DELETE FROM announcement_reads");

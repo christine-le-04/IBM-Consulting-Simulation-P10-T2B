@@ -11,6 +11,7 @@ const event = (action: string, details: string | null): AdminAuditEvent => ({
 describe('audit presentation', () => {
   it.each([
     ['ADMIN_ANNOUNCEMENT_PUBLISHED', 'Notice; roles: [LEARNER]', 'Sent to: Learners'],
+    ['ADMIN_ANNOUNCEMENT_WITHDRAWN', 'Notice', 'withdrawn from recipient feeds'],
     ['ADMIN_USER_CREATED', 'learner@example.com', 'Email: learner@example.com'],
     ['ADMIN_USER_DELETED', 'learner@example.com', 'Email: learner@example.com'],
     ['ADMIN_USER_ROLE_CHANGED', 'SCENARIO_AUTHOR', 'New role: Scenario author'],
