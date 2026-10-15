@@ -13,6 +13,7 @@ import {
   InlineNotification,
 } from '@carbon/react'
 import { Logout } from '@carbon/icons-react'
+import AnnouncementCenter from '@/components/announcements/AnnouncementCenter'
 import { useAuthStore } from '@/store/authStore'
 import { useLogout } from '@/api/hooks/useAuth'
 import { isEngagementRoute } from '@/lifecycle/phases'
@@ -84,6 +85,7 @@ export default function AppShell() {
         </HeaderNavigation>
         {onEngagement && <EngagementBar />}
         <HeaderGlobalBar className={shell.globalBar}>
+          <AnnouncementCenter />
           <NavLink
             to="/dashboard/portfolio"
             className={({ isActive }) => `${shell.portfolioLink} ${isActive ? shell.portfolioLinkActive : ''}`}
