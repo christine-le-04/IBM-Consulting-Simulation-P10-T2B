@@ -211,7 +211,8 @@ class ScenarioLineageConcurrencyIntegrationTest {
                 new ScenarioAuthoringConfigService(objectMapper),
                 new EntityManagerLeadRepository(),
                 knowledge,
-                mock(AuditLogger.class), mock(com.ibm.consulting.sim.engagement.domain.EngagementRepository.class));
+                mock(AuditLogger.class), mock(com.ibm.consulting.sim.engagement.domain.EngagementRepository.class),
+                mock(com.ibm.consulting.sim.announcement.application.AnnouncementService.class));
     }
 
     private UUID persistReadyScenario(String title, boolean active) {

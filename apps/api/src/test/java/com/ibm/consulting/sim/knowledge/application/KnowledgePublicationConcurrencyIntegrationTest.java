@@ -101,7 +101,8 @@ class KnowledgePublicationConcurrencyIntegrationTest {
         when(difficulty.forScenario(any(Scenario.class)))
                 .thenReturn(com.ibm.consulting.sim.scenario.domain.DifficultyProfile.defaults(3, 3, 3, 3));
         ScenarioService scenarioService = new ScenarioService(scenarios, difficulty, config, leads,
-                mock(KnowledgeIngestionService.class), mock(AuditLogger.class), mock(EngagementRepository.class));
+                mock(KnowledgeIngestionService.class), mock(AuditLogger.class), mock(EngagementRepository.class),
+                mock(com.ibm.consulting.sim.announcement.application.AnnouncementService.class));
         EmbeddingGateway embeddings = mock(EmbeddingGateway.class);
         KnowledgeIngestionService knowledgeService = new KnowledgeIngestionService(
                 new EntityManagerKnowledgeDocumentRepository(), new NoOpChunkRepository(), embeddings,

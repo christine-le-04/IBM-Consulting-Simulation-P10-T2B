@@ -55,6 +55,16 @@ public class MeetingSubscriptionInterceptor implements ChannelInterceptor {
         if (command != StompCommand.SUBSCRIBE && command != StompCommand.SEND) {
             return message;
         }
+        Principal principal = accessor.getUser();
+        if (!(principal instanceof org.springframework.security.core.Authentication auth)
+                || !auth.isAuthenticated()
+                || !(auth.getPrincipal() instanceof User user)) {
+            throw new MessagingException("Authentication required");
+        }
+        // Global announcements are read-only and available to every authenticated account.
+        if (command == StompCommand.SUBSCRIBE && "/topic/announcements".equals(accessor.getDestination())) {
+            return message;
+        }
         // Deny unknown destinations. In particular, the broker supports wildcard
         // subscriptions and direct SENDs to /topic, neither of which may bypass
         // the per-meeting ownership boundary.
@@ -63,12 +73,6 @@ public class MeetingSubscriptionInterceptor implements ChannelInterceptor {
         Matcher matcher = destination != null ? allowedDestination.matcher(destination) : null;
         if (matcher == null || !matcher.matches()) {
             throw new MessagingException("Destination not allowed");
-        }
-        Principal principal = accessor.getUser();
-        if (!(principal instanceof org.springframework.security.core.Authentication auth)
-                || !auth.isAuthenticated()
-                || !(auth.getPrincipal() instanceof User user)) {
-            throw new MessagingException("Authentication required");
         }
         UUID meetingId = UUID.fromString(matcher.group(1));
         boolean owns = meetingRepository.findById(meetingId)

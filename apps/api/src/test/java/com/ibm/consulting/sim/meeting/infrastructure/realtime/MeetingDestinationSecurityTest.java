@@ -30,6 +30,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 class MeetingDestinationSecurityTest {
+    @Test
+    void authenticatedUsersCanReadAnnouncementsButCannotPublishOrSubscribeAnonymously() {
+        Message<byte[]> subscribe = frame(StompCommand.SUBSCRIBE, "/topic/announcements", authenticated());
+        assertThat(interceptor.preSend(subscribe, channel)).isSameAs(subscribe);
+        assertThatThrownBy(() -> interceptor.preSend(frame(StompCommand.SEND, "/topic/announcements", authenticated()), channel))
+                .isInstanceOf(MessagingException.class);
+        assertThatThrownBy(() -> interceptor.preSend(frame(StompCommand.SUBSCRIBE, "/topic/announcements", null), channel))
+                .isInstanceOf(MessagingException.class);
+        assertThatThrownBy(() -> interceptor.preSend(frame(StompCommand.SUBSCRIBE, "/topic/announcements/*", authenticated()), channel))
+                .isInstanceOf(MessagingException.class);
+        verifyNoInteractions(meetings, engagements);
+    }
     private final MeetingRepository meetings = mock(MeetingRepository.class);
     private final EngagementRepository engagements = mock(EngagementRepository.class);
     private final MessageChannel channel = mock(MessageChannel.class);
