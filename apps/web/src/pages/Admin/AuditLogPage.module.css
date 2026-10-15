@@ -1,0 +1,24 @@
+.page { max-width: 1600px; margin: 0 auto; padding: 2rem; }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e0e0e0; }
+.header h1 { margin: .25rem 0 .75rem; font-size: var(--sim-font-title); font-weight: 500; }
+.header p { margin: 0; color: #525252; }
+.eyebrow { color: #0f62fe !important; font-size: var(--sim-font-caption); font-weight: 600; text-transform: uppercase; }
+.filters { display: grid; grid-template-columns: minmax(14rem, 2fr) repeat(4, minmax(9rem, 1fr)); gap: 1rem; margin: 1.5rem 0; align-items: end; }
+.filterActions { grid-column: 1 / -1; display: flex; gap: .5rem; }
+.summary { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; padding: 1rem 0; }
+.summary span { color: #525252; font-size: var(--sim-font-body); }
+.tableWrap { overflow-x: auto; border: 1px solid #e0e0e0; }
+.table { width: 100%; min-width: 960px; border-collapse: collapse; text-align: left; }
+.table th { background: #f4f4f4; color: #525252; font-weight: 600; }
+.table th, .table td { padding: 1rem; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+.table time { white-space: nowrap; }
+.table strong, .table small, .table code { display: block; }
+.table small, .table code { color: #525252; margin-top: .35rem; font-size: var(--sim-font-caption); }
+.table code { overflow-wrap: anywhere; max-width: 16rem; }
+.details { max-width: 25rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.empty { padding: 3rem 1.5rem; background: #f4f4f4; text-align: center; }
+.empty h2 { font-size: var(--sim-font-section); margin-bottom: .75rem; }
+.empty p { color: #525252; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+@media (max-width: 1056px) { .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 672px) { .page { padding: 1rem; }.filters { grid-template-columns: 1fr; }.header { flex-direction: column; } }

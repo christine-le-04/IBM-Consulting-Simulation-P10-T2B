@@ -29,6 +29,7 @@ const AdminConsolePage = lazy(() => import('@/pages/Admin/AdminConsolePage'))
 const UserManagementPage = lazy(() => import('@/pages/Admin/UserManagementPage'))
 const AiOperationsPage = lazy(() => import('@/pages/Admin/AiOperationsPage'))
 const LearnerProgressPage = lazy(() => import('@/pages/Admin/LearnerProgressPage'))
+const AuditLogPage = lazy(() => import('@/pages/Admin/AuditLogPage'))
 const LearnerRunPage = lazy(() => import('@/pages/Admin/LearnerRunPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -154,6 +155,7 @@ export default function App() {
             path="admin/users"
             element={<RequireRole roles={['ADMINISTRATOR']}><UserManagementPage /></RequireRole>}
           />
+          <Route path="admin/audit-log" element={<RequireRole roles={['ADMINISTRATOR']}><AuditLogPage /></RequireRole>} />
           <Route
             path="admin/learners"
             element={<RequireRole roles={['ADMINISTRATOR']}><LearnerProgressPage /></RequireRole>}

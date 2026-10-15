@@ -75,6 +75,9 @@ app:
     secret: ${JWT_SECRET}
     expiry-ms: ${JWT_EXPIRY_MS:900000}
   admin:
+    audit:
+      retention-days: ${ADMIN_AUDIT_RETENTION_DAYS:90}
+      cleanup-interval-ms: ${ADMIN_AUDIT_CLEANUP_INTERVAL_MS:3600000}
     seed:
       email: ${ADMIN_EMAIL:}
       password: ${ADMIN_PASSWORD:}

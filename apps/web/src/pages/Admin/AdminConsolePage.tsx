@@ -159,6 +159,7 @@ export default function AdminConsolePage() {
             {canAuthorScenarios && <ActionCard to="/dashboard/admin/scenarios" icon={Settings} title="Learning journeys" detail="Create scenarios, define people, facts and learning rules." action="Open scenarios" tone="blue" />}
             {canAdminister && <ActionCard to="/dashboard/admin/users" icon={Group} title="People and access" detail="Give learners, reviewers and authors the right level of access." action="Manage people" tone="green" />}
             {canAdminister && <ActionCard to="/dashboard/admin/learners" icon={UserMultiple} title="Learner progress" detail="See each learner's stage, score and who needs a nudge." action="View learners" tone="blue" />}
+            {canAdminister && <ActionCard to="/dashboard/admin/audit-log" icon={ChartLine} title="Audit log" detail="See who changed accounts, scenarios and platform settings." action="View activity" tone="blue" />}
             {canAdminister && <ActionCard to="/dashboard/admin/achievements" icon={Idea} title="Progression and badges" detail="Recognise strong consulting behaviours across scenarios." action="Manage progression" tone="purple" />}
             {canViewAiOperations && <ActionCard to="/dashboard/admin/ai-operations" icon={ChartLine} title="AI delivery" detail="Review provider availability, capacity and approved routing." action="View AI health" tone="orange" />}
           </div>

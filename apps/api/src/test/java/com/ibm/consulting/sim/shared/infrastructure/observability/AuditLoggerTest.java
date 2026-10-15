@@ -19,10 +19,16 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionTemplate;
+import com.ibm.consulting.sim.meeting.application.MeetingServiceTestFactory;
 
 class AuditLoggerTest {
 
-    private final AuditLogger auditLogger = new AuditLogger();
+    private final AdminAuditEventRepository repository = mock(AdminAuditEventRepository.class);
+    private final com.ibm.consulting.sim.identity.domain.UserRepository users = mock(com.ibm.consulting.sim.identity.domain.UserRepository.class);
+    private final AuditLogger auditLogger = new AuditLogger(repository, users);
     private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
     private Logger targetLogger;
 
@@ -92,5 +98,49 @@ class AuditLoggerTest {
     void logsAtInfoLevel() {
         auditLogger.recordAdmin(AuditAction.ADMIN_SCENARIO_PUBLISHED, "SCENARIO", "scenario001");
         assertThat(appender.list.get(0).getLevel().toString()).isEqualTo("INFO");
+    }
+
+    @Test
+    void persistsActorSnapshotAndEmitsApplicationLogOnlyAfterCommit() {
+        User actor = User.create("admin@example.com", "private-hash", "Audit Admin",
+                com.ibm.consulting.sim.identity.domain.UserRole.ADMINISTRATOR);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null));
+        new TransactionTemplate(MeetingServiceTestFactory.transactions()).executeWithoutResult(status -> {
+            auditLogger.recordAdmin(AuditAction.ADMIN_USER_CREATED, "USER", "user001", "new@example.com");
+            assertThat(appender.list).isEmpty();
+        });
+        ArgumentCaptor<AdminAuditEvent> saved = ArgumentCaptor.forClass(AdminAuditEvent.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getActorId()).isEqualTo(actor.getId());
+        assertThat(saved.getValue().getActorDisplayName()).isEqualTo("Audit Admin");
+        assertThat(saved.getValue().getActorEmail()).isEqualTo("admin@example.com");
+        assertThat(appender.list).hasSize(1);
+    }
+
+    @Test
+    void rolledBackChangeDoesNotEmitASuccessLog() {
+        new TransactionTemplate(MeetingServiceTestFactory.transactions()).executeWithoutResult(status -> {
+            auditLogger.recordAdmin(AuditAction.ADMIN_USER_CREATED, "USER", "user001");
+            status.setRollbackOnly();
+        });
+        assertThat(appender.list).isEmpty();
+    }
+
+    @Test
+    void snapshotsUserTargetBeforeAccountDeletionAndDoesNotFollowLaterChanges() {
+        User target = mock(User.class);
+        UUID targetId = UUID.randomUUID();
+        when(users.findById(targetId)).thenReturn(java.util.Optional.of(target));
+        when(target.getDisplayName()).thenReturn("Target User");
+        when(target.getEmail()).thenReturn("target@example.com");
+        when(target.getRole()).thenReturn(com.ibm.consulting.sim.identity.domain.UserRole.LEARNER);
+        auditLogger.recordAdmin(AuditAction.ADMIN_USER_DELETED, "USER", targetId.toString(), "target@example.com");
+        when(target.getDisplayName()).thenReturn("Changed name");
+        ArgumentCaptor<AdminAuditEvent> saved = ArgumentCaptor.forClass(AdminAuditEvent.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getTargetDisplayName()).isEqualTo("Target User");
+        assertThat(saved.getValue().getTargetEmail()).isEqualTo("target@example.com");
+        assertThat(saved.getValue().getTargetRole()).isEqualTo("LEARNER");
+        org.mockito.Mockito.verify(target, org.mockito.Mockito.never()).getPasswordHash();
     }
 }
