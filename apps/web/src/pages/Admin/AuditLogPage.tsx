@@ -3,6 +3,7 @@ import { Renew } from '@carbon/icons-react'
 import { FormEvent, useState } from 'react'
 import { useAdminAuditEvents, type AdminAuditFilters } from '@/api/hooks/useAdminAuditEvents'
 import ErrorState from '@/components/shared/ErrorState'
+import { formatAnnouncementAuditDetails } from '@/features/admin/announcementAudit'
 import styles from './AuditLogPage.module.css'
 
 const targets = ['USER', 'SCENARIO', 'LEAD', 'KNOWLEDGE_DOCUMENT', 'ACHIEVEMENT', 'ANNOUNCEMENT']
@@ -69,7 +70,9 @@ export default function AuditLogPage() {
               {item.targetEmail && <small>{item.targetEmail}</small>}
               {item.targetRole && <small>{label(item.targetRole)}</small>}
               {!item.targetDisplayName && !item.targetEmail && <code>{item.targetId}</code>}</td>
-            <td className={styles.details}>{item.details || 'No additional details'}</td>
+            <td className={styles.details}>{item.details
+              ? item.action === 'ADMIN_ANNOUNCEMENT_PUBLISHED' ? formatAnnouncementAuditDetails(item.details) : item.details
+              : 'No additional details'}</td>
           </tr>)}</tbody>
         </table>
       </div>}

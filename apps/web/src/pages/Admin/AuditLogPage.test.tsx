@@ -38,6 +38,19 @@ describe('AuditLogPage', () => {
     renderPage()
     expect(screen.getByText('deleted-user-id')).toBeInTheDocument()
   })
+
+  it.each([
+    ['learner only; roles: [LEARNER]', 'Message: learner only\nSent to: Learners'],
+    ['Notice; roles: [ADMINISTRATOR, LEARNER]', 'Message: Notice\nSent to: Learners, administrators'],
+    ['test', 'Message: test\nSent to: All users'],
+    ['Authors; roles: [SCENARIO_AUTHOR, REVIEWER]', 'Message: Authors\nSent to: Scenario authors, reviewers'],
+    ['Future role; roles: [UNKNOWN]', 'Message: Future role\nSent to: Unknown audience'],
+  ])('formats announcement audit details for %s', (details, expected) => {
+    setup({ ...page, items: [{ ...page.items[0], action: 'ADMIN_ANNOUNCEMENT_PUBLISHED', targetType: 'ANNOUNCEMENT',
+      targetDisplayName: null, targetEmail: null, targetRole: null, details }] })
+    renderPage()
+    expect(screen.getByText((_, element) => element?.tagName === 'TD' && element.textContent === expected)).toBeInTheDocument()
+  })
   it('paginates and resets to the first page when filters are applied', () => {
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: /next page/i }))
