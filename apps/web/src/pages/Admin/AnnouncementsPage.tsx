@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react'
 import { Button, Checkbox, Form, Heading, InlineLoading, InlineNotification, Modal, Pagination, Select, SelectItem, Tag, TextArea, TextInput } from '@carbon/react'
 import { Send } from '@carbon/icons-react'
-import { usePublishAnnouncement, type AnnouncementRole } from '@/api/hooks/useAnnouncements'
+import { usePublishAnnouncement, type AnnouncementRole, type PublishAnnouncementInput } from '@/api/hooks/useAnnouncements'
 import { audienceLabel, recipientRoles as roles, useAdminAnnouncements, useWithdrawAnnouncement, type SentAnnouncement } from '@/api/hooks/useAdminAnnouncements'
 import { getProblemDetail } from '@/api/problemDetails'
 import styles from './AnnouncementsPage.module.css'
@@ -23,6 +23,7 @@ export default function AnnouncementsPage() {
   const feed = useAdminAnnouncements(historyPage)
   const withdraw = useWithdrawAnnouncement()
   const [withdrawTarget, setWithdrawTarget] = useState<SentAnnouncement | null>(null)
+  const [preview, setPreview] = useState<{ input: PublishAnnouncementInput; recipientLabel: string } | null>(null)
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim() || !message.trim() || !hasRecipients || publish.isPending) return
@@ -34,10 +35,16 @@ export default function AnnouncementsPage() {
     setDateError('')
     setPublished(false)
     const recipientLabel = audience === 'ALL' ? 'all users' : roles.filter((role) => targetRoles.includes(role.value)).map((role) => role.label.toLowerCase()).join(', ')
-    publish.mutate({ title: title.trim(), message: message.trim(), ...(audience === 'ROLES' ? { targetRoles } : {}),
-      ...(publishAt ? { publishAt: new Date(publishAt).toISOString() } : {}), ...(expiresAt ? { expiresAt: new Date(expiresAt).toISOString() } : {}) }, {
-      onSuccess: () => { setWasScheduled(Boolean(publishAt)); setPublishAt(''); setExpiresAt(''); setTitle(''); setMessage(''); setPublishedAudience(recipientLabel); setPublished(true); setHistoryPage(0) },
-    })
+    setPreview({ input: { title: title.trim(), message: message.trim(), ...(audience === 'ROLES' ? { targetRoles: [...targetRoles] } : {}),
+      ...(publishAt ? { publishAt: new Date(publishAt).toISOString() } : {}), ...(expiresAt ? { expiresAt: new Date(expiresAt).toISOString() } : {}) }, recipientLabel })
+  }
+
+  const confirmPublish = () => {
+    if (!preview || publish.isPending) return
+    publish.mutate(preview.input, { onSuccess: () => {
+      setWasScheduled(Boolean(preview.input.publishAt)); setPublishedAudience(preview.recipientLabel)
+      setPublishAt(''); setExpiresAt(''); setTitle(''); setMessage(''); setPublished(true); setHistoryPage(0); setPreview(null)
+    } })
   }
 
   return <main className={styles.page}>
@@ -52,7 +59,7 @@ export default function AnnouncementsPage() {
         <p>Choose recipients and optionally schedule publication or expiry. Role targeting follows each account's current role.</p>
         {published && <InlineNotification kind="success" title={wasScheduled ? 'Announcement scheduled' : 'Announcement published'} subtitle={wasScheduled ? `Your update will appear for ${publishedAudience} at the scheduled time.` : `Your update is available to ${publishedAudience} in their announcement bell.`} hideCloseButton />}
         {dateError && <InlineNotification kind="error" title="Check announcement dates" subtitle={dateError} hideCloseButton />}
-        {publish.isError && <InlineNotification kind="error" title="Announcement could not be published"
+        {publish.isError && !preview && <InlineNotification kind="error" title="Announcement could not be published"
           subtitle={getProblemDetail(publish.error, 'Please try again. Your message has been kept.')} hideCloseButton />}
         <Form onSubmit={submit} className={styles.form}>
           <Select id="announcement-audience" labelText="Recipients" value={audience} disabled={publish.isPending}
@@ -79,7 +86,7 @@ export default function AnnouncementsPage() {
             disabled={publish.isPending} helperText="Your local time. Leave empty to keep the announcement available."
             onChange={(event) => { setExpiresAt(event.target.value); setDateError(''); setPublished(false) }} />
           <Button type="submit" renderIcon={Send} disabled={!title.trim() || !message.trim() || !hasRecipients || publish.isPending}>
-            {publish.isPending ? 'Publishing…' : audience === 'ALL' ? 'Publish to all users' : 'Publish to selected roles'}
+            {publish.isPending ? 'Publishing…' : 'Preview announcement'}
           </Button>
         </Form>
       </section>
@@ -105,6 +112,17 @@ export default function AnnouncementsPage() {
           totalItems={feed.data.totalElements} onChange={({ page }) => setHistoryPage(page - 1)} />}
       </section>
     </div>
+    {preview && <Modal open modalHeading="Preview announcement" primaryButtonText={preview.input.publishAt ? 'Confirm schedule' : 'Confirm publication'}
+      secondaryButtonText="Keep editing" primaryButtonDisabled={publish.isPending} onRequestSubmit={confirmPublish}
+      onRequestClose={() => { if (!publish.isPending) setPreview(null) }}>
+      <h3>{preview.input.title}</h3>
+      <p className={styles.message}>{preview.input.message}</p>
+      <p>Sent to: {audienceLabel(preview.input.targetRoles ? 'ROLES' : 'ALL', preview.input.targetRoles ?? [])}</p>
+      <p>Publication: {preview.input.publishAt ? new Date(preview.input.publishAt).toLocaleString() : 'Immediately'}</p>
+      <p>Expiry: {preview.input.expiresAt ? new Date(preview.input.expiresAt).toLocaleString() : 'No expiry'}</p>
+      {publish.isError && <InlineNotification kind="error" title="Announcement could not be published"
+        subtitle={getProblemDetail(publish.error, 'Please try again. Your message has been kept.')} hideCloseButton />}
+    </Modal>}
     {withdrawTarget && <Modal open modalHeading="Withdraw announcement?" primaryButtonText="Withdraw announcement" secondaryButtonText="Cancel"
       danger primaryButtonDisabled={withdraw.isPending} onRequestClose={() => { if (!withdraw.isPending) setWithdrawTarget(null) }}
       onRequestSubmit={() => { if (!withdraw.isPending) withdraw.mutate(withdrawTarget.id, { onSuccess: () => setWithdrawTarget(null) }) }}>

@@ -42,12 +42,21 @@ public class AdminAnnouncementController {
     public record PublishRequest(@NotBlank @Size(max = 120) String title,
                                  @NotBlank @Size(max = 4000) String message,
                                  @Size(min = 1, max = 4) Set<@NotNull UserRole> targetRoles,
-                                 java.time.Instant publishAt, java.time.Instant expiresAt) {}
+                                 java.time.Instant publishAt, java.time.Instant expiresAt, UUID requestId) {}
     public record Published(UUID id) {}
 
     @PostMapping
-    public ResponseEntity<Published> publish(@Valid @RequestBody PublishRequest request) {
+    public ResponseEntity<Published> publish(@org.springframework.security.core.annotation.AuthenticationPrincipal com.ibm.consulting.sim.identity.domain.User user,
+                                            @Valid @RequestBody PublishRequest request) {
+        UUID id;
+        if (request.requestId() == null) {
+            // Backward compatibility for clients deployed before request deduplication.
+            id = service.publish(request.title(), request.message(), request.targetRoles(), request.publishAt(), request.expiresAt());
+        } else {
+            if (user == null) throw new IllegalArgumentException("An authenticated publisher is required.");
+            id = service.publishOnce(user.getId(), request.requestId(), request.title(), request.message(), request.targetRoles(), request.publishAt(), request.expiresAt());
+        }
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
-                .body(new Published(service.publish(request.title(), request.message(), request.targetRoles(), request.publishAt(), request.expiresAt())));
+                .body(new Published(id));
     }
 }

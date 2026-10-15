@@ -34,6 +34,19 @@ class AdminAnnouncementControllerTest {
     private static final String ENDPOINT = "/api/v1/admin/announcements";
     private static final String BODY = "{\"title\":\"Maintenance\",\"message\":\"The platform will restart tonight.\"}";
 
+    @Test void requestDeduplicationUsesTheAuthenticatedPublisher() throws Exception {
+        var actor = com.ibm.consulting.sim.identity.domain.User.create("admin@example.test", "hash", "Admin",
+                com.ibm.consulting.sim.identity.domain.UserRole.ADMINISTRATOR);
+        var authentication = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(actor, null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMINISTRATOR")));
+        UUID key = UUID.randomUUID(); UUID id = UUID.randomUUID();
+        when(service.publishOnce(actor.getId(), key, "Update", "Hello", null, null, null)).thenReturn(id);
+        mvc.perform(post(ENDPOINT).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication(authentication))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Update\",\"message\":\"Hello\",\"requestId\":\"" + key + "\",\"actorId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(id.toString()));
+        verify(service).publishOnce(actor.getId(), key, "Update", "Hello", null, null, null);
+    }
+
     @Test void anonymousUsersCannotPublish() throws Exception {
         mvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON).content(BODY)).andExpect(status().isUnauthorized());
         verifyNoInteractions(service);

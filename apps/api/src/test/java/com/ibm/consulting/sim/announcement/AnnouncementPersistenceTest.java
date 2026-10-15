@@ -59,6 +59,42 @@ class AnnouncementPersistenceTest {
     @Autowired com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory history;
     @Autowired com.ibm.consulting.sim.announcement.application.AnnouncementSchedule schedule;
 
+    @Test void repeatedAndConcurrentPublicationCreatesOnlyOneAnnouncementAndAudit() throws Exception {
+        User actor = user();
+        UUID key = UUID.randomUUID();
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> adminService.publishOnce(actor.getId(), key, "Update", "Message", null, null, null));
+            var second = executor.submit(() -> adminService.publishOnce(actor.getId(), key, "Update", "Message", null, null, null));
+            UUID id = first.get(15, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(second.get(15, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(id);
+            assertThat(adminService.publishOnce(actor.getId(), key, " Update ", " Message ", null, null, null)).isEqualTo(id);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM announcements", Long.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM admin_audit_events WHERE action = 'ADMIN_ANNOUNCEMENT_PUBLISHED'", Long.class)).isEqualTo(1);
+            verify(messaging, times(1)).convertAndSend(eq("/topic/announcements"), any(AnnouncementService.Created.class));
+            assertThatThrownBy(() -> adminService.publishOnce(actor.getId(), key, "Changed", "Message", null, null, null))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("different announcement");
+            adminService.publishOnce(user().getId(), key, "Update", "Message", null, null, null);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM announcements", Long.class)).isEqualTo(2);
+        } finally { executor.shutdownNow(); }
+    }
+
+    @Test void rolledBackPublicationCanRetryAndScheduledRetriesWorkAfterPublicationTime() {
+        User actor = user(); UUID key = UUID.randomUUID();
+        new TransactionTemplate(manager).executeWithoutResult(status -> {
+            adminService.publishOnce(actor.getId(), key, "Retry", "Message", null, null, null);
+            status.setRollbackOnly();
+        });
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_publish_requests", Long.class)).isZero();
+        adminService.publishOnce(actor.getId(), key, "Retry", "Message", null, null, null);
+        UUID scheduledKey = UUID.randomUUID();
+        java.time.Instant time = java.time.Instant.now().plusSeconds(3600);
+        UUID scheduled = adminService.publishOnce(actor.getId(), scheduledKey, "Scheduled", "Message", null, time, null);
+        jdbc.update("UPDATE announcements SET publish_at = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id = ?", scheduled);
+        assertThat(adminService.publishOnce(actor.getId(), scheduledKey, "Scheduled", "Message", null, time, null)).isEqualTo(scheduled);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcements", Long.class)).isEqualTo(2);
+    }
+
     @Test void scheduledAndExpiredAnnouncementsStayOutOfFeedsAndTransitionsNotifyOnce() {
         User recipient = user();
         java.time.Instant future = java.time.Instant.now().plusSeconds(3600);

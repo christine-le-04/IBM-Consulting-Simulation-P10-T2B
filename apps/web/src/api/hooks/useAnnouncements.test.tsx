@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/store/authStore'
 import { ensureFreshAccessToken } from '@/api/refreshSession'
-import { useAnnouncementUpdates } from './useAnnouncements'
+import { useAnnouncementUpdates, usePublishAnnouncement } from './useAnnouncements'
+import apiClient from '@/api/client'
 
 type TestSocket = {
   activate: ReturnType<typeof vi.fn>
@@ -21,6 +22,36 @@ vi.mock('@stomp/stompjs', () => ({ Client: vi.fn(function () {
   return socket
 }) }))
 vi.mock('@/api/refreshSession', () => ({ ensureFreshAccessToken: vi.fn() }))
+vi.mock('@/api/client', () => ({ default: { post: vi.fn() } }))
+
+describe('announcement publication retries', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+  it('reuses the request key after a lost response and generates a new key for the next message', async () => {
+    const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    const { result } = renderHook(() => usePublishAnnouncement(), { wrapper })
+    const input = { title: 'Update', message: 'Hello' }
+    vi.mocked(apiClient.post).mockRejectedValueOnce(new Error('Response lost')).mockResolvedValue({ data: { id: 'saved' } })
+    await act(async () => { await expect(result.current.mutateAsync(input)).rejects.toThrow('Response lost') })
+    await act(async () => { await result.current.mutateAsync(input) })
+    const first = vi.mocked(apiClient.post).mock.calls[0][1] as { requestId: string }
+    const retry = vi.mocked(apiClient.post).mock.calls[1][1] as { requestId: string }
+    expect(first.requestId).toBeTruthy()
+    expect(retry.requestId).toBe(first.requestId)
+    await act(async () => { await result.current.mutateAsync(input) })
+    expect((vi.mocked(apiClient.post).mock.calls[2][1] as { requestId: string }).requestId).not.toBe(first.requestId)
+  })
+  it('uses a new request key when a failed announcement is edited', async () => {
+    const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    const { result } = renderHook(() => usePublishAnnouncement(), { wrapper })
+    vi.mocked(apiClient.post).mockRejectedValue(new Error('Offline'))
+    await act(async () => { await result.current.mutateAsync({ title: 'First', message: 'Hello' }).catch(() => {}) })
+    await act(async () => { await result.current.mutateAsync({ title: 'Edited', message: 'Hello' }).catch(() => {}) })
+    const calls = vi.mocked(apiClient.post).mock.calls
+    expect((calls[0][1] as { requestId: string }).requestId).not.toBe((calls[1][1] as { requestId: string }).requestId)
+  })
+})
 
 describe('announcement live updates', () => {
   beforeEach(() => {

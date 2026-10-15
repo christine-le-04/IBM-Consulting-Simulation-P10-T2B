@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Client } from '@stomp/stompjs'
 import apiClient from '@/api/client'
@@ -32,12 +32,25 @@ export const announcementMessage = (item: Announcement) => item.message ?? (item
   ? 'A scenario is now available in the catalogue.'
   : item.kind === 'SCENARIO_ARCHIVED' ? 'This scenario is no longer available for new runs. Existing runs are kept.' : '')
 
+export interface PublishAnnouncementInput {
+  title: string
+  message: string
+  targetRoles?: AnnouncementRole[]
+  publishAt?: string
+  expiresAt?: string
+}
+
 export function usePublishAnnouncement() {
   const qc = useQueryClient()
+  const request = useRef<{ fingerprint: string; id: string }>()
   return useMutation({
-    mutationFn: async (input: { title: string; message: string; targetRoles?: AnnouncementRole[]; publishAt?: string; expiresAt?: string }) =>
-      (await apiClient.post<{ id: string }>('/api/v1/admin/announcements', input)).data,
+    mutationFn: async (input: PublishAnnouncementInput) => {
+      const fingerprint = JSON.stringify([input.title, input.message, input.targetRoles?.slice().sort() ?? null, input.publishAt ?? null, input.expiresAt ?? null])
+      if (request.current?.fingerprint !== fingerprint) request.current = { fingerprint, id: crypto.randomUUID() }
+      return (await apiClient.post<{ id: string }>('/api/v1/admin/announcements', { ...input, requestId: request.current.id })).data
+    },
     onSuccess: () => {
+      request.current = undefined
       void qc.invalidateQueries({ queryKey: ['announcements'] })
       void qc.invalidateQueries({ queryKey: ['admin', 'announcements'] })
       void qc.invalidateQueries({ queryKey: ['admin', 'audit-events'] })
