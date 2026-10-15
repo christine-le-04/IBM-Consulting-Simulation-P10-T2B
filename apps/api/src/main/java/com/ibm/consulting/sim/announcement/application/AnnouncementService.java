@@ -20,9 +20,10 @@ public class AnnouncementService {
         this.events = events;
     }
 
-    public enum Kind { SCENARIO_PUBLISHED, SCENARIO_ARCHIVED }
+    public enum Kind { SCENARIO_PUBLISHED, SCENARIO_ARCHIVED, ADMIN_MESSAGE }
     public record Created(UUID id) {}
-    public record Item(UUID id, UUID scenarioId, Kind kind, String scenarioTitle, Instant createdAt, boolean read) {}
+    public record Item(UUID id, UUID scenarioId, Kind kind, String scenarioTitle, Instant createdAt, boolean read,
+                       String title, String message) {}
     public record Feed(List<Item> items, long totalElements, long unreadCount, int page, int size) {}
 
     // Must join the scenario transaction: a failed publish/archive must not leave an announcement.
@@ -37,13 +38,18 @@ public class AnnouncementService {
     @Transactional(readOnly = true)
     public Feed list(UUID userId, int page, int size) {
         var items = jdbc.query("""
-                SELECT a.*, (r.user_id IS NOT NULL) AS is_read
+                SELECT a.*, (r.user_id IS NOT NULL) AS is_read,
+                  COALESCE(a.title, a.scenario_title) AS display_title,
+                  COALESCE(a.message, CASE WHEN a.kind = 'SCENARIO_PUBLISHED'
+                    THEN 'A scenario is now available in the catalogue.'
+                    ELSE 'This scenario is no longer available for new runs. Existing runs are kept.' END) AS display_message
                 FROM announcements a LEFT JOIN announcement_reads r
                   ON r.announcement_id = a.id AND r.user_id = ?
                 ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?
                 """, (rs, row) -> new Item(rs.getObject("id", UUID.class), rs.getObject("scenario_id", UUID.class),
                 Kind.valueOf(rs.getString("kind")), rs.getString("scenario_title"),
-                rs.getTimestamp("created_at").toInstant(), rs.getBoolean("is_read")), userId, size, (long) page * size);
+                rs.getTimestamp("created_at").toInstant(), rs.getBoolean("is_read"),
+                rs.getString("display_title"), rs.getString("display_message")), userId, size, (long) page * size);
         long total = jdbc.queryForObject("SELECT count(*) FROM announcements", Long.class);
         long unread = jdbc.queryForObject("""
                 SELECT count(*) FROM announcements a WHERE NOT EXISTS (

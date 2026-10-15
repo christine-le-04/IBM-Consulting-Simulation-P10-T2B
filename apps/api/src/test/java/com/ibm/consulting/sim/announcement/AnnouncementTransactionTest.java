@@ -1,6 +1,9 @@
 package com.ibm.consulting.sim.announcement;
 
 import com.ibm.consulting.sim.announcement.application.AnnouncementService;
+import com.ibm.consulting.sim.announcement.application.AdminAnnouncementService;
+import com.ibm.consulting.sim.shared.infrastructure.observability.AuditLogger;
+import com.ibm.consulting.sim.shared.infrastructure.observability.AuditAction;
 import com.ibm.consulting.sim.announcement.application.AnnouncementService.Kind;
 import com.ibm.consulting.sim.announcement.infrastructure.AnnouncementBroadcaster;
 import com.ibm.consulting.sim.meeting.application.MeetingServiceTestFactory;
@@ -34,13 +37,34 @@ class AnnouncementTransactionTest {
             return new AnnouncementService(jdbc, publisher);
         }
         @Bean AnnouncementBroadcaster broadcaster(SimpMessagingTemplate messaging) { return new AnnouncementBroadcaster(messaging); }
+        @Bean AuditLogger audit() { return mock(AuditLogger.class); }
+        @Bean AdminAnnouncementService adminService(JdbcTemplate jdbc, ApplicationEventPublisher publisher, AuditLogger audit) {
+            return new AdminAnnouncementService(jdbc, publisher, audit);
+        }
     }
     @Autowired AnnouncementService service;
     @Autowired PlatformTransactionManager transactions;
     @Autowired SimpMessagingTemplate messaging;
     @Autowired JdbcTemplate jdbc;
+    @Autowired AdminAnnouncementService adminService;
+    @Autowired AuditLogger audit;
     private final Scenario scenario = Scenario.create("Published title", "Retail", "Description", 3);
-    @BeforeEach void clear() { reset(messaging, jdbc); }
+    @BeforeEach void clear() { reset(messaging, jdbc, audit); }
+
+    @Test void customPublicationJoinsAuditAndBroadcastsOnlyAfterCommit() {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var id = adminService.publish(" Maintenance ", " Restart tonight. ");
+            verify(audit).recordAdmin(AuditAction.ADMIN_ANNOUNCEMENT_PUBLISHED, "ANNOUNCEMENT", id.toString(), "Maintenance");
+            verifyNoInteractions(messaging);
+        });
+        verify(messaging).convertAndSend(eq("/topic/announcements"), any(AnnouncementService.Created.class));
+    }
+
+    @Test void invalidCustomContentCannotReachPersistenceOrDelivery() {
+        assertThatThrownBy(() -> adminService.publish(" ", "Message")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adminService.publish("Title", "x".repeat(4001))).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(jdbc, audit, messaging);
+    }
 
     @Test void broadcastsOnlyAfterSuccessfulCommit() {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {

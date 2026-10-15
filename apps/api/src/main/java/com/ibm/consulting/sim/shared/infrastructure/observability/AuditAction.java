@@ -1,6 +1,7 @@
 package com.ibm.consulting.sim.shared.infrastructure.observability;
 
 public enum AuditAction {
+    ADMIN_ANNOUNCEMENT_PUBLISHED,
     ADMIN_USER_CREATED,
     ADMIN_USER_DELETED,
     ADMIN_USER_ROLE_CHANGED,

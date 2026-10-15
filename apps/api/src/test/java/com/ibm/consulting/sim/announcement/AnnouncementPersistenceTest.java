@@ -1,6 +1,9 @@
 package com.ibm.consulting.sim.announcement;
 
 import com.ibm.consulting.sim.announcement.application.AnnouncementService;
+import com.ibm.consulting.sim.announcement.application.AdminAnnouncementService;
+import com.ibm.consulting.sim.shared.infrastructure.observability.AuditLogger;
+import com.ibm.consulting.sim.identity.domain.UserRepository;
 import com.ibm.consulting.sim.announcement.application.AnnouncementService.Kind;
 import com.ibm.consulting.sim.announcement.infrastructure.AnnouncementBroadcaster;
 import com.ibm.consulting.sim.identity.domain.User;
@@ -33,7 +36,7 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
 @DataJpaTest
-@Import({AnnouncementService.class, AnnouncementBroadcaster.class})
+@Import({AnnouncementService.class, AdminAnnouncementService.class, AnnouncementBroadcaster.class, AuditLogger.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -50,10 +53,68 @@ class AnnouncementPersistenceTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager entities;
     @MockBean SimpMessagingTemplate messaging;
+    @MockBean UserRepository users;
+    @Autowired AdminAnnouncementService adminService;
 
     @BeforeEach void clear() {
         jdbc.update("DELETE FROM announcement_reads");
         jdbc.update("DELETE FROM announcements");
+        jdbc.update("DELETE FROM admin_audit_events");
+    }
+
+    @Test void customAnnouncementIsSharedAndAuditedAndKeepsPlainText() {
+        String message = "First line\n<script>example</script>";
+        var id = adminService.publish(" Maintenance ", " " + message + " ");
+        var item = service.list(user().getId(), 0, 20).items().getFirst();
+        assertThat(item.id()).isEqualTo(id);
+        assertThat(item.kind()).isEqualTo(Kind.ADMIN_MESSAGE);
+        assertThat(item.title()).isEqualTo("Maintenance");
+        assertThat(item.message()).isEqualTo(message);
+        assertThat(item.scenarioId()).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM admin_audit_events WHERE action = 'ADMIN_ANNOUNCEMENT_PUBLISHED' AND target_id = ?",
+                Long.class, id.toString())).isEqualTo(1);
+        assertThat(service.list(user().getId(), 0, 20).unreadCount()).isEqualTo(1);
+    }
+
+    @Test void customAnnouncementAndAuditRollBackTogether() {
+        new TransactionTemplate(manager).executeWithoutResult(status -> {
+            adminService.publish("Maintenance", "Restart tonight.");
+            status.setRollbackOnly();
+        });
+        assertThat(service.list(UUID.randomUUID(), 0, 20).items()).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM admin_audit_events", Long.class)).isZero();
+        verifyNoInteractions(messaging);
+    }
+
+    @Test void upgradeFromV78PreservesExistingAnnouncementsAndReadReceipts() throws Exception {
+        String schema = "announcement_upgrade_" + UUID.randomUUID().toString().replace("-", "");
+        try (var connection = jdbc.getDataSource().getConnection(); var statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA " + schema);
+            try {
+                connection.setSchema(schema);
+                statement.execute("CREATE TABLE users (id uuid PRIMARY KEY)");
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
+                        new org.springframework.core.io.ClassPathResource("db/migration/V78__create_announcements.sql"));
+                statement.execute("INSERT INTO users VALUES ('00000000-0000-0000-0000-000000000001')");
+                statement.execute("INSERT INTO announcements (id, scenario_id, kind, scenario_title) VALUES "
+                        + "('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', 'SCENARIO_PUBLISHED', 'Original title')");
+                statement.execute("INSERT INTO announcement_reads VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002')");
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
+                        new org.springframework.core.io.ClassPathResource("db/migration/V79__support_admin_announcements.sql"));
+                try (var rows = statement.executeQuery("SELECT a.scenario_title FROM announcements a JOIN announcement_reads r ON r.announcement_id = a.id")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString(1)).isEqualTo("Original title");
+                }
+                // Existing scenario writers remain compatible after the new migration.
+                statement.execute("INSERT INTO announcements (id, scenario_id, kind, scenario_title) VALUES "
+                        + "(gen_random_uuid(), gen_random_uuid(), 'SCENARIO_ARCHIVED', 'Another scenario')");
+                statement.execute("INSERT INTO announcements (id, kind, title, message) VALUES "
+                        + "(gen_random_uuid(), 'ADMIN_MESSAGE', 'New notice', 'Published after upgrade')");
+            } finally {
+                connection.setSchema("public");
+                statement.execute("DROP SCHEMA " + schema + " CASCADE");
+            }
+        }
     }
 
     @Test void rollbackRemovesAnnouncementAndDoesNotBroadcast() {

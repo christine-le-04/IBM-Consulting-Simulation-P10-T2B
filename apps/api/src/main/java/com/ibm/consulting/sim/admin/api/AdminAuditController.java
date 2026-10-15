@@ -23,7 +23,7 @@ public class AdminAuditController {
     ResponseEntity<AdminAuditService.AuditPage> list(
             @RequestParam(required = false) @Size(max = 100) String search,
             @RequestParam(required = false) AuditAction action,
-            @RequestParam(required = false) @Pattern(regexp = "USER|SCENARIO|LEAD|KNOWLEDGE_DOCUMENT|ACHIEVEMENT") String targetType,
+            @RequestParam(required = false) @Pattern(regexp = "USER|SCENARIO|LEAD|KNOWLEDGE_DOCUMENT|ACHIEVEMENT|ANNOUNCEMENT") String targetType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(defaultValue = "0") @Min(0) @Max(100000) int page,
