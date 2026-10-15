@@ -27,16 +27,31 @@ describe('AuditLogPage', () => {
     expect(screen.getByText('Target User')).toBeInTheDocument()
     expect(screen.getByText('target@example.com')).toBeInTheDocument()
     expect(screen.getByText('Learner')).toBeInTheDocument()
-    expect(screen.getByTitle('deleted-user-id')).toBeInTheDocument()
+    expect(screen.queryByTitle('deleted-user-id')).not.toBeInTheDocument()
     expect(screen.getByText(/Last 90 days/)).toBeInTheDocument()
-    expect(screen.getByText('<script>alert("test")</script>')).toBeInTheDocument()
+    expect(screen.getByText('Email: target@example.com')).toBeInTheDocument()
     expect(document.querySelector('script')).toBeNull()
     expect(screen.getByText('60 recorded actions')).toBeInTheDocument()
   })
-  it('falls back to the target ID when an older identity cannot be recovered', () => {
+  it('shows the resource type without an ID when an older identity cannot be recovered', () => {
     setup({ ...page, items: [{ ...page.items[0], targetDisplayName: null, targetEmail: null, targetRole: null }] })
     renderPage()
-    expect(screen.getByText('deleted-user-id')).toBeInTheDocument()
+    expect(screen.queryByText('deleted-user-id')).not.toBeInTheDocument()
+    expect(screen.getByText('User', { selector: 'strong' })).toBeInTheDocument()
+  })
+
+  it('hides missing actor IDs, target IDs and technical details throughout a row', () => {
+    const id = 'a97e41af-e8c9-4d72-8153-2c8bc721ec1f'
+    setup({ ...page, items: [{ ...page.items[0], actorId: id, actorDisplayName: null, actorEmail: null,
+      action: 'ADMIN_SCENARIO_REVISION_CREATED', targetType: 'SCENARIO', targetId: id,
+      targetDisplayName: null, targetEmail: null, targetRole: null, details: `forked from ${id}` }] })
+    renderPage()
+    expect(screen.getByText('Unknown user')).toBeInTheDocument()
+    expect(screen.getByText('Draft revision created')).toBeInTheDocument()
+    expect(screen.getByText('A new draft revision was created from an existing scenario.')).toBeInTheDocument()
+    expect(document.body.textContent).not.toContain(id)
+    expect(document.body.textContent).not.toContain('forked from')
+    expect(screen.queryByTitle(id)).not.toBeInTheDocument()
   })
 
   it.each([
