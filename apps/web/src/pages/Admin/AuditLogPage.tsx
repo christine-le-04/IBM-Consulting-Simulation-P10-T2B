@@ -53,7 +53,8 @@ export default function AuditLogPage() {
     </form>
     {dateError && <InlineNotification kind="error" title="Check the date range" subtitle="Start date must be on or before end date." hideCloseButton />}
     {events.isError ? <ErrorState title="Audit history could not be loaded" actionLabel="Try again" onAction={() => events.refetch()} /> : <>
-      <div className={styles.summary}><strong>{events.data?.totalElements ?? 0} recorded actions</strong><span>Newest first. Times shown in your local time.</span></div>
+      <div className={styles.summary}><strong>{events.data?.totalElements ?? 0} recorded actions</strong><span>
+        {events.data?.retentionDays != null && `Last ${events.data.retentionDays} days. `}Newest first. Times shown in your local time.</span></div>
       {events.isFetching && <InlineLoading description="Loading audit history" />}
       {!events.isLoading && events.data?.items.length === 0 && <div className={styles.empty}>
         <h2>No matching activity</h2><p>New administrative changes appear here after they are saved. Try clearing your filters or refreshing.</p>
@@ -66,7 +67,10 @@ export default function AuditLogPage() {
             <td><strong>{item.actorDisplayName || item.actorEmail || (item.actorId ? 'Unknown user' : 'System')}</strong>
               <small>{item.actorEmail || item.actorId || 'Automated action'}</small>{item.actorRole && <small>{label(item.actorRole)}</small>}</td>
             <td><Tag type={item.action.includes('DELETED') ? 'red' : 'blue'}>{label(item.action)}</Tag></td>
-            <td><strong>{label(item.targetType)}</strong><code>{item.targetId}</code></td>
+            <td title={item.targetId}><strong>{item.targetDisplayName || label(item.targetType)}</strong>
+              {item.targetEmail && <small>{item.targetEmail}</small>}
+              {item.targetRole && <small>{label(item.targetRole)}</small>}
+              {!item.targetDisplayName && !item.targetEmail && <code>{item.targetId}</code>}</td>
             <td className={styles.details}>{item.details || 'No additional details'}</td>
           </tr>)}</tbody>
         </table>

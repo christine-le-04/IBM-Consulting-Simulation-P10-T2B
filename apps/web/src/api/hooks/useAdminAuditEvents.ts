@@ -11,6 +11,9 @@ export interface AdminAuditEvent {
   action: string
   targetType: string
   targetId: string
+  targetDisplayName: string | null
+  targetEmail: string | null
+  targetRole: string | null
   details: string | null
 }
 
@@ -21,6 +24,7 @@ export interface AdminAuditPage {
   size: number
   totalPages: number
   actions: string[]
+  retentionDays: number
 }
 
 export interface AdminAuditFilters {

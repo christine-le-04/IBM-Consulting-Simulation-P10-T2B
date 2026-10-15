@@ -10,8 +10,8 @@ const refresh = vi.fn()
 const page: AdminAuditPage = {
   items: [{ id: 'event-1', occurredAt: '2026-10-14T00:00:00Z', actorId: 'admin-1', actorDisplayName: 'Alex Admin',
     actorEmail: 'alex@example.com', actorRole: 'ADMINISTRATOR', action: 'ADMIN_USER_DELETED', targetType: 'USER',
-    targetId: 'deleted-user-id', details: '<script>alert("test")</script>' }],
-  totalElements: 60, page: 0, size: 25, totalPages: 3, actions: ['ADMIN_USER_CREATED', 'ADMIN_USER_DELETED'],
+    targetId: 'deleted-user-id', targetDisplayName: 'Target User', targetEmail: 'target@example.com', targetRole: 'LEARNER', details: '<script>alert("test")</script>' }],
+  totalElements: 60, page: 0, size: 25, totalPages: 3, actions: ['ADMIN_USER_CREATED', 'ADMIN_USER_DELETED'], retentionDays: 90,
 }
 function setup(data = page) {
   query.mockReturnValue({ data, isLoading: false, isFetching: false, isError: false, refetch: refresh } as unknown as ReturnType<typeof useAdminAuditEvents>)
@@ -24,10 +24,19 @@ describe('AuditLogPage', () => {
     renderPage()
     expect(screen.getByText('Alex Admin')).toBeInTheDocument()
     expect(screen.getByText('alex@example.com')).toBeInTheDocument()
-    expect(screen.getByText('deleted-user-id')).toBeInTheDocument()
+    expect(screen.getByText('Target User')).toBeInTheDocument()
+    expect(screen.getByText('target@example.com')).toBeInTheDocument()
+    expect(screen.getByText('Learner')).toBeInTheDocument()
+    expect(screen.getByTitle('deleted-user-id')).toBeInTheDocument()
+    expect(screen.getByText(/Last 90 days/)).toBeInTheDocument()
     expect(screen.getByText('<script>alert("test")</script>')).toBeInTheDocument()
     expect(document.querySelector('script')).toBeNull()
     expect(screen.getByText('60 recorded actions')).toBeInTheDocument()
+  })
+  it('falls back to the target ID when an older identity cannot be recovered', () => {
+    setup({ ...page, items: [{ ...page.items[0], targetDisplayName: null, targetEmail: null, targetRole: null }] })
+    renderPage()
+    expect(screen.getByText('deleted-user-id')).toBeInTheDocument()
   })
   it('paginates and resets to the first page when filters are applied', () => {
     renderPage()
