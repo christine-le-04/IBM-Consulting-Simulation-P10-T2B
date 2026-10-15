@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore'
 export interface Announcement {
   id: string
   scenarioId: string | null
-  kind: 'SCENARIO_PUBLISHED' | 'SCENARIO_ARCHIVED' | 'ADMIN_MESSAGE'
+  kind: 'SCENARIO_PUBLISHED' | 'SCENARIO_ARCHIVED' | 'ADMIN_MESSAGE' | 'SCENARIO_ASSIGNED'
   scenarioTitle: string | null
   title?: string
   message?: string

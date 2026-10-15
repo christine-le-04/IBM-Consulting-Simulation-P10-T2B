@@ -175,7 +175,8 @@ class ScenarioAssignmentIntegrationTest {
         User author = inTransaction(() -> persistUser("Author", UserRole.SCENARIO_AUTHOR));
         Scenario scenario = inTransaction(() -> persistScenario("Service " + token(), "Service", true));
         ScenarioAssignmentService service = new ScenarioAssignmentService(
-                assignmentRepository, scenarioRepository, new EntityManagerUserRepository(), mock(AuditLogger.class));
+                assignmentRepository, scenarioRepository, new EntityManagerUserRepository(), mock(AuditLogger.class),
+                mock(com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService.class));
 
         inTransaction(() -> service.replaceAssignments(scenario.getId(), List.of(ada.getId(), bob.getId()), author.getId()));
         ScenarioAssignmentView afterSecondSave = inTransaction(

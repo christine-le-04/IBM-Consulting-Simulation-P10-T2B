@@ -61,6 +61,17 @@ describe('AnnouncementCenter', () => {
     expect(mutate).toHaveBeenLastCalledWith(['published'])
   })
 
+  it('labels personal scenario assignments and supports marking them as read', () => {
+    setup({ data: { ...data, items: [{ ...data.items[0], kind: 'SCENARIO_ASSIGNED', scenarioTitle: 'Assigned scenario',
+      message: 'You have been assigned this scenario.' }] } })
+    render(<AnnouncementCenter />)
+    open()
+    expect(screen.getByText('New scenario assignment')).toBeInTheDocument()
+    expect(screen.getByText('You have been assigned this scenario.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Assigned scenario as read' }))
+    expect(mutate).toHaveBeenLastCalledWith(['published'])
+  })
+
   it('paginates history and closes with Escape, returning focus to the bell', () => {
     render(<AnnouncementCenter />)
     open()

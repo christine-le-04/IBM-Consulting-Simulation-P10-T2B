@@ -14,9 +14,11 @@ import java.util.UUID;
 public class AnnouncementService {
     // Resolve the role from the account, never from client-supplied filters or stale JWT claims.
     private static final String VISIBLE = """
-            (a.audience = 'ALL' OR (a.audience = 'ROLES' AND EXISTS (
-                SELECT 1 FROM announcement_roles ar JOIN users u ON u.role = ar.role
-                WHERE ar.announcement_id = a.id AND u.id = ?)))
+            (a.audience = 'ALL' OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND (
+                (a.audience = 'ROLES' AND EXISTS (SELECT 1 FROM announcement_roles ar
+                    WHERE ar.announcement_id = a.id AND ar.role = u.role))
+                OR (a.audience = 'USERS' AND EXISTS (SELECT 1 FROM announcement_recipients recipient
+                    WHERE recipient.announcement_id = a.id AND recipient.user_id = u.id)))))
             """;
     private final JdbcTemplate jdbc;
     private final ApplicationEventPublisher events;
@@ -26,7 +28,7 @@ public class AnnouncementService {
         this.events = events;
     }
 
-    public enum Kind { SCENARIO_PUBLISHED, SCENARIO_ARCHIVED, ADMIN_MESSAGE }
+    public enum Kind { SCENARIO_PUBLISHED, SCENARIO_ARCHIVED, ADMIN_MESSAGE, SCENARIO_ASSIGNED }
     public record Created(UUID id) {}
     public record Item(UUID id, UUID scenarioId, Kind kind, String scenarioTitle, Instant createdAt, boolean read,
                        String title, String message) {}

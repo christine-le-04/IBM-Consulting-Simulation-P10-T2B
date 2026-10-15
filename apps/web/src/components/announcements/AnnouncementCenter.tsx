@@ -48,7 +48,7 @@ export default function AnnouncementCenter() {
       {unreadIds.length > 0 && <Button kind="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate(unreadIds)}>Mark this page as read</Button>}
       {feed.data?.items.length === 0 && <p>No announcements yet.</p>}
       <ul className={styles.list}>{feed.data?.items.map((item) => <li key={item.id} className={item.read ? '' : styles.unread}>
-        <div><strong>{item.kind === 'SCENARIO_PUBLISHED' ? 'Scenario published' : item.kind === 'SCENARIO_ARCHIVED' ? 'Scenario archived' : 'From the administration team'}</strong>{!item.read && <Tag type="blue">Unread</Tag>}</div>
+        <div><strong>{item.kind === 'SCENARIO_PUBLISHED' ? 'Scenario published' : item.kind === 'SCENARIO_ARCHIVED' ? 'Scenario archived' : item.kind === 'SCENARIO_ASSIGNED' ? 'New scenario assignment' : 'From the administration team'}</strong>{!item.read && <Tag type="blue">Unread</Tag>}</div>
         <p><strong>{announcementTitle(item)}</strong></p>
         <p className={styles.message}>{announcementMessage(item)}</p>
         <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
