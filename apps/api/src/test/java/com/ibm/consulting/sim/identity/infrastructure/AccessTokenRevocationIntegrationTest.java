@@ -22,7 +22,7 @@ class AccessTokenRevocationIntegrationTest {
     void migrationAndStorePersistRevocationsAcrossInstancesAndRemoveOnlyExpiredRows() {
         DriverManagerDataSource datasource = new DriverManagerDataSource(
                 postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V69__add_access_token_revocations.sql"))
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V73__add_access_token_revocations.sql"))
                 .execute(datasource);
         JdbcTemplate jdbc = new JdbcTemplate(datasource);
         JdbcAccessTokenRevocationStore first = new JdbcAccessTokenRevocationStore(jdbc);
