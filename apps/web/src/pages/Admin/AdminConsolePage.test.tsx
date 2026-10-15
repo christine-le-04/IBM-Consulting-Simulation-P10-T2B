@@ -108,6 +108,7 @@ describe('AdminConsolePage role-based visibility and navigation', () => {
     renderPage()
     expect(screen.queryByText('People and access')).not.toBeInTheDocument()
     expect(screen.queryByText('Audit log')).not.toBeInTheDocument()
+    expect(screen.queryByText('Announcements')).not.toBeInTheDocument()
     expect(screen.queryByText('Progression and badges')).not.toBeInTheDocument()
   })
 
@@ -124,6 +125,7 @@ describe('AdminConsolePage role-based visibility and navigation', () => {
     renderPage()
     expect(screen.getByRole('link', { name: /People and access/i })).toHaveAttribute('href', '/dashboard/admin/users')
     expect(screen.getByRole('link', { name: /Audit log/i })).toHaveAttribute('href', '/dashboard/admin/audit-log')
+    expect(screen.getByRole('link', { name: /Announcements/i })).toHaveAttribute('href', '/dashboard/admin/announcements')
   })
 
   // learner progress card and stuck-learner alert

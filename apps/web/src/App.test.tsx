@@ -23,6 +23,7 @@ vi.mock('@/pages/Admin/ScenarioBuilderPage', () => ({ default: () => <div>Scenar
 vi.mock('@/pages/Admin/UserManagementPage', () => ({ default: () => <div>User management</div> }))
 vi.mock('@/pages/Admin/AiOperationsPage', () => ({ default: () => <div>AI operations</div> }))
 vi.mock('@/pages/Admin/AuditLogPage', () => ({ default: () => <div>Audit log</div> }))
+vi.mock('@/pages/Admin/AnnouncementsPage', () => ({ default: () => <div>Admin announcements</div> }))
 vi.mock('@/pages/Admin/AchievementBuilderPage', () => ({ default: () => <div>Achievement builder</div> }))
 
 function renderAt(path: string, role: string | null = null) {
@@ -90,7 +91,7 @@ describe('App account route access', () => {
 })
 
 describe('App admin route access', () => {
-  it.each(['/dashboard/admin', '/dashboard/admin/scenarios', '/dashboard/admin/users', '/dashboard/admin/ai-operations', '/dashboard/admin/achievements', '/dashboard/admin/audit-log'])('denies a learner direct access to %s', async (path) => {
+  it.each(['/dashboard/admin', '/dashboard/admin/scenarios', '/dashboard/admin/users', '/dashboard/admin/ai-operations', '/dashboard/admin/achievements', '/dashboard/admin/audit-log', '/dashboard/admin/announcements'])('denies a learner direct access to %s', async (path) => {
     renderAt(path, 'LEARNER')
 
     expect(await screen.findByText('Command centre')).toBeInTheDocument()
@@ -102,6 +103,7 @@ describe('App admin route access', () => {
     ['REVIEWER', '/dashboard/admin/ai-operations', 'AI operations'],
     ['ADMINISTRATOR', '/dashboard/admin/users', 'User management'],
     ['ADMINISTRATOR', '/dashboard/admin/audit-log', 'Audit log'],
+    ['ADMINISTRATOR', '/dashboard/admin/announcements', 'Admin announcements'],
     ['ADMINISTRATOR', '/dashboard/admin/achievements', 'Achievement builder'],
   ])('allows %s to open %s', async (role, path, page) => {
     renderAt(path, role)
@@ -114,6 +116,8 @@ describe('App admin route access', () => {
     ['SCENARIO_AUTHOR', '/dashboard/admin/users'],
     ['SCENARIO_AUTHOR', '/dashboard/admin/audit-log'],
     ['REVIEWER', '/dashboard/admin/audit-log'],
+    ['SCENARIO_AUTHOR', '/dashboard/admin/announcements'],
+    ['REVIEWER', '/dashboard/admin/announcements'],
     ['REVIEWER', '/dashboard/admin/scenarios'],
     ['REVIEWER', '/dashboard/admin/achievements'],
   ])('denies %s direct access to %s', async (role, path) => {
