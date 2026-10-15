@@ -1,5 +1,4 @@
 .page { max-width: 1600px; margin: 0 auto; padding: 2rem; }
-.back { display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.25rem; }
 .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e0e0e0; }
 .header h1 { margin: .25rem 0 .75rem; font-size: var(--sim-font-title); font-weight: 500; }
 .header p { margin: 0; color: #525252; }

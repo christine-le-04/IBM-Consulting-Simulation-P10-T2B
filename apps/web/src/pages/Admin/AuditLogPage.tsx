@@ -1,7 +1,6 @@
 import { Button, Heading, InlineLoading, InlineNotification, Pagination, Select, SelectItem, Tag, TextInput } from '@carbon/react'
-import { ArrowLeft, Renew } from '@carbon/icons-react'
+import { Renew } from '@carbon/icons-react'
 import { FormEvent, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAdminAuditEvents, type AdminAuditFilters } from '@/api/hooks/useAdminAuditEvents'
 import ErrorState from '@/components/shared/ErrorState'
 import styles from './AuditLogPage.module.css'
@@ -30,7 +29,6 @@ export default function AuditLogPage() {
   const clear = () => { setDraft(emptyFilters); setApplied({}); setPage(0); setDateError(false) }
 
   return <main className={styles.page}>
-    <Link to="/dashboard/admin" className={styles.back}><ArrowLeft size={16} /> Admin console</Link>
     <header className={styles.header}>
       <div><p className={styles.eyebrow}>Administration history</p><Heading>Audit log</Heading>
         <p>See who changed people, scenarios and platform settings.</p></div>
