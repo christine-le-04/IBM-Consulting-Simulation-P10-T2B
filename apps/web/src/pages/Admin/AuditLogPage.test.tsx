@@ -64,6 +64,27 @@ describe('AuditLogPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
     expect(query).toHaveBeenLastCalledWith({ page: 0, size: 25 })
   })
+
+  it('shows an announcement title instead of its UUID and safely renders it', () => {
+    setup({ ...page, items: [{ ...page.items[0], action: 'ADMIN_ANNOUNCEMENT_PUBLISHED', targetType: 'ANNOUNCEMENT',
+      targetId: 'announcement-uuid', targetDisplayName: null, targetEmail: null, targetRole: null,
+      details: '<script>announcement</script>; roles: [LEARNER]' }] })
+    renderPage()
+    expect(screen.getByText('Announcement', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByText('<script>announcement</script>')).toBeInTheDocument()
+    expect(screen.queryByText('announcement-uuid')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('announcement-uuid')).not.toBeInTheDocument()
+    expect(document.querySelector('script')).toBeNull()
+  })
+
+  it('keeps an announcement target readable when additional details are unavailable', () => {
+    setup({ ...page, items: [{ ...page.items[0], action: 'ADMIN_ANNOUNCEMENT_PUBLISHED', targetType: 'ANNOUNCEMENT',
+      targetId: 'announcement-uuid', targetDisplayName: null, targetEmail: null, targetRole: null, details: null }] })
+    renderPage()
+    expect(screen.getByText('Announcement', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByText('No additional details')).toBeInTheDocument()
+    expect(screen.queryByText('announcement-uuid')).not.toBeInTheDocument()
+  })
   it('rejects a reversed date range without applying it', () => {
     renderPage()
     fireEvent.change(screen.getByLabelText('From date (UTC)'), { target: { value: '2026-10-10' } })

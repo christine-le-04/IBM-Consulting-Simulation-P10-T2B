@@ -3,7 +3,7 @@ import { Renew } from '@carbon/icons-react'
 import { FormEvent, useState } from 'react'
 import { useAdminAuditEvents, type AdminAuditFilters } from '@/api/hooks/useAdminAuditEvents'
 import ErrorState from '@/components/shared/ErrorState'
-import { formatAnnouncementAuditDetails } from '@/features/admin/announcementAudit'
+import { announcementAuditContent, formatAnnouncementAuditDetails } from '@/features/admin/announcementAudit'
 import styles from './AuditLogPage.module.css'
 
 const targets = ['USER', 'SCENARIO', 'LEAD', 'KNOWLEDGE_DOCUMENT', 'ACHIEVEMENT', 'ANNOUNCEMENT']
@@ -66,10 +66,12 @@ export default function AuditLogPage() {
             <td><strong>{item.actorDisplayName || item.actorEmail || (item.actorId ? 'Unknown user' : 'System')}</strong>
               <small>{item.actorEmail || item.actorId || 'Automated action'}</small>{item.actorRole && <small>{label(item.actorRole)}</small>}</td>
             <td><Tag type={item.action.includes('DELETED') ? 'red' : 'blue'}>{label(item.action)}</Tag></td>
-            <td title={item.targetId}><strong>{item.targetDisplayName || label(item.targetType)}</strong>
+            <td title={item.targetType === 'ANNOUNCEMENT' ? undefined : item.targetId}><strong>{item.targetDisplayName || label(item.targetType)}</strong>
+              {item.targetType === 'ANNOUNCEMENT' && item.details && item.action === 'ADMIN_ANNOUNCEMENT_PUBLISHED'
+                && <small>{announcementAuditContent(item.details).message}</small>}
               {item.targetEmail && <small>{item.targetEmail}</small>}
               {item.targetRole && <small>{label(item.targetRole)}</small>}
-              {!item.targetDisplayName && !item.targetEmail && <code>{item.targetId}</code>}</td>
+              {item.targetType !== 'ANNOUNCEMENT' && !item.targetDisplayName && !item.targetEmail && <code>{item.targetId}</code>}</td>
             <td className={styles.details}>{item.details
               ? item.action === 'ADMIN_ANNOUNCEMENT_PUBLISHED' ? formatAnnouncementAuditDetails(item.details) : item.details
               : 'No additional details'}</td>
