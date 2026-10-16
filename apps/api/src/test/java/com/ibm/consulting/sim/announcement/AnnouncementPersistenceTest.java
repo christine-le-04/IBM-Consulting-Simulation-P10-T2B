@@ -11,7 +11,15 @@ import com.ibm.consulting.sim.identity.domain.UserRole;
 import com.ibm.consulting.sim.scenario.domain.Scenario;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.ibm.consulting.sim.shared.infrastructure.observability.AdminAuditEventRepository;
+import com.ibm.consulting.sim.shared.infrastructure.observability.AuditAction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -58,6 +66,120 @@ class AnnouncementPersistenceTest {
     @Autowired AdminAnnouncementService adminService;
     @Autowired com.ibm.consulting.sim.announcement.application.AdminAnnouncementHistory history;
     @Autowired com.ibm.consulting.sim.announcement.application.AnnouncementSchedule schedule;
+    @Autowired AdminAuditEventRepository audits;
+
+    enum Audience { ALL, LEARNERS, MULTIPLE_ROLES }
+
+    @AfterEach void clearIdentity() { SecurityContextHolder.clearContext(); }
+
+    @ParameterizedTest
+    @EnumSource(Audience.class)
+    void scheduledPublicationPersistsActorAudienceAndExactlyOneAuditAcrossRetries(Audience audience) {
+        User actor = signInAdministrator();
+        var roles = switch (audience) {
+            case ALL -> (java.util.Set<UserRole>) null;
+            case LEARNERS -> java.util.Set.of(UserRole.LEARNER);
+            case MULTIPLE_ROLES -> java.util.Set.of(UserRole.REVIEWER, UserRole.LEARNER);
+        };
+        var publishAt = java.time.Instant.now().plusSeconds(3600);
+        var expiresAt = publishAt.plusSeconds(3600);
+        UUID request = UUID.randomUUID();
+        UUID id = adminService.publishOnce(actor.getId(), request, " Scheduled update ", " Message ", roles, publishAt, expiresAt);
+        assertThat(adminService.publishOnce(actor.getId(), request, "Scheduled update", "Message", roles, publishAt, expiresAt)).isEqualTo(id);
+        var entry = history.list(0, 20).items().getFirst();
+        assertThat(entry.id()).isEqualTo(id);
+        assertThat(entry.status()).isEqualTo("SCHEDULED");
+        assertThat(entry.title()).isEqualTo("Scheduled update");
+        assertThat(entry.message()).isEqualTo("Message");
+        assertThat(entry.publishAt()).isCloseTo(publishAt, within(1, java.time.temporal.ChronoUnit.MILLIS));
+        assertThat(entry.expiresAt()).isCloseTo(expiresAt, within(1, java.time.temporal.ChronoUnit.MILLIS));
+        assertThat(entry.audience()).isEqualTo(roles == null ? "ALL" : "ROLES");
+        assertThat(entry.targetRoles()).containsExactlyElementsOf(roles == null ? List.of() : roles.stream().map(Enum::name).sorted().toList());
+        String details = roles == null ? "Scheduled update" : "Scheduled update; roles: " + roles.stream().map(Enum::name).sorted().toList();
+        assertAudit(AuditAction.ADMIN_ANNOUNCEMENT_SCHEDULED, actor, id, details);
+        verifyNoInteractions(messaging);
+
+        jdbc.update("UPDATE announcements SET publish_at = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id = ?", id);
+        schedule.notifyTransitions();
+        schedule.notifyTransitions();
+        assertThat(history.list(0, 20).items().getFirst().status()).isEqualTo("PUBLISHED");
+        // Automatic delivery preserves the original administrator's scheduling audit.
+        assertAudit(AuditAction.ADMIN_ANNOUNCEMENT_SCHEDULED, actor, id, details);
+        verify(messaging, times(1)).convertAndSend(eq("/topic/announcements"), any(AnnouncementService.Created.class));
+    }
+
+    @Test void rolledBackScheduleRemovesAuditAudienceAndRetryClaim() {
+        User actor = signInAdministrator();
+        UUID request = UUID.randomUUID();
+        var publishAt = java.time.Instant.now().plusSeconds(3600);
+        new TransactionTemplate(manager).executeWithoutResult(status -> {
+            adminService.publishOnce(actor.getId(), request, "Later", "Message", java.util.Set.of(UserRole.LEARNER), publishAt, null);
+            entities.flush();
+            assertThat(audits.count()).isEqualTo(1);
+            status.setRollbackOnly();
+        });
+        assertThat(audits.count()).isZero();
+        assertThat(history.list(0, 20).items()).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_roles", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_publish_requests WHERE actor_id = ? AND request_id = ?", Long.class, actor.getId(), request)).isZero();
+        UUID id = adminService.publishOnce(actor.getId(), request, "Later", "Message", java.util.Set.of(UserRole.LEARNER), publishAt, null);
+        assertAudit(AuditAction.ADMIN_ANNOUNCEMENT_SCHEDULED, actor, id, "Later; roles: [LEARNER]");
+        verifyNoInteractions(messaging);
+    }
+
+    @Test void withdrawalAuditRollsBackAndRetryRecordsAdministratorExactlyOnce() {
+        User actor = signInAdministrator();
+        UUID id = adminService.publish("Cancelled update", "Message", null, java.time.Instant.now().plusSeconds(3600), null);
+        audits.deleteAllInBatch();
+        new TransactionTemplate(manager).executeWithoutResult(status -> {
+            history.withdraw(id);
+            entities.flush();
+            assertThat(audits.count()).isEqualTo(1);
+            status.setRollbackOnly();
+        });
+        assertThat(audits.count()).isZero();
+        assertThat(history.list(0, 20).items().getFirst().status()).isEqualTo("SCHEDULED");
+        verifyNoInteractions(messaging);
+        history.withdraw(id);
+        history.withdraw(id);
+        assertThat(history.list(0, 20).items().getFirst().status()).isEqualTo("WITHDRAWN");
+        assertAudit(AuditAction.ADMIN_ANNOUNCEMENT_WITHDRAWN, actor, id, "Cancelled update");
+        verify(messaging, times(1)).convertAndSend(eq("/topic/announcements"), any(AnnouncementService.Created.class));
+    }
+
+    @Test void invalidScheduleLeavesNoAuditAnnouncementOrRetryClaim() {
+        User actor = signInAdministrator();
+        UUID request = UUID.randomUUID();
+        var publishAt = java.time.Instant.now().plusSeconds(3600);
+        assertThatThrownBy(() -> adminService.publishOnce(actor.getId(), request, "Invalid", "Message", null, publishAt, publishAt.minusSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(audits.count()).isZero();
+        assertThat(history.list(0, 20).items()).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_publish_requests WHERE actor_id = ? AND request_id = ?", Long.class, actor.getId(), request)).isZero();
+        verifyNoInteractions(messaging);
+    }
+
+    private User signInAdministrator() {
+        User actor = User.create(UUID.randomUUID() + "@example.test", "hash", "Announcement administrator", UserRole.ADMINISTRATOR);
+        new TransactionTemplate(manager).executeWithoutResult(status -> entities.persist(actor));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRATOR"))));
+        return actor;
+    }
+
+    private void assertAudit(AuditAction action, User actor, UUID target, String details) {
+        assertThat(audits.findAll()).singleElement().satisfies(event -> {
+            assertThat(event.getAction()).isEqualTo(action);
+            assertThat(event.getTargetType()).isEqualTo("ANNOUNCEMENT");
+            assertThat(event.getTargetId()).isEqualTo(target.toString());
+            assertThat(event.getDetails()).isEqualTo(details);
+            assertThat(event.getActorId()).isEqualTo(actor.getId());
+            assertThat(event.getActorDisplayName()).isEqualTo(actor.getDisplayName());
+            assertThat(event.getActorEmail()).isEqualTo(actor.getEmail());
+            assertThat(event.getActorRole()).isEqualTo("ADMINISTRATOR");
+            assertThat(event.getOccurredAt()).isNotNull();
+        });
+    }
 
     @Test void repeatedAndConcurrentPublicationCreatesOnlyOneAnnouncementAndAudit() throws Exception {
         User actor = user();

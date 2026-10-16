@@ -122,4 +122,33 @@ class AdminAuditPersistenceTest {
         assertThat(removed).isEqualTo(1);
         assertThat(repository.count()).isEqualTo(2);
     }
+
+    @Test void cleanupLimitsEachBatchToOneThousandAndDrainsTheBacklogWithoutDeletingCurrentEvents() {
+        java.time.Instant now = java.time.Instant.parse("2026-10-16T12:00:00Z");
+        var policy = new AdminAuditRetention(repository, 90, java.time.Clock.fixed(now, ZoneOffset.UTC));
+        jdbc.update("""
+                INSERT INTO admin_audit_events (id, occurred_at, action, target_type, target_id)
+                SELECT gen_random_uuid(), CAST(? AS timestamptz) - n * INTERVAL '1 microsecond',
+                    'ADMIN_USER_CREATED', 'USER', 'expired-' || n
+                FROM generate_series(1, 2505) AS n
+                """, java.sql.Timestamp.from(policy.cutoff()));
+        for (String target : new String[]{"boundary", "recent", "future"}) {
+            logger.recordAdmin(AuditAction.ADMIN_USER_CREATED, "USER", target);
+        }
+        jdbc.update("UPDATE admin_audit_events SET occurred_at = ? WHERE target_id = 'boundary'", java.sql.Timestamp.from(policy.cutoff()));
+        jdbc.update("UPDATE admin_audit_events SET occurred_at = ? WHERE target_id = 'recent'", java.sql.Timestamp.from(now));
+        jdbc.update("UPDATE admin_audit_events SET occurred_at = ? WHERE target_id = 'future'", java.sql.Timestamp.from(now.plusSeconds(86400)));
+
+        long remaining = 2505;
+        for (int expected : new int[]{1000, 1000, 505, 0}) {
+            Integer removed = new TransactionTemplate(manager).execute(status -> policy.purgeExpired());
+            assertThat(removed).isEqualTo(expected);
+            remaining -= expected;
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM admin_audit_events WHERE occurred_at < ?",
+                    Long.class, java.sql.Timestamp.from(policy.cutoff()))).isEqualTo(remaining);
+            assertThat(repository.count()).isEqualTo(remaining + 3);
+            assertThat(jdbc.queryForList("SELECT target_id FROM admin_audit_events WHERE occurred_at >= ?", String.class,
+                    java.sql.Timestamp.from(policy.cutoff()))).containsExactlyInAnyOrder("boundary", "recent", "future");
+        }
+    }
 }

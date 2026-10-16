@@ -20,6 +20,10 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: gradle
+      - name: Verify Docker is available for PostgreSQL integration tests
+        run: docker info
+      - name: Test database report enforcement
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Build & Test
         working-directory: apps/api
         run: ./gradlew build --no-daemon
@@ -29,6 +33,11 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
           JWT_SECRET: test-secret-key-at-least-64-bytes-long-for-hs512-algorithm-use-only-ci
           WATSONX_MOCK_MODE: true
+          # Compatibility for the existing Testcontainers client with newer Docker daemons.
+          JAVA_TOOL_OPTIONS: -Dapi.version=1.44
+      - name: Require all PostgreSQL integration tests to execute
+        if: always()
+        run: python3 scripts/check_database_test_reports.py
 
   frontend:
     name: Frontend — Lint, Type-check & Test

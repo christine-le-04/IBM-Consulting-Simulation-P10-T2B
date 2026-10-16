@@ -16,6 +16,9 @@ apps/web/node_modules/
 apps/web/dist/
 apps/web/.vite/
 
+# Python CI checks
+__pycache__/
+
 # IDE
 .idea/
 *.iml
