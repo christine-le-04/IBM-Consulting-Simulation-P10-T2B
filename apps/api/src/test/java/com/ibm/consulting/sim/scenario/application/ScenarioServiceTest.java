@@ -40,6 +40,7 @@ class ScenarioServiceTest {
     @Mock LeadRepository leadRepository;
     @Mock KnowledgeIngestionService knowledgeIngestionService;
     @Mock AuditLogger auditLogger;
+    @Mock com.ibm.consulting.sim.announcement.application.AnnouncementService announcements;
 
     @InjectMocks ScenarioService service;
 
@@ -154,7 +155,7 @@ class ScenarioServiceTest {
         UUID scenarioId = scenario.getId();
 
         // mock scenario
-        when(scenarioRepository.findById(scenarioId)).thenReturn(Optional.of(scenario));
+        when(scenarioRepository.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(scenario));
         when(scenarioRepository.save(scenario)).thenReturn(scenario);
 
         mockDifficultyProfile();

@@ -33,7 +33,8 @@ class LearnerScenarioAvailabilityTest {
         DifficultyProfileService difficulty = mock(DifficultyProfileService.class);
         ScenarioService service = new ScenarioService(scenarios, difficulty,
                 mock(ScenarioAuthoringConfigService.class), mock(LeadRepository.class),
-                mock(KnowledgeIngestionService.class), mock(AuditLogger.class), engagements);
+                mock(KnowledgeIngestionService.class), mock(AuditLogger.class), engagements,
+                mock(com.ibm.consulting.sim.announcement.application.AnnouncementService.class));
         Scenario archived = Scenario.create("Pinned revision", "Retail", "Existing run", 3);
         archived.archive();
         UUID owner = UUID.randomUUID();
@@ -57,7 +58,8 @@ class LearnerScenarioAvailabilityTest {
         DifficultyProfileService difficulty = mock(DifficultyProfileService.class);
         ScenarioAuthoringConfigService authoring = mock(ScenarioAuthoringConfigService.class);
         ScenarioService scenarioService = new ScenarioService(
-                scenarios, difficulty, authoring, leads, mock(KnowledgeIngestionService.class), mock(AuditLogger.class), mock(EngagementRepository.class));
+                scenarios, difficulty, authoring, leads, mock(KnowledgeIngestionService.class), mock(AuditLogger.class), mock(EngagementRepository.class),
+                mock(com.ibm.consulting.sim.announcement.application.AnnouncementService.class));
         LeadService leadService = new LeadService(
                 leads, mock(ResearchEvidenceRepository.class), mock(EngagementRepository.class), difficulty,
                 scenarios, authoring);

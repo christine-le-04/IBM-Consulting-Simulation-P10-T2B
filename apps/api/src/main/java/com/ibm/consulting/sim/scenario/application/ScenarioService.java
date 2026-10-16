@@ -37,6 +37,8 @@ import static com.ibm.consulting.sim.shared.config.CacheConfig.CLIENT_INTELLIGEN
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
 import com.ibm.consulting.sim.shared.infrastructure.observability.AuditAction;
 import com.ibm.consulting.sim.shared.infrastructure.observability.AuditLogger;
+import com.ibm.consulting.sim.announcement.application.AnnouncementService;
+import com.ibm.consulting.sim.announcement.application.AnnouncementService.Kind;
 
 @Service
 public class ScenarioService {
@@ -48,11 +50,12 @@ public class ScenarioService {
     private final KnowledgeIngestionService knowledgeIngestionService;
     private final AuditLogger auditLogger;
     private final EngagementRepository engagementRepository;
+    private final AnnouncementService announcements;
 
     public ScenarioService(ScenarioRepository scenarioRepository, DifficultyProfileService difficultyProfileService,
                            ScenarioAuthoringConfigService authoringConfigService, LeadRepository leadRepository,
                            KnowledgeIngestionService knowledgeIngestionService, AuditLogger auditLogger,
-                           EngagementRepository engagementRepository) {
+                           EngagementRepository engagementRepository, AnnouncementService announcements) {
         this.scenarioRepository = scenarioRepository;
         this.difficultyProfileService = difficultyProfileService;
         this.authoringConfigService = authoringConfigService;
@@ -60,6 +63,7 @@ public class ScenarioService {
         this.knowledgeIngestionService = knowledgeIngestionService;
         this.auditLogger = auditLogger;
         this.engagementRepository = engagementRepository;
+        this.announcements = announcements;
     }
 
     @Transactional(readOnly = true)
@@ -189,6 +193,7 @@ public class ScenarioService {
         scenario.publish();
         ScenarioSummary saved = summary(scenarioRepository.save(scenario));
         auditLogger.recordAdmin(AuditAction.ADMIN_SCENARIO_PUBLISHED, "SCENARIO", scenarioId.toString());
+        announcements.record(scenario, Kind.SCENARIO_PUBLISHED);
         return saved;
     }
 
@@ -203,9 +208,13 @@ public class ScenarioService {
             @CacheEvict(cacheNames = ADMIN_SCENARIO_CATALOG_CACHE, allEntries = true)
     })
     public ScenarioSummary archive(UUID scenarioId) {
-        Scenario scenario = findScenario(scenarioId);
+        // Serialize with publication and concurrent archive requests to avoid duplicate announcements.
+        Scenario scenario = scenarioRepository.findByIdForUpdate(scenarioId)
+                .orElseThrow(() -> new NotFoundException("Scenario", scenarioId));
+        boolean wasLive = scenario.getStatus() == ScenarioStatus.ACTIVE;
         scenario.archive();
         auditLogger.recordAdmin(AuditAction.ADMIN_SCENARIO_ARCHIVED, "SCENARIO", scenarioId.toString());
+        if (wasLive) announcements.record(scenario, Kind.SCENARIO_ARCHIVED);
         return summary(scenarioRepository.save(scenario));
     }
 

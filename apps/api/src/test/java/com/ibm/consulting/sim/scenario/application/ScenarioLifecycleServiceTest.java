@@ -54,12 +54,13 @@ class ScenarioLifecycleServiceTest {
     private final ScenarioAuthoringConfigService authoringConfigService = new ScenarioAuthoringConfigService(new ObjectMapper());
     private final AuditLogger auditLogger = mock(AuditLogger.class);
     private final EngagementRepository engagementRepository = mock(EngagementRepository.class);
+    private final com.ibm.consulting.sim.announcement.application.AnnouncementService announcements = mock(com.ibm.consulting.sim.announcement.application.AnnouncementService.class);
     private ScenarioService service;
 
     @BeforeEach
     void setUp() {
         service = new ScenarioService(scenarioRepository, difficultyProfileService, authoringConfigService,
-                leadRepository, mock(KnowledgeIngestionService.class), auditLogger, engagementRepository);
+                leadRepository, mock(KnowledgeIngestionService.class), auditLogger, engagementRepository, announcements);
         when(difficultyProfileService.forScenario(any(Scenario.class))).thenAnswer(invocation -> {
             Scenario scenario = invocation.getArgument(0);
             return DifficultyProfile.defaults(scenario.getDifficulty(), scenario.getInformationAmbiguity(),
@@ -106,6 +107,8 @@ class ScenarioLifecycleServiceTest {
         order.verify(scenarioRepository).flush();
         order.verify(scenarioRepository).save(revision);
         verify(auditLogger).recordAdmin(AuditAction.ADMIN_SCENARIO_PUBLISHED, "SCENARIO", revision.getId().toString());
+        verify(announcements).record(revision, com.ibm.consulting.sim.announcement.application.AnnouncementService.Kind.SCENARIO_PUBLISHED);
+        org.mockito.Mockito.verifyNoMoreInteractions(announcements);
     }
 
     @Test
@@ -120,6 +123,7 @@ class ScenarioLifecycleServiceTest {
 
         assertThat(draft.getStatus()).isEqualTo(ScenarioStatus.DRAFT);
         verify(scenarioRepository, never()).save(any());
+        org.mockito.Mockito.verifyNoInteractions(announcements);
         verify(auditLogger, never()).recordAdmin(eq(AuditAction.ADMIN_SCENARIO_PUBLISHED), anyString(), anyString());
     }
 
@@ -148,19 +152,33 @@ class ScenarioLifecycleServiceTest {
     @Test
     void deletingADraftArchivesItAndRecordsAnAuditEntry() {
         Scenario draft = Scenario.create("Abandoned draft", "Retail", "Description", 3);
-        when(scenarioRepository.findById(draft.getId())).thenReturn(Optional.of(draft));
+        when(scenarioRepository.findByIdForUpdate(draft.getId())).thenReturn(Optional.of(draft));
 
         ScenarioSummary archived = service.archive(draft.getId());
 
         assertThat(archived.status()).isEqualTo("ARCHIVED");
         verify(scenarioRepository).save(draft);
         verify(auditLogger).recordAdmin(AuditAction.ADMIN_SCENARIO_ARCHIVED, "SCENARIO", draft.getId().toString());
+        org.mockito.Mockito.verifyNoInteractions(announcements);
+    }
+
+    @Test
+    void archivingLiveScenarioAnnouncesOnceEvenIfTheRequestIsRepeated() {
+        Scenario live = Scenario.create("Live scenario", "Retail", "Description", 3);
+        live.publish();
+        when(scenarioRepository.findByIdForUpdate(live.getId())).thenReturn(Optional.of(live));
+
+        service.archive(live.getId());
+        service.archive(live.getId());
+
+        verify(announcements).record(live, com.ibm.consulting.sim.announcement.application.AnnouncementService.Kind.SCENARIO_ARCHIVED);
+        org.mockito.Mockito.verifyNoMoreInteractions(announcements);
     }
 
     @Test
     void deletingAnUnknownScenarioIsNotFoundAndNotAudited() {
         UUID missing = UUID.randomUUID();
-        when(scenarioRepository.findById(missing)).thenReturn(Optional.empty());
+        when(scenarioRepository.findByIdForUpdate(missing)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.archive(missing)).isInstanceOf(NotFoundException.class);
         verify(auditLogger, never()).recordAdmin(eq(AuditAction.ADMIN_SCENARIO_ARCHIVED), anyString(), anyString());

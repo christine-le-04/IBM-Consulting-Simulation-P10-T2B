@@ -27,16 +27,44 @@ describe('AuditLogPage', () => {
     expect(screen.getByText('Target User')).toBeInTheDocument()
     expect(screen.getByText('target@example.com')).toBeInTheDocument()
     expect(screen.getByText('Learner')).toBeInTheDocument()
-    expect(screen.getByTitle('deleted-user-id')).toBeInTheDocument()
+    expect(screen.queryByTitle('deleted-user-id')).not.toBeInTheDocument()
     expect(screen.getByText(/Last 90 days/)).toBeInTheDocument()
-    expect(screen.getByText('<script>alert("test")</script>')).toBeInTheDocument()
+    expect(screen.getByText('Email: target@example.com')).toBeInTheDocument()
     expect(document.querySelector('script')).toBeNull()
     expect(screen.getByText('60 recorded actions')).toBeInTheDocument()
   })
-  it('falls back to the target ID when an older identity cannot be recovered', () => {
+  it('shows the resource type without an ID when an older identity cannot be recovered', () => {
     setup({ ...page, items: [{ ...page.items[0], targetDisplayName: null, targetEmail: null, targetRole: null }] })
     renderPage()
-    expect(screen.getByText('deleted-user-id')).toBeInTheDocument()
+    expect(screen.queryByText('deleted-user-id')).not.toBeInTheDocument()
+    expect(screen.getByText('User', { selector: 'strong' })).toBeInTheDocument()
+  })
+
+  it('hides missing actor IDs, target IDs and technical details throughout a row', () => {
+    const id = 'a97e41af-e8c9-4d72-8153-2c8bc721ec1f'
+    setup({ ...page, items: [{ ...page.items[0], actorId: id, actorDisplayName: null, actorEmail: null,
+      action: 'ADMIN_SCENARIO_REVISION_CREATED', targetType: 'SCENARIO', targetId: id,
+      targetDisplayName: null, targetEmail: null, targetRole: null, details: `forked from ${id}` }] })
+    renderPage()
+    expect(screen.getByText('Unknown user')).toBeInTheDocument()
+    expect(screen.getByText('Draft revision created')).toBeInTheDocument()
+    expect(screen.getByText('A new draft revision was created from an existing scenario.')).toBeInTheDocument()
+    expect(document.body.textContent).not.toContain(id)
+    expect(document.body.textContent).not.toContain('forked from')
+    expect(screen.queryByTitle(id)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['learner only; roles: [LEARNER]', 'Message: learner only\nSent to: Learners'],
+    ['Notice; roles: [ADMINISTRATOR, LEARNER]', 'Message: Notice\nSent to: Learners, administrators'],
+    ['test', 'Message: test\nSent to: All users'],
+    ['Authors; roles: [SCENARIO_AUTHOR, REVIEWER]', 'Message: Authors\nSent to: Scenario authors, reviewers'],
+    ['Future role; roles: [UNKNOWN]', 'Message: Future role\nSent to: Unknown audience'],
+  ])('formats announcement audit details for %s', (details, expected) => {
+    setup({ ...page, items: [{ ...page.items[0], action: 'ADMIN_ANNOUNCEMENT_PUBLISHED', targetType: 'ANNOUNCEMENT',
+      targetDisplayName: null, targetEmail: null, targetRole: null, details }] })
+    renderPage()
+    expect(screen.getByText((_, element) => element?.tagName === 'TD' && element.textContent === expected)).toBeInTheDocument()
   })
   it('paginates and resets to the first page when filters are applied', () => {
     renderPage()
@@ -50,6 +78,27 @@ describe('AuditLogPage', () => {
     expect(query).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0, search: 'Alex', action: 'ADMIN_USER_CREATED', targetType: 'USER', from: '2026-10-01' }))
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
     expect(query).toHaveBeenLastCalledWith({ page: 0, size: 25 })
+  })
+
+  it('shows an announcement title instead of its UUID and safely renders it', () => {
+    setup({ ...page, items: [{ ...page.items[0], action: 'ADMIN_ANNOUNCEMENT_PUBLISHED', targetType: 'ANNOUNCEMENT',
+      targetId: 'announcement-uuid', targetDisplayName: null, targetEmail: null, targetRole: null,
+      details: '<script>announcement</script>; roles: [LEARNER]' }] })
+    renderPage()
+    expect(screen.getByText('Announcement', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByText('<script>announcement</script>')).toBeInTheDocument()
+    expect(screen.queryByText('announcement-uuid')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('announcement-uuid')).not.toBeInTheDocument()
+    expect(document.querySelector('script')).toBeNull()
+  })
+
+  it('keeps an announcement target readable when additional details are unavailable', () => {
+    setup({ ...page, items: [{ ...page.items[0], action: 'ADMIN_ANNOUNCEMENT_PUBLISHED', targetType: 'ANNOUNCEMENT',
+      targetId: 'announcement-uuid', targetDisplayName: null, targetEmail: null, targetRole: null, details: null }] })
+    renderPage()
+    expect(screen.getByText('Announcement', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByText('No additional details')).toBeInTheDocument()
+    expect(screen.queryByText('announcement-uuid')).not.toBeInTheDocument()
   })
   it('rejects a reversed date range without applying it', () => {
     renderPage()

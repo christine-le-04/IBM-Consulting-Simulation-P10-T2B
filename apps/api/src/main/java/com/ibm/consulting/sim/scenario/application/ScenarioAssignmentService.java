@@ -11,6 +11,7 @@ import com.ibm.consulting.sim.shared.domain.DomainException;
 import com.ibm.consulting.sim.shared.domain.NotFoundException;
 import com.ibm.consulting.sim.shared.infrastructure.observability.AuditAction;
 import com.ibm.consulting.sim.shared.infrastructure.observability.AuditLogger;
+import com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
@@ -41,15 +42,17 @@ public class ScenarioAssignmentService implements ScenarioAccessPolicy {
     private final ScenarioRepository scenarioRepository;
     private final UserRepository userRepository;
     private final AuditLogger auditLogger;
+    private final AssignmentAnnouncementService announcements;
 
     public ScenarioAssignmentService(ScenarioAssignmentRepository assignmentRepository,
                                      ScenarioRepository scenarioRepository,
                                      UserRepository userRepository,
-                                     AuditLogger auditLogger) {
+                                     AuditLogger auditLogger, AssignmentAnnouncementService announcements) {
         this.assignmentRepository = assignmentRepository;
         this.scenarioRepository = scenarioRepository;
         this.userRepository = userRepository;
         this.auditLogger = auditLogger;
+        this.announcements = announcements;
     }
 
     /** Assign one random Live scenario as part of a new learner's registration. */
@@ -89,6 +92,11 @@ public class ScenarioAssignmentService implements ScenarioAccessPolicy {
     })
     public ScenarioAssignmentView replaceAssignments(UUID scenarioId, List<UUID> userIds, UUID assignedBy) {
         UUID lineageId = lineageOf(scenarioId);
+        // Serialize assignment changes across revisions so concurrent saves cannot notify twice.
+        Scenario root = scenarioRepository.findByIdForUpdate(lineageId)
+                .orElseThrow(() -> new NotFoundException("Scenario", scenarioId));
+        Scenario scenario = scenarioId.equals(lineageId) ? root : scenarioRepository.findById(scenarioId)
+                .orElseThrow(() -> new NotFoundException("Scenario", scenarioId));
         Set<UUID> requested = new LinkedHashSet<>(userIds == null ? List.of() : userIds);
         for (UUID userId : requested) {
             User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User", userId));
@@ -108,6 +116,7 @@ public class ScenarioAssignmentService implements ScenarioAccessPolicy {
 
         if (!removed.isEmpty()) assignmentRepository.deleteAll(removed);
         if (!added.isEmpty()) assignmentRepository.saveAll(added);
+        if (!added.isEmpty()) announcements.record(scenario, added.stream().map(ScenarioAssignment::getUserId).toList());
 
         auditLogger.recordAdmin(AuditAction.ADMIN_SCENARIO_ASSIGNMENTS_UPDATED, "SCENARIO", lineageId.toString(),
                 "assigned " + added.size() + ", unassigned " + removed.size());

@@ -3,10 +3,10 @@ import { Renew } from '@carbon/icons-react'
 import { FormEvent, useState } from 'react'
 import { useAdminAuditEvents, type AdminAuditFilters } from '@/api/hooks/useAdminAuditEvents'
 import ErrorState from '@/components/shared/ErrorState'
+import { auditActionLabel, auditDetails, auditEmail, auditResourceLabel, auditRoleLabel, auditTargetName, auditText } from '@/features/admin/auditPresentation'
 import styles from './AuditLogPage.module.css'
 
-const targets = ['USER', 'SCENARIO', 'LEAD', 'KNOWLEDGE_DOCUMENT', 'ACHIEVEMENT']
-const label = (value: string) => value.replace(/^ADMIN_/, '').toLowerCase().replaceAll('_', ' ').replace(/^./, (first) => first.toUpperCase())
+const targets = ['USER', 'SCENARIO', 'LEAD', 'KNOWLEDGE_DOCUMENT', 'ACHIEVEMENT', 'ANNOUNCEMENT']
 const emptyFilters = { search: '', action: '', targetType: '', from: '', to: '' }
 const formatTime = (value: string) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 
@@ -35,15 +35,15 @@ export default function AuditLogPage() {
       <Button kind="tertiary" renderIcon={Renew} disabled={events.isFetching} onClick={() => events.refetch()}>Refresh</Button>
     </header>
     <form onSubmit={apply} className={styles.filters} aria-label="Audit log filters">
-      <TextInput id="audit-search" labelText="Search activity" placeholder="Person, email, target ID or detail" maxLength={100}
+      <TextInput id="audit-search" labelText="Search activity" placeholder="Person, email or activity details" maxLength={100}
         value={draft.search} onChange={(event) => update('search', event.target.value)} />
       <Select id="audit-action" labelText="Action" value={draft.action} onChange={(event) => update('action', event.target.value)}>
         <SelectItem value="" text="All actions" />
-        {(events.data?.actions ?? []).map((action) => <SelectItem key={action} value={action} text={label(action)} />)}
+        {(events.data?.actions ?? []).map((action) => <SelectItem key={action} value={action} text={auditActionLabel(action)} />)}
       </Select>
       <Select id="audit-target" labelText="Resource" value={draft.targetType} onChange={(event) => update('targetType', event.target.value)}>
         <SelectItem value="" text="All resources" />
-        {targets.map((target) => <SelectItem key={target} value={target} text={label(target)} />)}
+        {targets.map((target) => <SelectItem key={target} value={target} text={auditResourceLabel(target)} />)}
       </Select>
       <TextInput id="audit-from" type="date" labelText="From date (UTC)" value={draft.from} onChange={(event) => update('from', event.target.value)} />
       <TextInput id="audit-to" type="date" labelText="To date (UTC)" value={draft.to} onChange={(event) => update('to', event.target.value)} />
@@ -62,14 +62,16 @@ export default function AuditLogPage() {
           <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Target</th><th scope="col">Details</th></tr></thead>
           <tbody>{events.data.items.map((item) => <tr key={item.id}>
             <td><time dateTime={item.occurredAt}>{formatTime(item.occurredAt)}</time></td>
-            <td><strong>{item.actorDisplayName || item.actorEmail || (item.actorId ? 'Unknown user' : 'System')}</strong>
-              <small>{item.actorEmail || item.actorId || 'Automated action'}</small>{item.actorRole && <small>{label(item.actorRole)}</small>}</td>
-            <td><Tag type={item.action.includes('DELETED') ? 'red' : 'blue'}>{label(item.action)}</Tag></td>
-            <td title={item.targetId}><strong>{item.targetDisplayName || label(item.targetType)}</strong>
-              {item.targetEmail && <small>{item.targetEmail}</small>}
-              {item.targetRole && <small>{label(item.targetRole)}</small>}
-              {!item.targetDisplayName && !item.targetEmail && <code>{item.targetId}</code>}</td>
-            <td className={styles.details}>{item.details || 'No additional details'}</td>
+            <td><strong>{auditText(item.actorDisplayName) || auditEmail(item.actorEmail) || (item.actorId ? 'Unknown user' : 'System')}</strong>
+              {auditEmail(item.actorEmail) && <small>{auditEmail(item.actorEmail)}</small>}
+              {!item.actorId && !item.actorDisplayName && !item.actorEmail && <small>Automated action</small>}
+              {item.actorRole && <small>{auditRoleLabel(item.actorRole)}</small>}</td>
+            <td><Tag type={item.action.includes('DELETED') ? 'red' : 'blue'}>{auditActionLabel(item.action)}</Tag></td>
+            <td><strong>{item.targetType === 'USER' && auditTargetName(item) ? auditTargetName(item) : auditResourceLabel(item.targetType)}</strong>
+              {item.targetType !== 'USER' && auditTargetName(item) && <small>{auditTargetName(item)}</small>}
+              {auditEmail(item.targetEmail) && <small>{auditEmail(item.targetEmail)}</small>}
+              {item.targetRole && <small>{auditRoleLabel(item.targetRole)}</small>}</td>
+            <td className={styles.details}>{auditDetails(item)}</td>
           </tr>)}</tbody>
         </table>
       </div>}

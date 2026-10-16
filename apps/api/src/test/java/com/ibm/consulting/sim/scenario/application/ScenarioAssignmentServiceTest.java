@@ -35,6 +35,7 @@ class ScenarioAssignmentServiceTest {
     private final ScenarioAssignmentRepository assignments = mock(ScenarioAssignmentRepository.class);
     private final ScenarioRepository scenarios = mock(ScenarioRepository.class);
     private final UserRepository users = mock(UserRepository.class);
+    private final com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService announcements = mock(com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService.class);
     private ScenarioAssignmentService service;
 
     private final Scenario scenario = Scenario.create("Retail turnaround", "Retail", "Description", 3);
@@ -44,8 +45,9 @@ class ScenarioAssignmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ScenarioAssignmentService(assignments, scenarios, users, mock(AuditLogger.class));
+        service = new ScenarioAssignmentService(assignments, scenarios, users, mock(AuditLogger.class), announcements);
         when(scenarios.findLineageIdById(scenario.getId())).thenReturn(Optional.of(scenario.getScenarioLineageId()));
+        when(scenarios.findByIdForUpdate(scenario.getScenarioLineageId())).thenReturn(Optional.of(scenario));
         for (User user : List.of(alice, bob, author)) {
             when(users.findById(user.getId())).thenReturn(Optional.of(user));
         }
@@ -66,6 +68,7 @@ class ScenarioAssignmentServiceTest {
             assertThat(assignment.getAssignedBy()).isNull();
         });
         verify(assignments, never()).deleteAll(anyCollection());
+        org.mockito.Mockito.verifyNoInteractions(announcements);
     }
 
     @Test
@@ -89,6 +92,7 @@ class ScenarioAssignmentServiceTest {
         when(assignments.findByLineageId(scenario.getScenarioLineageId())).thenReturn(List.of(aliceAssignment));
 
         service.replaceAssignments(scenario.getId(), List.of(bob.getId()), author.getId());
+        verify(announcements).record(scenario, List.of(bob.getId()));
 
         ArgumentCaptor<Collection<ScenarioAssignment>> removed = ArgumentCaptor.forClass(Collection.class);
         verify(assignments).deleteAll(removed.capture());
@@ -112,6 +116,7 @@ class ScenarioAssignmentServiceTest {
 
         verify(assignments, never()).deleteAll(anyCollection());
         verify(assignments, never()).saveAll(anyCollection());
+        org.mockito.Mockito.verifyNoInteractions(announcements);
     }
 
     @Test

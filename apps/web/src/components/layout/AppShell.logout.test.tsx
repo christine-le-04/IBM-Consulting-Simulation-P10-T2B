@@ -8,6 +8,7 @@ import apiClient from '@/api/client'
 import { useAuthStore } from '@/store/authStore'
 
 vi.mock('@/api/client', () => ({ default: { post: vi.fn() } }))
+vi.mock('@/components/announcements/AnnouncementCenter', () => ({ default: () => null }))
 
 beforeEach(() => {
   vi.resetAllMocks()

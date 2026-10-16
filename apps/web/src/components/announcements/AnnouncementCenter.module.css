@@ -1,0 +1,11 @@
+.root { position: relative; display: flex; }
+.badge { position: absolute; top: .2rem; right: .2rem; min-width: 1rem; padding: 0 .15rem; border-radius: 1rem; background: #da1e28; color: white; font-size: .65rem; line-height: 1rem; }
+.panel { position: fixed; top: 3rem; right: 0; width: min(26rem, 100vw); max-height: calc(100dvh - 3rem); overflow-y: auto; padding: 1rem; background: #fff; color: #161616; box-shadow: 0 4px 12px #0003; border: 1px solid #e0e0e0; }
+.heading, .paging { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.heading h2 { font-size: 1.25rem; font-weight: 600; }
+.panel p { margin: .5rem 0; line-height: 1.5; overflow-wrap: anywhere; }
+.message { white-space: pre-wrap; }
+.list { list-style: none; padding: 0; margin: .75rem 0; }
+.list li { padding: 1rem .75rem; border-bottom: 1px solid #e0e0e0; }
+.list .unread { background: #edf5ff; border-left: 3px solid #0f62fe; }
+.list time { display: block; margin-bottom: .5rem; font-size: .75rem; color: #525252; }
