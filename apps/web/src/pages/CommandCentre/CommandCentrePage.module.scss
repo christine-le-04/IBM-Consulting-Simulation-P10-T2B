@@ -2,10 +2,15 @@
 // (src/prototype/screens/hub/hub.module.scss).
 
 .page {
+  min-width: 0;
   width: 100%;
-  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 0 2rem;
+  padding: clamp(1rem, 1.4vw, 1.5rem) clamp(1rem, 3vw, 3rem) 1rem;
+  overflow-wrap: anywhere;
+
+  @media (max-width: 672px) {
+    padding: 1rem;
+  }
 }
 
 .eyebrow {
@@ -18,6 +23,7 @@
 }
 
 .note {
+  max-width: 75ch;
   margin: 0 0 1rem;
   font-size: var(--sim-font-body);
   color: var(--sim-ink-2);
@@ -87,7 +93,7 @@
 // Floor
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr);
   gap: 1rem;
   align-items: start;
 
@@ -104,6 +110,7 @@
 }
 
 .floorCard {
+  min-width: 0;
   background: var(--sim-surface);
   border: 1px solid var(--sim-line);
   padding: 1.25rem;
@@ -141,6 +148,14 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 0.5rem;
+  max-width: 100%;
+
+  :global(.cds--btn) {
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 .textLink {
@@ -156,6 +171,7 @@
 }
 
 .arc {
+  max-width: 75ch;
   margin: 0;
   list-style: decimal;
   padding-left: 1.25rem;
@@ -177,6 +193,7 @@
 }
 
 .nextText {
+  max-width: 65ch;
   margin: 0;
   font-size: 1rem;
   line-height: 1.4;
@@ -185,6 +202,7 @@
 .facts {
   margin: 0.4rem 0 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   font-size: 0.8125rem;
   color: var(--sim-ink-2);
@@ -207,6 +225,7 @@
 }
 
 .side {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -222,6 +241,7 @@
 }
 
 .panel {
+  min-width: 0;
   background: var(--sim-surface);
   border: 1px solid var(--sim-line);
   padding: 1rem;
@@ -229,6 +249,8 @@
 
 .panelHead {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
@@ -249,9 +271,13 @@
 }
 
 .identity {
+  min-width: 0;
   display: flex;
   gap: 1rem;
   align-items: center;
+
+  > div { min-width: 0; }
+  > svg { flex: none; }
 }
 
 .row {
@@ -278,6 +304,7 @@
 
 .rowTop {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   // A two-line client name keeps the status on its first line.
   align-items: flex-start;
@@ -317,6 +344,7 @@
   cursor: pointer;
   color: inherit;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem 0;
@@ -337,6 +365,7 @@
 }
 
 .completedResult {
+  margin-left: auto;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -347,6 +376,7 @@
 // Catalogue
 .catalogueBody {
   padding-bottom: 1rem;
+  overflow-wrap: anywhere;
 }
 
 .catalogueControls {
@@ -362,12 +392,13 @@
 
 .scenarioGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
 .scenarioCard {
+  min-width: 0;
   border: 1px solid var(--sim-line);
   padding: 1rem;
   display: flex;
@@ -481,6 +512,36 @@
   margin-bottom: 0.75rem;
 }
 
+.engagementPagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: var(--sim-font-caption);
+}
+
+.catalogueModal {
+  :global(.cds--modal-container) {
+    background: #fff;
+  }
+
+  :global(.cds--modal-content.cds--modal-scroll-content) {
+    mask-image: none;
+  }
+
+  .catalogueControls {
+    :global(.cds--text-input),
+    :global(.cds--list-box) {
+      background: #f4f4f4;
+    }
+  }
+
+  .scenarioCard {
+    background: #f4f4f4;
+  }
+}
+
 .listFilters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -493,6 +554,10 @@
   align-items: flex-start;
   margin-bottom: 0.75rem;
 
+  > div { min-width: 0; }
+
+  > svg { flex: none; }
+
   h3 {
     margin: 0 0 0.25rem;
     font-size: var(--sim-font-body);
@@ -504,5 +569,18 @@
     font-size: 0.8125rem;
     color: var(--sim-ink-2);
     line-height: 1.4;
+  }
+}
+
+@media (max-width: 672px) {
+  .briefMeta,
+  .problemGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .listFilters {
+    grid-template-columns: 1fr;
   }
 }

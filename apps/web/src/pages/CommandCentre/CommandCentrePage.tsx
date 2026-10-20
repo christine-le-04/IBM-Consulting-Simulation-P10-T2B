@@ -4,13 +4,13 @@
  *
  * It answers three things: what is in flight, how to resume, how to start
  * something new. The engagement on the floor gets the six rooms as plain
- * buttons; the mentor's guidance sits above the other engagements. The catalogue, briefing and
+ * buttons; the mentor's guidance sits above recommendations and recent completions. The catalogue, briefing and
  * persona picker are kept, behind "Start new" instead of on the page.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, InlineNotification, Tag, TextInput } from '@carbon/react'
-import { Add, ArrowRight, Renew, Search } from '@carbon/icons-react'
+import { Add, ArrowRight, ChevronLeft, ChevronRight, Renew, Search } from '@carbon/icons-react'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
 import { useScenarioCatalog } from '@/api/hooks/useScenarios'
@@ -189,6 +189,7 @@ export default function CommandCentrePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [sortMode, setSortMode] = useState<SortMode>('RECENT')
+  const [othersPage, setOthersPage] = useState(1)
 
   const allEngagements = useMemo(() => engagements ?? [], [engagements])
   const active = useMemo(
@@ -216,7 +217,14 @@ export default function CommandCentrePage() {
         return latestActivity(b) - latestActivity(a)
       })
   }, [others, searchTerm, sortMode, statusFilter])
-  const completedHistory = portfolio?.completedEngagementsHistory ?? []
+  const othersPageSize = 5
+  const othersPageCount = Math.max(1, Math.ceil(visibleOthers.length / othersPageSize))
+  const currentOthersPage = Math.min(othersPage, othersPageCount)
+  const othersOffset = (currentOthersPage - 1) * othersPageSize
+  const pagedOthers = visibleOthers.slice(othersOffset, othersOffset + othersPageSize)
+  const completedHistory = [...(portfolio?.completedEngagementsHistory ?? [])]
+    .sort((a, b) => new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime())
+    .slice(0, 3)
 
   /**
    * One scenario, not two thousand. A newcomer has no basis for choosing
@@ -392,43 +400,39 @@ export default function CommandCentrePage() {
                 </section>
               )}
 
-              <section className={styles.panel}>
+              <section className={styles.panel} aria-labelledby="other-engagements">
                 <div className={styles.panelHead}>
-                  <h3>Recently completed</h3>
-                  <Button kind="ghost" size="sm" onClick={() => navigate('/dashboard/portfolio')}>View all</Button>
-                </div>
-                {completedHistory.length > 0 ? (
-                  <ul className={styles.list}>{completedHistory.slice(0, 2).map((item) => <CompletedRow key={item.engagementId} item={item} />)}</ul>
-                ) : (
-                  <p className={styles.sideEmpty}>Completed engagements will appear here.</p>
-                )}
-              </section>
-            </div>
-
-            <aside className={styles.side} aria-label="Engagement overview">
-              {mentorNote}
-              <section className={styles.panel}>
-                <div className={styles.panelHead}>
-                  <h3>Other engagements</h3>
+                  <h3 id="other-engagements">Other engagements</h3>
                   <Button kind="ghost" size="sm" renderIcon={Add} className="objective-scenario-catalogue" onClick={() => setCatalogueOpen(true)}>Start new</Button>
                 </div>
                 {others.length > 1 && (
                   <div className={styles.listControls}>
-                    <TextInput id="engagement-search" labelText="Search engagements" hideLabel size="sm" placeholder="Search engagements" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+                    <TextInput id="engagement-search" labelText="Search engagements" hideLabel size="sm" placeholder="Search engagements" value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setOthersPage(1) }} />
                     <div className={styles.listFilters}>
-                      <Choice id="status-filter" label="Filter" hideLabel size="sm" value={statusFilter} options={STATUS_FILTERS} onChange={setStatusFilter} />
-                      <Choice id="sort-mode" label="Sort" hideLabel size="sm" value={sortMode} options={SORT_MODES} onChange={setSortMode} />
+                      <Choice id="status-filter" label="Filter" hideLabel size="sm" value={statusFilter} options={STATUS_FILTERS} onChange={(value) => { setStatusFilter(value); setOthersPage(1) }} />
+                      <Choice id="sort-mode" label="Sort" hideLabel size="sm" value={sortMode} options={SORT_MODES} onChange={(value) => { setSortMode(value); setOthersPage(1) }} />
                     </div>
                   </div>
                 )}
                 {others.length === 0 ? (
                   <p className={styles.sideEmpty}>Nothing else in flight.</p>
                 ) : visibleOthers.length > 0 ? (
-                  <ul className={styles.list}>{visibleOthers.map((item) => <EngagementRow key={item.id} engagement={item} attemptLabel={labelsByEngagement.get(item.id)} />)}</ul>
+                  <ul className={styles.list}>{pagedOthers.map((item) => <EngagementRow key={item.id} engagement={item} attemptLabel={labelsByEngagement.get(item.id)} />)}</ul>
                 ) : (
                   <p className={styles.sideEmpty}><Search size={16} /> No engagements match this search.</p>
                 )}
+                {visibleOthers.length > othersPageSize && (
+                  <nav className={styles.engagementPagination} aria-label="Other engagement pages">
+                    <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Previous engagements" disabled={currentOthersPage === 1} onClick={() => setOthersPage(currentOthersPage - 1)} />
+                    <span aria-live="polite">{othersOffset + 1}–{Math.min(othersOffset + othersPageSize, visibleOthers.length)} of {visibleOthers.length}</span>
+                    <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Next engagements" disabled={currentOthersPage === othersPageCount} onClick={() => setOthersPage(currentOthersPage + 1)} />
+                  </nav>
+                )}
               </section>
+            </div>
+
+            <aside className={styles.side} aria-label="Engagement overview">
+              {mentorNote}
 
               {recommended && (
                 <section className={styles.panel}>
@@ -445,6 +449,17 @@ export default function CommandCentrePage() {
                   </Button>
                 </section>
               )}
+              <section className={styles.panel} aria-labelledby="recently-completed">
+                <div className={styles.panelHead}>
+                  <h3 id="recently-completed">Recently completed</h3>
+                  <Button kind="ghost" size="sm" onClick={() => navigate('/dashboard/portfolio')}>View all</Button>
+                </div>
+                {completedHistory.length > 0 ? (
+                  <ul className={styles.list}>{completedHistory.map((item) => <CompletedRow key={item.engagementId} item={item} />)}</ul>
+                ) : (
+                  <p className={styles.sideEmpty}>Completed engagements will appear here.</p>
+                )}
+              </section>
             </aside>
           </div>
         )}

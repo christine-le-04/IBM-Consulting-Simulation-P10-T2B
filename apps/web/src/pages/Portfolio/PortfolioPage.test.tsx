@@ -805,15 +805,15 @@ describe('PortfolioPage completed engagements', () => {
     await userEvent.setup().click(toggle)
     expect(details).toHaveAttribute('open')
     expect(within(card).getByText('85/100')).toBeVisible()
-    const outreach = within(card).getByText('Outreach').closest('dl > div')!
+    const outreach = within(card).getByText('Outreach').closest<HTMLDivElement>('dl > div')!
     expect(within(outreach).getByText('0/100')).toBeInTheDocument()
     expect(within(outreach).getByText('1 completed attempt total')).toBeInTheDocument()
-    const meeting = within(card).getByText('Meeting').closest('dl > div')!
+    const meeting = within(card).getByText('Meeting').closest<HTMLDivElement>('dl > div')!
     expect(within(meeting).getByText('85/100')).toBeInTheDocument()
     expect(within(meeting).getByText('5 completed attempts total')).toBeInTheDocument()
     expect(within(meeting).getByText('2 in the final checkpoint cycle')).toBeInTheDocument()
     expect(within(meeting).getByText('1 checkpoint reset')).toBeInTheDocument()
-    const proposal = within(card).getByText('Proposal').closest('dl > div')!
+    const proposal = within(card).getByText('Proposal').closest<HTMLDivElement>('dl > div')!
     expect(within(proposal).getByText('2 checkpoint resets')).toBeInTheDocument()
     expect(within(proposal).getByText(/Best available score; some older attempts/)).toBeInTheDocument()
     await userEvent.setup().click(toggle)
