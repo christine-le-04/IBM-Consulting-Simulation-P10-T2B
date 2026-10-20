@@ -14,9 +14,7 @@ import {
   relativeTime,
   STATUS_LABEL,
   STATUS_TAG,
-  stageOf,
   statusOf,
-  summarise,
 } from '@/features/admin/learnerProgress'
 import LearnerStageBar from './LearnerStageBar'
 import shared from './AdminOperationsPage.module.css'
@@ -48,32 +46,21 @@ export default function LearnerProgressPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
   const deferredSearch = useDeferredValue(search)
-  const progress = useAdminLearnerProgress(true)
-  const entries = useMemo(() => progress.data ?? [], [progress.data])
-  // Freeze "now" per data load so statuses do not shift between renders.
-  const now = useMemo(() => Date.now(), [progress.dataUpdatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const scenarios = useMemo(() => {
-    const byId = new Map(entries.map((entry) => [entry.scenarioId, entry.scenarioTitle]))
-    return [...byId].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [entries])
-
-  const filtered = useMemo(() => {
-    const term = deferredSearch.trim().toLowerCase()
-    return entries
-      .filter((entry) => !term || entry.displayName.toLowerCase().includes(term) || entry.email.toLowerCase().includes(term))
-      .filter((entry) => !scenarioFilter || entry.scenarioId === scenarioFilter)
-      .filter((entry) => !stageFilter || stageOf(entry.state) === stageFilter)
-      .filter((entry) => !statusFilter || statusOf(entry, now) === statusFilter)
-      .sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime())
-  }, [deferredSearch, entries, now, scenarioFilter, stageFilter, statusFilter])
+  const progress = useAdminLearnerProgress({
+    page: page - 1, size: pageSize,
+    search: deferredSearch.trim() || undefined,
+    scenarioId: scenarioFilter || undefined,
+    stage: stageFilter || undefined,
+    status: statusFilter || undefined,
+  })
+  const now = useMemo(() => progress.data ? new Date(progress.data.asOf).getTime() : Date.now(), [progress.data])
 
   if (progress.isLoading) return <LoadingState />
   if (progress.isError) return <ErrorState actionLabel="Retry" onAction={() => void progress.refetch()} />
 
-  const summary = summarise(entries, now)
+  if (!progress.data) return <LoadingState />
+  const { items: visible, summary, scenarios, totalElements } = progress.data
   const hasFilters = Boolean(search.trim() || scenarioFilter || stageFilter || statusFilter)
-  const visible = filtered.slice((page - 1) * pageSize, page * pageSize)
   // The run page links back here with the status filter still applied.
   const listUrl = statusFilter ? `/dashboard/admin/learners?status=${statusFilter}` : '/dashboard/admin/learners'
 
@@ -103,7 +90,7 @@ export default function LearnerProgressPage() {
         </div>
       </header>
 
-      {entries.length === 0 ? (
+      {summary.totalRuns === 0 ? (
         <section className={styles.empty}>
           <UserMultiple size={32} />
           <h2>No learners have started a scenario yet</h2>
@@ -112,22 +99,22 @@ export default function LearnerProgressPage() {
         </section>
       ) : <>
         <section className={styles.tiles} aria-label="Learner summary">
-          <SummaryTile label="In progress" value={summary.IN_PROGRESS} detail="Active learner runs" active={statusFilter === 'IN_PROGRESS'} onClick={() => toggleStatus('IN_PROGRESS')} />
-          <SummaryTile label="Stuck" value={summary.STUCK} detail={`No activity for ${DEFAULT_STUCK_DAYS}+ days`} active={statusFilter === 'STUCK'} onClick={() => toggleStatus('STUCK')} />
-          <SummaryTile label="Completed" value={summary.COMPLETED} detail="Reached assessment review" active={statusFilter === 'COMPLETED'} onClick={() => toggleStatus('COMPLETED')} />
+          <SummaryTile label="In progress" value={summary.inProgress} detail="Active learner runs" active={statusFilter === 'IN_PROGRESS'} onClick={() => toggleStatus('IN_PROGRESS')} />
+          <SummaryTile label="Stuck" value={summary.stuck} detail={`No activity for ${DEFAULT_STUCK_DAYS}+ days`} active={statusFilter === 'STUCK'} onClick={() => toggleStatus('STUCK')} />
+          <SummaryTile label="Completed" value={summary.completed} detail="Reached assessment review" active={statusFilter === 'COMPLETED'} onClick={() => toggleStatus('COMPLETED')} />
           <SummaryTile label="Average score" value={summary.averageScore == null ? '—' : `${summary.averageScore}/100`} detail="Completed runs only" />
         </section>
 
         <section className={shared.userWorkspace}>
           <div className={shared.directoryHeading}>
-            <div className={shared.directoryCount}><span className={shared.countIcon}><UserMultiple size={20} /></span><div><strong>{filtered.length}</strong><span>{hasFilters ? 'matching learner runs' : 'learner runs'}</span></div></div>
+            <div className={shared.directoryCount}><span className={shared.countIcon}><UserMultiple size={20} /></span><div><strong>{totalElements}</strong><span>{hasFilters ? 'matching learner runs' : 'learner runs'}</span></div></div>
             {hasFilters && <Button kind="ghost" size="sm" onClick={resetFilters}>Clear filters</Button>}
           </div>
           <section className={styles.controls} aria-label="Learner progress filters">
-            <TextInput id="learner-search" labelText="Search learner" placeholder="Name or email" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} />
+            <TextInput id="learner-search" labelText="Search learner" placeholder="Name or email" maxLength={100} value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} />
             <Select id="learner-scenario-filter" labelText="Scenario" value={scenarioFilter} onChange={(event) => { setScenarioFilter(event.target.value); setPage(1) }}>
               <SelectItem value="" text="All scenarios" />
-              {scenarios.map(([id, title]) => <SelectItem key={id} value={id} text={title} />)}
+              {scenarios.map(({ id, title }) => <SelectItem key={id} value={id} text={title} />)}
             </Select>
             <Select id="learner-stage-filter" labelText="Stage" value={stageFilter} onChange={(event) => { setStageFilter(event.target.value as LearnerStage | ''); setPage(1) }}>
               <SelectItem value="" text="All stages" />
@@ -140,7 +127,7 @@ export default function LearnerProgressPage() {
           </section>
           {progress.isFetching && <InlineLoading className={shared.directoryLoading} description="Updating learner progress" />}
 
-          {filtered.length === 0 ? (
+          {totalElements === 0 ? (
             <section className={styles.noResults}>
               <h2>No learners match these filters</h2>
               <Button kind="tertiary" size="md" onClick={resetFilters}>Clear filters</Button>
@@ -163,8 +150,9 @@ export default function LearnerProgressPage() {
                 </tr>
               })}</tbody>
             </table></div>
-            <Pagination className={shared.directoryPagination} page={page} pageSize={pageSize} pageSizes={PAGE_SIZES} totalItems={filtered.length}
-              onChange={({ page: nextPage, pageSize: nextPageSize }) => { setPage(nextPage); setPageSize(nextPageSize) }} />
+            <Pagination className={shared.directoryPagination} page={progress.data.page + 1} pageSize={pageSize} pageSizes={PAGE_SIZES} totalItems={totalElements}
+              disabled={progress.isPlaceholderData}
+              onChange={({ page: nextPage, pageSize: nextPageSize }) => { setPage(nextPageSize !== pageSize ? 1 : nextPage); setPageSize(nextPageSize) }} />
           </>}
           <p className={styles.legend}>Stages: {LEARNER_STAGES.join(' · ')}. A run is stuck after {DEFAULT_STUCK_DAYS} days without activity.</p>
         </section>

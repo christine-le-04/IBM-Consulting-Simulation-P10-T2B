@@ -2,7 +2,7 @@ import { Button, Column, Grid, Heading, InlineLoading, InlineNotification, Tag }
 import { ArrowLeft } from '@carbon/icons-react'
 import { useMemo } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { useAdminLearnerProgress, useAdminRunAssessment } from '@/api/hooks/useAdminLearnerProgress'
+import { useAdminLearnerRun, useAdminRunAssessment } from '@/api/hooks/useAdminLearnerProgress'
 import type { Assessment } from '@/api/types'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
@@ -48,8 +48,8 @@ export default function LearnerRunPage() {
   const { engagementId = '' } = useParams<{ engagementId: string }>()
   const location = useLocation()
   const backTo = (location.state as { from?: string } | null)?.from ?? LIST_URL
-  const progress = useAdminLearnerProgress(true)
-  const entry = progress.data?.find((item) => item.engagementId === engagementId)
+  const progress = useAdminLearnerRun(engagementId)
+  const entry = progress.data
   // An assessment exists exactly when the run has an overall score.
   const assessment = useAdminRunAssessment(engagementId, entry?.overallScore != null)
   const now = useMemo(() => Date.now(), [progress.dataUpdatedAt]) // eslint-disable-line react-hooks/exhaustive-deps

@@ -40,7 +40,7 @@ function setupAsRole(role: 'ADMINISTRATOR' | 'SCENARIO_AUTHOR' | 'REVIEWER') {
   mockedScenarios.mockReturnValue({ data: [], isLoading: false, isError: false, isFetching: false, refetch: vi.fn() } as unknown as ReturnType<typeof useAllScenariosForAdmin>)
   mockedAiOps.mockReturnValue({ data: { mockMode: false, parallelEnabled: true, parallelMaxCandidates: 3, providers: [], routing: {} }, isLoading: false, isError: false, isFetching: false, refetch: vi.fn() } as unknown as ReturnType<typeof useAdminAiOperations>)
   mockedPlatform.mockReturnValue({ data: basePlatform, isLoading: false, isError: false, isFetching: false, refetch: vi.fn() } as unknown as ReturnType<typeof useAdminPlatformOverview>)
-  mockedLearners.mockReturnValue({ data: [], dataUpdatedAt: Date.now(), isLoading: false, isError: false, isFetching: false, refetch: vi.fn() } as unknown as ReturnType<typeof useAdminLearnerProgress>)
+  mockedLearners.mockReturnValue({ data: { summary: { stuck: 0 } }, dataUpdatedAt: Date.now(), isLoading: false, isError: false, isFetching: false, refetch: vi.fn() } as unknown as ReturnType<typeof useAdminLearnerProgress>)
 }
 
 function renderPage() {
@@ -137,11 +137,9 @@ describe('AdminConsolePage role-based visibility and navigation', () => {
 
   it('flags stuck learners and links to the filtered list', () => {
     setupAsRole('ADMINISTRATOR')
-    const now = Date.now()
-    const idle = new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString()
     mockedLearners.mockReturnValue({
-      data: [{ engagementId: 'e1', userId: 'u1', displayName: 'Ana', email: 'ana@example.com', scenarioId: 's1', scenarioTitle: 'Onboarding', state: 'OUTREACHING', overallScore: null, lastActivityAt: idle, completedAt: null }],
-      dataUpdatedAt: now, isLoading: false, isError: false, isFetching: false, refetch: vi.fn(),
+      data: { summary: { stuck: 1 } },
+      dataUpdatedAt: Date.now(), isLoading: false, isError: false, isFetching: false, refetch: vi.fn(),
     } as unknown as ReturnType<typeof useAdminLearnerProgress>)
     renderPage()
     expect(screen.getByRole('link', { name: /1 learner is stuck/i })).toHaveAttribute('href', '/dashboard/admin/learners?status=STUCK')
@@ -151,7 +149,7 @@ describe('AdminConsolePage role-based visibility and navigation', () => {
   it('does not fetch learner progress for a non-administrator role', () => {
     setupAsRole('REVIEWER')
     renderPage()
-    expect(mockedLearners).toHaveBeenCalledWith(false)
+    expect(mockedLearners).toHaveBeenCalledWith({ page: 0, size: 1 }, false)
   })
 
   // navigation between ai delivery card and ai operations route

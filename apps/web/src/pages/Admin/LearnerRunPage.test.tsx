@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { useAdminLearnerProgress, useAdminRunAssessment } from '@/api/hooks/useAdminLearnerProgress'
+import { useAdminLearnerRun, useAdminRunAssessment } from '@/api/hooks/useAdminLearnerProgress'
 import type { Assessment, LearnerProgressEntry } from '@/api/types'
 import LearnerRunPage from './LearnerRunPage'
 
-vi.mock('@/api/hooks/useAdminLearnerProgress', () => ({ useAdminLearnerProgress: vi.fn(), useAdminRunAssessment: vi.fn() }))
+vi.mock('@/api/hooks/useAdminLearnerProgress', () => ({ useAdminLearnerRun: vi.fn(), useAdminRunAssessment: vi.fn() }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
 
-const mockedProgress = vi.mocked(useAdminLearnerProgress)
+const mockedProgress = vi.mocked(useAdminLearnerRun)
 const mockedAssessment = vi.mocked(useAdminRunAssessment)
 const DAY = 24 * 60 * 60 * 1000
 
@@ -42,7 +42,7 @@ const assessment: Assessment = {
 }
 
 function setup(data: LearnerProgressEntry[] | undefined, assessmentState: Record<string, unknown> = {}) {
-  mockedProgress.mockReturnValue({ data, dataUpdatedAt: Date.now(), isLoading: false, isError: false, refetch: vi.fn() } as unknown as ReturnType<typeof useAdminLearnerProgress>)
+  mockedProgress.mockImplementation((id) => ({ data: data?.find((item) => item.engagementId === id), dataUpdatedAt: Date.now(), isLoading: false, isError: false, refetch: vi.fn() } as unknown as ReturnType<typeof useAdminLearnerRun>))
   mockedAssessment.mockReturnValue({ data: undefined, isLoading: false, isError: false, ...assessmentState } as unknown as ReturnType<typeof useAdminRunAssessment>)
 }
 

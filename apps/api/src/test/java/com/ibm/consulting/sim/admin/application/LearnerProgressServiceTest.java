@@ -1,96 +1,139 @@
 package com.ibm.consulting.sim.admin.application;
 
 import com.ibm.consulting.sim.assessment.domain.Assessment;
-import com.ibm.consulting.sim.assessment.domain.AssessmentRepository;
+import com.ibm.consulting.sim.assessment.domain.AssessmentFeedbackStatus;
 import com.ibm.consulting.sim.engagement.domain.Engagement;
-import com.ibm.consulting.sim.engagement.domain.EngagementRepository;
-import com.ibm.consulting.sim.engagement.domain.EngagementState;
 import com.ibm.consulting.sim.identity.domain.User;
-import com.ibm.consulting.sim.identity.domain.UserRepository;
+import com.ibm.consulting.sim.identity.domain.UserRole;
 import com.ibm.consulting.sim.scenario.domain.Scenario;
-import com.ibm.consulting.sim.scenario.domain.ScenarioRepository;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
+@DataJpaTest
+@Import(LearnerProgressService.class)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Testcontainers(disabledWithoutDocker = true)
 class LearnerProgressServiceTest {
-    private final EngagementRepository engagements = mock(EngagementRepository.class);
-    private final AssessmentRepository assessments = mock(AssessmentRepository.class);
-    private final ScenarioRepository scenarios = mock(ScenarioRepository.class);
-    private final UserRepository users = mock(UserRepository.class);
-    private final LearnerProgressService service = new LearnerProgressService(engagements, assessments, scenarios, users);
+    @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
+            DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
+    @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
+    @Autowired LearnerProgressService service;
+    @Autowired EntityManager entities;
+    @Autowired JdbcTemplate jdbc;
+    private Scenario scenario;
+    private Instant now;
 
-    private final UUID userId = UUID.randomUUID();
-    private final UUID scenarioId = UUID.randomUUID();
-
-    private Engagement engagement(EngagementState state, Instant updatedAt, Instant completedAt) {
-        Engagement engagement = mock(Engagement.class);
-        when(engagement.getId()).thenReturn(UUID.randomUUID());
-        when(engagement.getUserId()).thenReturn(userId);
-        when(engagement.getScenarioId()).thenReturn(scenarioId);
-        when(engagement.getState()).thenReturn(state);
-        when(engagement.getUpdatedAt()).thenReturn(updatedAt);
-        when(engagement.getCompletedAt()).thenReturn(completedAt);
-        return engagement;
+    @BeforeEach void prepare() {
+        scenario = scenario("Aviation");
+        now = jdbc.queryForObject("SELECT CURRENT_TIMESTAMP", Timestamp.class).toInstant();
     }
 
-    @Test
-    void returnsEachRunWithLearnerScenarioAndScoreNewestFirst() {
-        Engagement older = engagement(EngagementState.COMPLETED, Instant.parse("2026-10-10T00:00:00Z"), Instant.parse("2026-10-10T00:00:00Z"));
-        Engagement newer = engagement(EngagementState.OUTREACHING, Instant.parse("2026-10-12T00:00:00Z"), null);
-        User user = mock(User.class);
-        when(user.getId()).thenReturn(userId);
-        when(user.getDisplayName()).thenReturn("Ana Lee");
-        when(user.getEmail()).thenReturn("ana@example.com");
-        Scenario scenario = mock(Scenario.class);
-        when(scenario.getId()).thenReturn(scenarioId);
-        when(scenario.getTitle()).thenReturn("AeroVector Aviation");
-        UUID olderId = older.getId();
-        Assessment assessment = mock(Assessment.class);
-        when(assessment.getEngagementId()).thenReturn(olderId);
-        when(assessment.getOverallScore()).thenReturn(82);
-        when(engagements.findAll()).thenReturn(List.of(older, newer));
-        when(assessments.findAllByEngagementIdIn(anyList())).thenReturn(List.of(assessment));
-        when(scenarios.findByIdIn(anyList())).thenReturn(List.of(scenario));
-        when(users.findAll()).thenReturn(List.of(user));
-
-        List<LearnerProgressEntry> progress = service.getProgress();
-
-        assertThat(progress).extracting(LearnerProgressEntry::state).containsExactly("OUTREACHING", "COMPLETED");
-        assertThat(progress.get(0).overallScore()).isNull();
-        assertThat(progress.get(1).overallScore()).isEqualTo(82);
-        assertThat(progress.get(1).displayName()).isEqualTo("Ana Lee");
-        assertThat(progress.get(1).scenarioTitle()).isEqualTo("AeroVector Aviation");
+    private Scenario scenario(String title) {
+        Scenario value = Scenario.create(title, "Technology", "Description", 3);
+        value.addPersona("Client", "CIO", "Company", "Direct", "Risk", "Budget", "Modernise");
+        entities.persist(value);
+        entities.flush();
+        return value;
     }
 
-    @Test
-    void labelsRunsWhoseLearnerOrScenarioNoLongerExists() {
-        Engagement orphan = engagement(EngagementState.PREPARING, Instant.parse("2026-10-12T00:00:00Z"), null);
-        when(engagements.findAll()).thenReturn(List.of(orphan));
-        when(assessments.findAllByEngagementIdIn(anyList())).thenReturn(List.of());
-        when(scenarios.findByIdIn(anyList())).thenReturn(List.of());
-        when(users.findAll()).thenReturn(List.of());
-
-        LearnerProgressEntry entry = service.getProgress().get(0);
-
-        assertThat(entry.displayName()).isEqualTo("Removed learner");
-        assertThat(entry.scenarioTitle()).isEqualTo("Retired scenario");
+    private UUID run(String name, Scenario source, String state, Instant activity) {
+        User user = User.create(UUID.randomUUID() + "@example.test", "hash", name, UserRole.LEARNER);
+        entities.persist(user);
+        Engagement engagement = Engagement.start(user.getId(), source.getId(), source.getPersonas().getFirst().getId());
+        entities.persist(engagement);
+        entities.flush();
+        jdbc.update("UPDATE engagements SET state = ?, updated_at = ?, completed_at = ? WHERE id = ?", state,
+                Timestamp.from(activity), state.equals("COMPLETED") ? Timestamp.from(activity) : null, engagement.getId());
+        return engagement.getId();
     }
 
-    @Test
-    void skipsLookupsWhenThereAreNoRuns() {
-        when(engagements.findAll()).thenReturn(List.of());
+    private LearnerProgressService.ProgressPage page(int page, int size) {
+        return service.getProgress(null, null, null, null, page, size);
+    }
 
-        assertThat(service.getProgress()).isEmpty();
-        verify(users, never()).findAll();
+    @Test void pagesInStableActivityOrderAndClampsPagesRemovedByARefresh() {
+        UUID first = run("First", scenario, "OUTREACHING", now);
+        UUID second = run("Second", scenario, "PREPARING", now);
+        UUID older = run("Older", scenario, "IN_MEETING", now.minusSeconds(60));
+        var result = page(0, 1);
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.totalElements()).isEqualTo(3);
+        assertThat(result.totalPages()).isEqualTo(3);
+        // Equal timestamps use UUID as a deterministic tie breaker in the database.
+        var ids = List.of(page(0, 1).items().getFirst().engagementId(), page(1, 1).items().getFirst().engagementId());
+        assertThat(ids).containsExactlyInAnyOrder(first.toString(), second.toString());
+        assertThat(page(2, 1).items().getFirst().engagementId()).isEqualTo(older.toString());
+        assertThat(page(99, 1).page()).isEqualTo(2);
+    }
+
+    @Test void filtersBeforePaginationAndRetainsGlobalSummaryAndScenarioChoices() {
+        run("Ana Lee", scenario, "OUTREACHING", now);
+        run("Ana idle", scenario, "OUTREACHING", now.minus(5, ChronoUnit.DAYS));
+        Scenario other = scenario("Retail");
+        run("Other", other, "MEETING_FAILED", now.minus(5, ChronoUnit.DAYS));
+        UUID finished = run("Finished", other, "COMPLETED", now);
+        entities.persist(Assessment.create(finished, List.of(), 82, "PILOT_APPROVED", "Feedback",
+                List.of(), List.of(), AssessmentFeedbackStatus.READY));
+        entities.flush();
+        var result = service.getProgress(" ANA ", scenario.getId(), "Outreach", "STUCK", 0, 1);
+        assertThat(result.items()).extracting(LearnerProgressEntry::displayName).containsExactly("Ana idle");
+        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.summary()).isEqualTo(new LearnerProgressService.Summary(1, 1, 1, 1, 82, 4));
+        assertThat(result.scenarios()).extracting(LearnerProgressService.ScenarioOption::title).containsExactly("Aviation", "Retail");
+        assertThat(result.asOf()).isEqualTo(now);
+        assertThat(service.getProgress("example.test", null, null, null, 0, 25).totalElements()).isEqualTo(4);
+    }
+
+    @Test void handlesLiteralSearchesAndTheExactStuckBoundary() {
+        run("100% ready", scenario, "HYPOTHESIS_READY", now.minus(3, ChronoUnit.DAYS));
+        run("Ordinary learner", scenario, "REVIEW", now.minus(3, ChronoUnit.DAYS).plusMillis(1));
+        var percent = service.getProgress("%", null, "Research", "STUCK", 0, 25);
+        assertThat(percent.items()).extracting(LearnerProgressEntry::displayName).containsExactly("100% ready");
+        assertThat(percent.summary().stuck()).isEqualTo(1);
+        assertThat(percent.summary().inProgress()).isEqualTo(1);
+        assertThat(service.getProgress("' OR 1=1 --", null, null, null, 0, 25).items()).isEmpty();
+    }
+
+    @Test void emptyResultsStillIncludeGlobalMetadataAndSingleRunDoesNotDependOnTheCurrentPage() {
+        UUID id = run("Learner", scenario, "PREPARING", now);
+        var result = service.getProgress("missing", null, null, null, 5, 25);
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalElements()).isZero();
+        assertThat(result.page()).isZero();
+        assertThat(result.summary().totalRuns()).isEqualTo(1);
+        assertThat(result.summary().averageScore()).isNull();
+        assertThat(service.getRun(id).displayName()).isEqualTo("Learner");
+        assertThat(service.getRun(UUID.randomUUID())).isNull();
+    }
+
+    @Test void emptyDirectoryHasZeroCountsAndNoScore() {
+        var result = page(0, 25);
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalElements()).isZero();
+        assertThat(result.summary()).isEqualTo(new LearnerProgressService.Summary(0, 0, 0, 0, null, 0));
+        assertThat(result.scenarios()).isEmpty();
     }
 }

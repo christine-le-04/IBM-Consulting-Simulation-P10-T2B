@@ -18,7 +18,7 @@ import { useAdminAchievements, useAchievementPreview } from './useAdminAchieveme
 import { useAdminAiOperations } from './useAdminAiOperations'
 import { useAdminAnnouncements } from './useAdminAnnouncements'
 import { useAdminAuditEvents } from './useAdminAuditEvents'
-import { useAdminLearnerProgress, useAdminRunAssessment } from './useAdminLearnerProgress'
+import { useAdminLearnerProgress, useAdminLearnerRun, useAdminRunAssessment } from './useAdminLearnerProgress'
 import { useAdminPlatformOverview } from './useAdminPlatformOverview'
 import { useAdminUsers } from './useAdminUsers'
 import { useAdminScenarioCatalog, useAllScenariosForAdmin, useScenarioAuthoring, useScenarioAuthoringLeads, useGetKnowledgeDocuments, useScenarioAssignments } from './useAdminScenarios'
@@ -89,7 +89,8 @@ const reads = [
   ['AI operations', function useRead() { return useAdminAiOperations() }],
   ['sent announcements', function useRead() { return useAdminAnnouncements(0) }],
   ['audit events', function useRead() { return useAdminAuditEvents({ page: 0, size: 20 }) }],
-  ['learner progress', function useRead() { return useAdminLearnerProgress(true) }],
+  ['learner progress', function useRead() { return useAdminLearnerProgress({ page: 0, size: 25 }) }],
+  ['learner run', function useRead() { return useAdminLearnerRun('eng-1') }],
   ['admin assessment', function useRead() { return useAdminRunAssessment('eng-1', true) }],
   ['platform overview', function useRead() { return useAdminPlatformOverview(true) }],
   ['user directory', function useRead() { return useAdminUsers({ page: 0, size: 20 }) }],
@@ -126,6 +127,21 @@ describe('query cancellation', () => {
     expect(requests[0].signal.aborted).toBe(true)
     expect(requests[1].signal.aborted).toBe(false)
     expect(requests[1].url).toBe('/api/v1/engagements/eng-2/contacts')
+  })
+
+  it('cancels an obsolete learner page and forwards all server filters', async () => {
+    const { wrapper } = setup()
+    const { rerender } = renderHook(({ page }) => useAdminLearnerProgress({
+      page, size: 25, search: 'Ana', scenarioId: 'scenario-1', stage: 'Meeting', status: 'STUCK',
+    }), { wrapper, initialProps: { page: 0 } })
+    await waitFor(() => expect(requests).toHaveLength(1))
+    rerender({ page: 1 })
+    await waitFor(() => expect(requests).toHaveLength(2))
+    expect(requests[0].signal.aborted).toBe(true)
+    expect(requests[1].signal.aborted).toBe(false)
+    expect(requests[1].params).toEqual({
+      page: 1, size: 25, search: 'Ana', scenarioId: 'scenario-1', stage: 'Meeting', status: 'STUCK',
+    })
   })
 
   it('keeps a shared request alive until every consumer leaves', async () => {
