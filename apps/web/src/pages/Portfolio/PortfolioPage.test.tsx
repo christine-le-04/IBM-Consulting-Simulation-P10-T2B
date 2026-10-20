@@ -556,13 +556,14 @@ describe('PortfolioPage replay comparison', () => {
     await select('Engagement B', 'Scenario B')
 
     const table = screen.getByRole('table', { name: 'Score changes from Engagement A to Engagement B' })
-    expect(within(table).getByRole('row', { name: /Overall score/ })).toHaveTextContent('+20 points')
+    expect(within(table).getByRole('row', { name: /Overall score/i })).toHaveTextContent('+20 points')
     expect(within(table).getByRole('row', { name: /Discovery/ })).toHaveTextContent('+30 points')
     expect(within(table).getByRole('row', { name: /Communication/ })).toHaveTextContent('-15 points')
     expect(within(table).getByRole('row', { name: /Commercial/ })).toHaveTextContent('0 points')
     expect(within(table).getByRole('row', { name: /Negotiation/ })).toHaveTextContent('Not assessed75Not comparable')
-    expect(screen.getByText('revision requested')).toBeInTheDocument()
-    expect(screen.getByText('pilot approved')).toBeInTheDocument()
+    const replay = screen.getByRole('heading', { name: /Replay comparison/i }).closest('section')!
+    expect(within(replay).getByText('Revision Requested')).toBeInTheDocument()
+    expect(within(replay).getByText('Pilot Approved')).toBeInTheDocument()
     expect(screen.getAllByText('01/10/2026')).toHaveLength(5)
     expect(screen.getAllByRole('link', { name: 'Open review' })).toHaveLength(2)
   })
@@ -625,6 +626,43 @@ describe('PortfolioPage replay comparison', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
+
+  it('formats full titles consistently but shortens the engagement picker labels', async () => {
+    const rawTitle = 'Brightline Consumer Goods Atlas 0164: trade promotion execution'
+    const title = 'Brightline Consumer Goods Atlas 0164: Trade Promotion Execution'
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: query.data!.completedEngagementsHistory.map((item) =>
+        item.engagementId === 'a' ? { ...item, scenarioTitle: rawTitle } : item),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    mockedUseReplayComparison.mockReturnValue({ data: { ...comparison,
+      engagementA: { ...comparison.engagementA, scenarioTitle: rawTitle },
+    }, isFetching: false, isError: false } as unknown as ReturnType<typeof useReplayComparison>)
+    render(<PortfolioPage />)
+    const card = screen.getByRole('article', { name: title })
+    expect(within(card).getByText('Pilot Approved')).toBeInTheDocument()
+    expect(within(card).getByRole('heading', { name: title })).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    await user.click(screen.getByRole('option', { name: 'Brightline Consumer Goods Atlas 0164 — 80/100 · 01/10/2026' }))
+    expect(screen.getByText(`Full scenario: ${title}`)).toBeInTheDocument()
+    await select('Engagement B', 'Scenario B')
+    const replay = screen.getByRole('heading', { name: /Replay comparison/i }).closest('section')!
+    expect(within(replay).getByRole('heading', { name: title })).toBeInTheDocument()
+    expect(within(replay).getByText('Pilot Approved')).toBeInTheDocument()
+  })
+
+  it('distinguishes runs when shortened names, dates and scores are identical', async () => {
+    const query = mockedUsePortfolioSummary()
+    mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...query.data!,
+      completedEngagementsHistory: query.data!.completedEngagementsHistory.slice(0, 2).map((item, index) =>
+        ({ ...item, scenarioTitle: `Brightline: scenario ${index + 1}` })),
+    } } as ReturnType<typeof usePortfolioSummary>)
+    render(<PortfolioPage />)
+    await userEvent.setup().click(screen.getByRole('combobox', { name: 'Engagement A' }))
+    expect(screen.getByRole('option', { name: 'Brightline — 80/100 · 01/10/2026 · Run 1' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Brightline — 80/100 · 01/10/2026 · Run 2' })).toBeInTheDocument()
+  })
 })
 
 describe('PortfolioPage history browsing', () => {
@@ -669,9 +707,11 @@ describe('PortfolioPage history browsing', () => {
     } } as ReturnType<typeof usePortfolioSummary>)
     render(<PortfolioPage />)
     expect(within(screen.getByRole('list', { name: 'Completed engagements' })).getAllByRole('listitem')).toHaveLength(4)
-    expect(screen.getByRole('combobox', { name: /Items per page/ })).toBeDisabled()
+    expect(screen.queryByRole('combobox', { name: /Items per page/ })).not.toBeInTheDocument()
+    expect(within(historySection()).getByRole('status')).toHaveTextContent('1–4 of 5')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
     expect(within(historySection()).getAllByRole('link')).toHaveLength(1)
+    expect(within(historySection()).getByRole('status')).toHaveTextContent('5–5 of 5')
     expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 1' })).toBeInTheDocument()
   })
 
@@ -683,8 +723,8 @@ describe('PortfolioPage history browsing', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Next page' }))
     expect(within(historySection()).getByRole('link', { name: 'Open the review of Client 1' })).toBeInTheDocument()
     expect(within(historySection()).getByText('Assessment pending')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Completed engagements (8 of 8)' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Replay comparison' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Completed Engagements' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Replay comparison/i })).toBeInTheDocument()
     const user = userEvent.setup()
     await user.click(screen.getByRole('combobox', { name: 'Engagement A' }))
     expect(screen.getByRole('option', { name: 'Client 8 — 80/100 · 01/10/2026' })).toBeInTheDocument()
@@ -740,7 +780,7 @@ describe('PortfolioPage recommended practice', () => {
 describe('PortfolioPage completed engagements', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('shows saved best stage scores, total attempts, checkpoint counts and incomplete history', () => {
+  it('hides best stage scores by default and lets the learner expand and collapse them', async () => {
     setupPortfolio([])
     const query = mockedUsePortfolioSummary()
     mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
@@ -755,22 +795,35 @@ describe('PortfolioPage completed engagements', () => {
     } } as ReturnType<typeof usePortfolioSummary>)
     render(<PortfolioPage />)
 
-    const card = screen.getByRole('link', { name: 'Open the review of Stage results' })
-    expect(within(card).getByText('Best scores by stage')).toBeInTheDocument()
-    const outreach = within(card).getByText('Outreach').parentElement!
+    const card = screen.getByRole('article', { name: 'Stage results' })
+    const toggle = within(card).getByText('Best scores by stage')
+    const details = toggle.closest('details')!
+    expect(details).not.toHaveAttribute('open')
+    expect(within(card).getByText('75/100')).toBeVisible()
+    expect(within(card).getByText('85/100')).not.toBeVisible()
+    expect(toggle.closest('a')).toBeNull()
+    await userEvent.setup().click(toggle)
+    expect(details).toHaveAttribute('open')
+    expect(within(card).getByText('85/100')).toBeVisible()
+    const outreach = within(card).getByText('Outreach').closest('dl > div')!
     expect(within(outreach).getByText('0/100')).toBeInTheDocument()
     expect(within(outreach).getByText('1 completed attempt total')).toBeInTheDocument()
-    const meeting = within(card).getByText('Meeting').parentElement!
+    const meeting = within(card).getByText('Meeting').closest('dl > div')!
     expect(within(meeting).getByText('85/100')).toBeInTheDocument()
     expect(within(meeting).getByText('5 completed attempts total')).toBeInTheDocument()
     expect(within(meeting).getByText('2 in the final checkpoint cycle')).toBeInTheDocument()
     expect(within(meeting).getByText('1 checkpoint reset')).toBeInTheDocument()
-    const proposal = within(card).getByText('Proposal').parentElement!
+    const proposal = within(card).getByText('Proposal').closest('dl > div')!
     expect(within(proposal).getByText('2 checkpoint resets')).toBeInTheDocument()
     expect(within(proposal).getByText(/Best available score; some older attempts/)).toBeInTheDocument()
+    await userEvent.setup().click(toggle)
+    expect(details).not.toHaveAttribute('open')
+    expect(within(card).getByText('85/100')).not.toBeVisible()
+    expect(within(card).getByRole('link', { name: 'Open the review of Stage results' }))
+      .toHaveAttribute('href', '/dashboard/engagements/run/assessment')
   })
 
-  it('does not invent attempt counts when stage metadata is incomplete', () => {
+  it('does not invent attempt counts when stage metadata is incomplete', async () => {
     setupPortfolio([])
     const query = mockedUsePortfolioSummary()
     mockedUsePortfolioSummary.mockReturnValue({ ...query, data: { ...basePortfolio,
@@ -782,7 +835,8 @@ describe('PortfolioPage completed engagements', () => {
     } } as ReturnType<typeof usePortfolioSummary>)
     render(<PortfolioPage />)
 
-    const card = screen.getByRole('link', { name: 'Open the review of Partial metadata' })
+    const card = screen.getByRole('article', { name: 'Partial metadata' })
+    await userEvent.setup().click(within(card).getByText('Best scores by stage'))
     expect(within(card).getByText('80/100')).toBeInTheDocument()
     expect(within(card).queryByText(/completed attempts? total/)).not.toBeInTheDocument()
     expect(within(card).queryByText(/checkpoint resets?/)).not.toBeInTheDocument()
@@ -823,12 +877,12 @@ describe('PortfolioPage completed engagements', () => {
     } } as ReturnType<typeof usePortfolioSummary>)
     render(<PortfolioPage />)
 
-    const pending = screen.getByRole('link', { name: 'Open the review of pending' })
+    const pending = screen.getByRole('article', { name: 'pending' })
     expect(within(pending).getByText('Assessment pending')).toBeInTheDocument()
     expect(within(pending).queryByText(/\/100/)).not.toBeInTheDocument()
     expect(within(pending).queryByText(/Stage breakdown unavailable/)).not.toBeInTheDocument()
-    expect(within(screen.getByRole('link', { name: 'Open the review of scored' })).getByText('0/100')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Replay comparison' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('article', { name: 'scored' })).getByText('0/100')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /Replay comparison/i })).not.toBeInTheDocument()
   })
 
   it('opens the review of a completed engagement', () => {
@@ -879,7 +933,7 @@ describe('PortfolioPage achievements', () => {
   it('labels an exclusive badge with its scenario', () => {
     showAchievements([badge({ scope: 'EXCLUSIVE', scenarioTitle: 'AeroVector: crew rostering' })])
 
-    expect(screen.getByText('Exclusive · AeroVector: crew rostering')).toBeInTheDocument()
+    expect(screen.getByText('Exclusive · AeroVector: Crew Rostering')).toBeInTheDocument()
     expect(screen.getByText('50% complete')).toBeInTheDocument()
   })
 

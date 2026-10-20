@@ -6,8 +6,8 @@
  */
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Checkbox, Pagination, Tag } from '@carbon/react'
-import { ArrowRight, Locked } from '@carbon/icons-react'
+import { Button, Checkbox, Tag } from '@carbon/react'
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Locked } from '@carbon/icons-react'
 import { usePortfolioSummary, useReplayComparison } from '@/api/hooks/usePortfolio'
 import { useMyAchievements } from '@/api/hooks/useAchievements'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -20,7 +20,7 @@ import IndustryArt from '@/components/shell/IndustryArt'
 import styles from './PortfolioPage.module.scss'
 import { achievementDescription, achievementIcon, isExclusive, isPaused } from '@/features/achievement/achievementPresentation'
 import { useAuthStore } from '@/store/authStore'
-import { portfolioDifficultyLabel, portfolioPracticeFocus, portfolioTooltipLabel } from '@/features/portfolio/portfolioPresentation'
+import { portfolioDifficultyLabel, portfolioOutcomeLabel, portfolioPracticeFocus, portfolioReplayLabel, portfolioScenarioTitle, portfolioTooltipLabel } from '@/features/portfolio/portfolioPresentation'
 
 /** Lightweight competency trend visualisation: one row per historical score,
  *  avoiding a chart-library dependency while still showing progression clearly. */
@@ -35,7 +35,7 @@ function CompetencyTrendCard({ trend, showHistory }: { trend: CompetencyTrend, s
   return (
     <div className={styles.trend}>
       <div className={styles.trendHead}>
-        <strong>{trend.competencyName}</strong>
+        <h3>{trend.competencyName}</h3>
         {trend.points.length > 1 && (
           <Tag type={delta >= 0 ? 'green' : 'red'} size="sm">
             {delta >= 0 ? '+' : ''}{delta} since first engagement
@@ -184,18 +184,19 @@ function CompetencyTrendGraph({ trends, history }: { trends: CompetencyTrend[]; 
 }
 
 function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementView }) {
+  const title = portfolioScenarioTitle(engagement.scenarioTitle)
   const stageLabels = { OUTREACH: 'Outreach', MEETING: 'Meeting', PROPOSAL: 'Proposal' }
   const won = ['PILOT_APPROVED', 'PROPOSAL_ACCEPTED', 'STRATEGIC_PARTNERSHIP', 'WON']
     .includes(engagement.outcome)
   const rejected = ['REJECTED', 'PROPOSAL_REJECTED', 'LOST'].includes(engagement.outcome)
   return (
-    <Link className={styles.historyCard} to={`/dashboard/engagements/${engagement.engagementId}/assessment`} aria-label={`Open the review of ${engagement.scenarioTitle}`}>
+    <article className={styles.historyCard} aria-label={title}>
       <div className={styles.historyHead}>
         <IndustryArt industry={engagement.industry} size={44} />
-        <h3>{engagement.scenarioTitle}</h3>
+        <h3>{title}</h3>
       </div>
       <div className={styles.tags}>
-        <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.overallScore == null ? 'Assessment pending' : engagement.outcome.replace(/_/g, ' ')}</Tag>
+        <Tag type={won ? 'green' : rejected ? 'red' : 'purple'} size="sm">{engagement.overallScore == null ? 'Assessment pending' : portfolioOutcomeLabel(engagement.outcome)}</Tag>
         <Tag type="cyan" size="sm">{engagement.industry}</Tag>
         <Tag type="gray" size="sm">{portfolioDifficultyLabel(engagement.difficulty)}</Tag>
       </div>
@@ -204,11 +205,11 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
         {engagement.overallScore != null && <strong>{engagement.overallScore}/100</strong>}
       </div>
       {engagement.stageScores && engagement.stageScores.length > 0 ? (
-        <div className={styles.stageScores}>
-          <strong>Best scores by stage</strong>
+        <details className={styles.stageScores}>
+          <summary>Best scores by stage <ChevronDown size={16} aria-hidden="true" /></summary>
           <dl>
             {engagement.stageScores.map((score) => <div key={score.stage}>
-              <dt>{stageLabels[score.stage]}</dt>
+              <dt><strong>{stageLabels[score.stage]}</strong></dt>
               <dd>
                 <strong>{score.bestScore}/100</strong>
                 {score.attemptCount != null && <span>{score.attemptCount} completed {score.attemptCount === 1 ? 'attempt' : 'attempts'} total</span>}
@@ -218,10 +219,11 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
               </dd>
             </div>)}
           </dl>
-        </div>
+        </details>
       ) : engagement.overallScore != null && <p className={styles.emptyState}>Stage breakdown unavailable for this assessment.</p>}
-      <span className={styles.historyOpen}>Open review <ArrowRight size={16} /></span>
-    </Link>
+      <Link className={styles.historyOpen} to={`/dashboard/engagements/${engagement.engagementId}/assessment`}
+        aria-label={`Open the review of ${title}`}>Open review <ArrowRight size={16} /></Link>
+    </article>
   )
 }
 
@@ -237,13 +239,19 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
   assessedHistory.forEach((engagement) => {
     const group = scenarioGroups.get(engagement.scenarioId)
     if (group) group.count++
-    else scenarioGroups.set(engagement.scenarioId, { title: engagement.scenarioTitle, count: 1 })
+    else scenarioGroups.set(engagement.scenarioId, { title: portfolioScenarioTitle(engagement.scenarioTitle), count: 1 })
   })
   const replayHistory = replayScenario === 'ALL' ? assessedHistory
     : assessedHistory.filter((engagement) => engagement.scenarioId === replayScenario)
+  const replayLabels = replayHistory.map(portfolioReplayLabel)
+  const labelCounts = new Map<string, number>()
+  replayLabels.forEach((label) => labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1))
   const options = [
     { value: '', label: 'Select an engagement…' },
-    ...replayHistory.map((h) => ({ value: h.engagementId, label: `${h.scenarioTitle} — ${h.overallScore}/100${h.completedAt ? ` · ${new Date(h.completedAt).toLocaleDateString('en-GB')}` : ''}` })),
+    ...replayHistory.map((h, index) => ({ value: h.engagementId,
+      label: labelCounts.get(replayLabels[index])! > 1
+        ? `${replayLabels[index]} · Run ${index + 1}` : replayLabels[index],
+    })),
   ]
   const sameEngagement = !!engagementA && engagementA === engagementB
   const selectionReady = !!engagementA && !!engagementB && !sameEngagement
@@ -266,7 +274,7 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
 
   return (
     <section className={styles.section}>
-      <h2>Replay comparison</h2>
+      <h2>Replay Comparison</h2>
       <div className={styles.replay}>
         <Choice id="replay-scenario" label="Compare within a scenario" value={replayScenario}
           options={[{ value: 'ALL', label: 'All scenarios' }, ...[...scenarioGroups].map(([id, group]) => ({
@@ -283,8 +291,15 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
         {replayScenario !== 'ALL' && replayHistory.length < 2
           && <p>Complete another engagement for this scenario, or choose All scenarios to compare with other practice.</p>}
         <div className={styles.replayPickers}>
-          <Choice id="replay-a" label="Engagement A" value={engagementA} onChange={setEngagementA} options={options} />
-          <Choice id="replay-b" label="Engagement B" value={engagementB} onChange={setEngagementB} options={options} />
+          {[{ label: 'A', value: engagementA, onChange: setEngagementA },
+            { label: 'B', value: engagementB, onChange: setEngagementB }].map(({ label, value, onChange }) => {
+            const selected = replayHistory.find((item) => item.engagementId === value)
+            return <div key={label}>
+              <Choice id={`replay-${label.toLowerCase()}`} label={`Engagement ${label}`} value={value}
+                onChange={onChange} options={options} />
+              {selected && <p className={styles.selectedScenario}>Full scenario: {portfolioScenarioTitle(selected.scenarioTitle)}</p>}
+            </div>
+          })}
         </div>
 
         {sameEngagement && <p role="alert">Select two different engagements to compare.</p>}
@@ -302,11 +317,11 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
               const completedAt = history.find((item) => item.engagementId === snapshot.engagementId)?.completedAt
               return (
               <div key={snapshot.engagementId} className={styles.snapshot}>
-                <p>Engagement {idx === 0 ? 'A' : 'B'}</p>
-                <h3>{snapshot.scenarioTitle}</h3>
+                <p className={styles.snapshotLabel}>Engagement {idx === 0 ? 'A' : 'B'}</p>
+                <h3>{portfolioScenarioTitle(snapshot.scenarioTitle)}</h3>
                 <p>vs. {snapshot.personaName}</p>
                 <Tag type="gray" size="sm">{portfolioDifficultyLabel(snapshot.difficulty)}</Tag>
-                <p>{snapshot.outcome.replaceAll('_', ' ').toLowerCase()}</p>
+                <p>{portfolioOutcomeLabel(snapshot.outcome)}</p>
                 <p>{completedAt
                   ? new Date(completedAt).toLocaleDateString('en-GB')
                   : 'Completion date unavailable'}</p>
@@ -319,9 +334,9 @@ function ReplayComparisonSection({ history }: { history: CompletedEngagementView
           <div className={styles.comparisonTable}>
             <table>
               <caption>Score changes from Engagement A to Engagement B</caption>
-              <thead><tr><th scope="col">Competency</th><th scope="col">A</th><th scope="col">B</th><th scope="col">Change (B − A)</th></tr></thead>
+              <thead><tr><th scope="col"><strong>Competency</strong></th><th scope="col"><strong>A</strong></th><th scope="col"><strong>B</strong></th><th scope="col"><strong>Change (B − A)</strong></th></tr></thead>
               <tbody>
-                <tr><th scope="row">Overall score</th><td>{currentComparison.engagementA.overallScore}</td><td>{currentComparison.engagementB.overallScore}</td>
+                <tr><th scope="row">Overall Score</th><td>{currentComparison.engagementA.overallScore}</td><td>{currentComparison.engagementB.overallScore}</td>
                   <td>{scoreChange(currentComparison.engagementA.overallScore, currentComparison.engagementB.overallScore)}</td></tr>
                 {competencyNames.map((name) => {
                   const scoreA = currentComparison.engagementA.competencyScores.find((score) => score.competencyName === name)?.score
@@ -347,15 +362,15 @@ function AchievementBadge({ achievement }: { achievement: AchievementSummary }) 
     <article className={classes}>
       <div className={styles.badgeHead}>
         {achievement.unlocked ? <Icon size={20} /> : <Locked size={20} />}
-        <strong>{achievement.name}</strong>
+        <h3>{achievement.name}</h3>
       </div>
       {isExclusive(achievement) && achievement.scenarioTitle && (
-        <span className={styles.badgeScope}>Exclusive · {achievement.scenarioTitle}</span>
+        <span className={styles.badgeScope}>Exclusive · {portfolioScenarioTitle(achievement.scenarioTitle)}</span>
       )}
       <p>{achievementDescription(achievement.description)}</p>
       {paused && (
         <p className={styles.badgeNote}>
-          This badge belongs to {achievement.scenarioTitle ?? 'a scenario'}, which is currently archived
+          This badge belongs to {achievement.scenarioTitle ? portfolioScenarioTitle(achievement.scenarioTitle) : 'a scenario'}, which is currently archived
           {achievement.unlocked ? '.' : ', so it can\'t be earned right now.'}
         </p>
       )}
@@ -435,7 +450,7 @@ export default function PortfolioPage() {
       {practiceFocus && <section className={styles.practiceFocus} aria-label="Recommended practice">
         <h2>Focus next: {practiceFocus.name}</h2>
         <Tag type="gray" size="sm">{portfolioDifficultyLabel(practiceFocus.difficulty)}</Tag>
-        <p>Based on your latest saved assessment for {practiceFocus.scenarioTitle}, {practiceFocus.name} had
+        <p>Based on your latest saved assessment for {portfolioScenarioTitle(practiceFocus.scenarioTitle)}, {practiceFocus.name} had
           your lowest recorded {practiceFocus.basis}: {practiceFocus.score}/100.</p>
         {practiceFocus.incompleteHistory && <p>Some older attempts have no saved scores, so this is based on the available history.</p>}
         <p>{practiceFocus.action}</p>
@@ -471,12 +486,21 @@ export default function PortfolioPage() {
       <section className={styles.section} aria-label="Completed engagement history">
         {sortedHistory.length > 0 ? (
           <>
-            <h2>Completed engagements ({portfolio.completedEngagements} of {portfolio.totalEngagements})</h2>
+            <div className={styles.sectionHead}>
+              <h2>Completed Engagements</h2>
+              <nav className={styles.historyNavigation} aria-label="Completed engagement navigation">
+                <button type="button" aria-label="Previous page" disabled={currentHistoryPage === 1}
+                  onClick={() => setHistoryPage(currentHistoryPage - 1)}><ChevronLeft size={20} aria-hidden="true" /></button>
+                <span role="status" aria-live="polite" aria-atomic="true">
+                  {(currentHistoryPage - 1) * HISTORY_PAGE_SIZE + 1}–{Math.min(currentHistoryPage * HISTORY_PAGE_SIZE, sortedHistory.length)} of {sortedHistory.length}
+                </span>
+                <button type="button" aria-label="Next page" disabled={currentHistoryPage * HISTORY_PAGE_SIZE >= sortedHistory.length}
+                  onClick={() => setHistoryPage(currentHistoryPage + 1)}><ChevronRight size={20} aria-hidden="true" /></button>
+              </nav>
+            </div>
             <ul className={styles.history} aria-label="Completed engagements">
               {visibleHistory.map((h) => <li key={h.engagementId}><EngagementHistoryRow engagement={h} /></li>)}
             </ul>
-            <Pagination page={currentHistoryPage} pageSize={HISTORY_PAGE_SIZE} pageSizes={[HISTORY_PAGE_SIZE]}
-              pageSizeInputDisabled totalItems={sortedHistory.length} onChange={({ page }) => setHistoryPage(page)} />
           </>
         ) : (
           <>

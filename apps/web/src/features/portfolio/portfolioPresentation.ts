@@ -1,5 +1,22 @@
 import type { CompletedEngagementView, CompetencyTrend, PortfolioStageScore } from '@/api/types'
 
+export function portfolioOutcomeLabel(outcome: string): string {
+  return outcome.toLowerCase().replaceAll('_', ' ').replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+}
+
+/** Keep authored company names and acronyms intact; title-case the descriptive suffix. */
+export function portfolioScenarioTitle(title: string): string {
+  const colon = title.indexOf(':')
+  if (colon < 0) return title
+  return title.slice(0, colon + 1) + title.slice(colon + 1)
+    .replace(/[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu, (word) => word[0].toLocaleUpperCase() + word.slice(1))
+}
+
+export function portfolioReplayLabel(engagement: CompletedEngagementView): string {
+  const title = engagement.scenarioTitle.split(':', 1)[0].trim() || portfolioScenarioTitle(engagement.scenarioTitle)
+  return `${title} — ${engagement.overallScore}/100${engagement.completedAt ? ` · ${new Date(engagement.completedAt).toLocaleDateString('en-GB')}` : ''}`
+}
+
 export function portfolioDifficultyLabel(difficulty: CompletedEngagementView['difficulty']): string {
   switch (difficulty) {
     case 'EASY': return 'Easy'
@@ -12,7 +29,7 @@ export function portfolioDifficultyLabel(difficulty: CompletedEngagementView['di
 export function portfolioTooltipLabel(point: { engagementId: string; engagement: string; generatedAt: string },
   history: CompletedEngagementView[]): string {
   const engagement = history.find((item) => item.engagementId === point.engagementId)
-  return `${engagement?.scenarioTitle ?? point.engagement} · ${portfolioDifficultyLabel(engagement?.difficulty)} · Assessed ${new Date(point.generatedAt).toLocaleDateString('en-GB')}`
+  return `${engagement ? portfolioScenarioTitle(engagement.scenarioTitle) : point.engagement} · ${portfolioDifficultyLabel(engagement?.difficulty)} · Assessed ${new Date(point.generatedAt).toLocaleDateString('en-GB')}`
 }
 
 const STAGE_PRACTICE: Record<PortfolioStageScore['stage'], { name: string; action: string }> = {
