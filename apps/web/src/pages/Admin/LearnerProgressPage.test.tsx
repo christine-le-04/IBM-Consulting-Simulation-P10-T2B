@@ -113,4 +113,26 @@ describe('LearnerProgressPage', () => {
     fireEvent.change(screen.getByLabelText('Stage'), { target: { value: 'Outreach' } })
     expect(rowNames()).toEqual([expect.stringContaining('Ben Ng')])
   })
+
+  it('exports only the filtered learners as CSV', async () => {
+    setup(learners)
+    const createUrl = vi.fn<(blob: Blob) => string>(() => 'blob:learners')
+    Object.assign(URL, { createObjectURL: createUrl, revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Stuck\s*1/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Export filtered CSV' }))
+    expect(click).toHaveBeenCalled()
+    const csv = await createUrl.mock.calls[0][0].text()
+    expect(csv).toContain('Ben Ng')
+    expect(csv).not.toContain('Ana Lee')
+    click.mockRestore()
+  })
+
+  it('disables export when no learner matches', () => {
+    setup(learners)
+    renderPage()
+    fireEvent.change(screen.getByLabelText('Search learner'), { target: { value: 'nobody' } })
+    expect(screen.getByRole('button', { name: 'Export filtered CSV' })).toBeDisabled()
+  })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LearnerProgressEntry } from '@/api/types'
-import { relativeTime, stageIndexOf, stageOf, statusOf, summarise } from './learnerProgress'
+import { learnerProgressCsvName, relativeTime, stageIndexOf, stageOf, statusOf, summarise, toLearnerProgressCsv } from './learnerProgress'
 
 const NOW = new Date('2026-10-13T12:00:00Z').getTime()
 const daysAgo = (days: number) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString()
@@ -63,5 +63,26 @@ describe('relativeTime', () => {
     expect(relativeTime(new Date(NOW - 2 * 3_600_000).toISOString(), NOW)).toBe('2 hours ago')
     expect(relativeTime(daysAgo(1), NOW)).toBe('Yesterday')
     expect(relativeTime(daysAgo(4), NOW)).toBe('4 days ago')
+  })
+})
+
+describe('learner progress CSV', () => {
+  it('writes a header and one quoted row per run', () => {
+    const csv = toLearnerProgressCsv([
+      entry({ displayName: 'Ana "AJ" Lee', state: 'COMPLETED', completedAt: daysAgo(1), overallScore: 82 }),
+      entry({ engagementId: 'e2', lastActivityAt: daysAgo(4) }),
+    ], NOW)
+    const [header, first, second] = csv.split('\r\n')
+    expect(header).toBe('"Learner","Email","Scenario","Stage","Engagement state","Status","Score","Last activity","Completed at","Engagement ID"')
+    expect(first).toContain('"Ana ""AJ"" Lee","learner@example.com","AeroVector Aviation","Review","Completed","Completed","82"')
+    expect(second).toContain('"Outreach","Outreaching","Stuck",""')
+  })
+
+  it('stops spreadsheets running learner text as a formula', () => {
+    expect(toLearnerProgressCsv([entry({ displayName: '=HYPERLINK("x")' })], NOW)).toContain('"\'=HYPERLINK(""x"")"')
+  })
+
+  it('names the file after the export date', () => {
+    expect(learnerProgressCsvName(NOW)).toBe('learner-progress-2026-10-13.csv')
   })
 })
