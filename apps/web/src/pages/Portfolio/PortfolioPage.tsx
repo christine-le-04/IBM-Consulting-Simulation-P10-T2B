@@ -214,7 +214,6 @@ function EngagementHistoryRow({ engagement }: { engagement: CompletedEngagementV
                 <strong>{score.bestScore}/100</strong>
                 {score.attemptCount != null && <span>{score.attemptCount} completed {score.attemptCount === 1 ? 'attempt' : 'attempts'} total</span>}
                 {score.currentCycleAttempts != null && <span>{score.currentCycleAttempts} in the final checkpoint cycle</span>}
-                {score.checkpointResets != null && <span>{score.checkpointResets} checkpoint {score.checkpointResets === 1 ? 'reset' : 'resets'}</span>}
                 {score.scoreHistoryComplete === false && <span>Best available score; some older attempts have no saved score.</span>}
               </dd>
             </div>)}

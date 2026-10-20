@@ -172,7 +172,7 @@ export default function AssessmentReviewPage() {
 
         <section>
           <h2 className={styles.label}>{hasStageScores ? 'Best scores by stage' : 'Competencies'}</h2>
-          {hasStageScores && <p>Research and meeting preparation receive feedback only. Checkpoint resets give you fresh attempts and keep your earlier best scores.</p>}
+          {hasStageScores && <p className={styles.scoreExplanation}>Research and meeting preparation receive feedback only. Checkpoint resets give you fresh attempts and keep your earlier best scores.</p>}
           <div className={styles.competencies}>
             {result.competencyScores.map((competency) => (
               <div key={competency.name} className={styles.competency}>
@@ -186,7 +186,6 @@ export default function AssessmentReviewPage() {
                   <ul className={styles.attemptDetails} aria-label={`${stageLabels[competency.stage]} attempt details`}>
                     <li>{competency.attemptCount} completed {competency.attemptCount === 1 ? 'attempt' : 'attempts'} total</li>
                     {competency.currentCycleAttempts != null && <li>{competency.currentCycleAttempts} in the current checkpoint cycle</li>}
-                    {competency.checkpointResets != null && <li>{competency.checkpointResets} checkpoint {competency.checkpointResets === 1 ? 'reset' : 'resets'}</li>}
                   </ul>
                 )}
               </div>

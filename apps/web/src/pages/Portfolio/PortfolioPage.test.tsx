@@ -812,9 +812,8 @@ describe('PortfolioPage completed engagements', () => {
     expect(within(meeting).getByText('85/100')).toBeInTheDocument()
     expect(within(meeting).getByText('5 completed attempts total')).toBeInTheDocument()
     expect(within(meeting).getByText('2 in the final checkpoint cycle')).toBeInTheDocument()
-    expect(within(meeting).getByText('1 checkpoint reset')).toBeInTheDocument()
     const proposal = within(card).getByText('Proposal').closest<HTMLDivElement>('dl > div')!
-    expect(within(proposal).getByText('2 checkpoint resets')).toBeInTheDocument()
+    expect(within(card).queryByText(/^\d+ checkpoint resets?$/)).not.toBeInTheDocument()
     expect(within(proposal).getByText(/Best available score; some older attempts/)).toBeInTheDocument()
     await userEvent.setup().click(toggle)
     expect(details).not.toHaveAttribute('open')
