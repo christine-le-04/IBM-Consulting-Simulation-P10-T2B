@@ -16,8 +16,8 @@ import styles from './shell.module.scss'
 
 /**
  * Publishes the brief's height as --sim-brief-height, so a page that sizes
- * itself to the viewport (the meeting) can leave room for it instead of
- * pushing its message box below the fold.
+ * itself to the viewport can leave room for it instead of pushing its
+ * controls below the fold.
  */
 function useBriefHeight() {
   const observer = useRef<ResizeObserver | null>(null)

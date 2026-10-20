@@ -10,7 +10,8 @@
   flex: 1 1 auto;
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
-  height: calc(100vh - var(--sim-header) - 2.75rem);
+  height: calc(100vh - var(--sim-header) - max(2.75rem, var(--sim-brief-height, 0px)));
+  height: calc(100dvh - var(--sim-header) - max(2.75rem, var(--sim-brief-height, 0px)));
   min-height: 420px;
   margin: -2rem;
   background: #fff;
@@ -20,6 +21,7 @@
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 30vh) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 30dvh) minmax(0, 1fr);
   }
 }
 

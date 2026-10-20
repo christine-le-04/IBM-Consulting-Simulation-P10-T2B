@@ -9,7 +9,8 @@
   // It fills what the shell leaves below the header and Dana's line, edge to
   // edge (the negative margin undoes Carbon's content padding).
   flex: 1 1 auto;
-  height: calc(100vh - var(--sim-header) - 2.75rem);
+  height: calc(100vh - var(--sim-header) - max(2.75rem, var(--sim-brief-height, 0px)));
+  height: calc(100dvh - var(--sim-header) - max(2.75rem, var(--sim-brief-height, 0px)));
   min-height: 480px;
   margin: -2rem;
   display: flex;
