@@ -1,5 +1,5 @@
 import { Button, Column, Grid, Heading, InlineLoading, Pagination, Select, SelectItem, Tag, TextInput } from '@carbon/react'
-import { Download, Renew, UserMultiple } from '@carbon/icons-react'
+import { ChartLine, Download, Renew, UserMultiple } from '@carbon/icons-react'
 import { useDeferredValue, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAdminLearnerProgress } from '@/api/hooks/useAdminLearnerProgress'
@@ -111,6 +111,7 @@ export default function LearnerProgressPage() {
           <p>See where every learner is in their engagement, how they scored, and who needs a nudge.</p>
         </div>
         <div className={shared.headerActions}>
+          <Button kind="tertiary" renderIcon={ChartLine} as={Link} to="/dashboard/admin/cohorts">Cohort analytics</Button>
           <Button kind="tertiary" renderIcon={Download} disabled={filtered.length === 0} onClick={() => downloadCsv(learnerProgressCsvName(now), toLearnerProgressCsv(filtered, now))}>
             {hasFilters ? 'Export filtered CSV' : 'Export CSV'}
           </Button>
