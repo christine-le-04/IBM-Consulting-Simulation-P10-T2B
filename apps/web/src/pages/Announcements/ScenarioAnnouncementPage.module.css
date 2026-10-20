@@ -1,0 +1,10 @@
+.page {
+  min-width: 0;
+  width: 100%;
+  padding: clamp(1rem, 1.4vw, 1.5rem) clamp(1rem, 3vw, 3rem) 1rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 672px) {
+  .page { padding: 1rem; }
+}

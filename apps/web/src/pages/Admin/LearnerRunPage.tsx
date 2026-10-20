@@ -68,7 +68,7 @@ export default function LearnerRunPage() {
   const status = statusOf(entry, now)
 
   return <main className={shared.page}>
-    <Grid condensed><Column lg={16} md={8} sm={4}>
+    <Grid fullWidth condensed><Column lg={16} md={8} sm={4}>
       {back}
       <header className={shared.userHeader}>
         <div>

@@ -78,7 +78,7 @@ export default function LearnerProgressPage() {
   }
 
   return <main className={shared.page}>
-    <Grid condensed><Column lg={16} md={8} sm={4}>
+    <Grid fullWidth condensed><Column lg={16} md={8} sm={4}>
       <header className={shared.userHeader}>
         <div>
           <p className={shared.eyebrow}>Learner analytics</p>

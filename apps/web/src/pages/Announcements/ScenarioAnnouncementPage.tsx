@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/api/client'
 import type { ScenarioSummary } from '@/api/types'
 import { useAuthStore } from '@/store/authStore'
+import styles from './ScenarioAnnouncementPage.module.css'
 
 export default function ScenarioAnnouncementPage() {
   const { scenarioId } = useParams()
@@ -14,7 +15,7 @@ export default function ScenarioAnnouncementPage() {
     queryFn: async ({ signal }) => (await apiClient.get<ScenarioSummary>(`/api/v1/scenarios/${scenarioId}`, { signal })).data,
     enabled: Boolean(userId && scenarioId), retry: false, staleTime: 0,
   })
-  return <main style={{ padding: '2rem', maxWidth: '60rem' }}>
+  return <main className={styles.page}>
     <h1>{scenario.data?.title ?? 'Scenario'}</h1>
     {scenario.isLoading && <InlineLoading description="Checking scenario availability" />}
     {scenario.isError && <><InlineNotification kind="info" title="Scenario unavailable"

@@ -27,6 +27,7 @@ import AchievementRuleInsight from '@/components/admin/AchievementRuleInsight'
 import { useAdminScenarioCatalog } from '@/api/hooks/useAdminScenarios'
 import LoadingState from '@/components/shared/LoadingState'
 import ErrorState from '@/components/shared/ErrorState'
+import shared from './AdminOperationsPage.module.css'
 import type { AchievementAdminView, ConditionNode, UpsertAchievementRequest } from '@/api/types'
 import { ACHIEVEMENT_ICONS, achievementDescription, achievementIcon } from '@/features/achievement/achievementPresentation'
 import { everyRunHasRequirement, pruneForScope } from '@/features/achievement/ruleScope'
@@ -255,7 +256,7 @@ export default function AchievementBuilderPage() {
   if (isError) return <ErrorState />
 
   return (
-    <Grid fullWidth style={{ padding: '2rem' }}>
+    <Grid fullWidth className={shared.page}>
       <Column lg={16} md={8} sm={4}>
         <Stack gap={6}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
