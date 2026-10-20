@@ -4,7 +4,7 @@ import type { Assessment } from '@/api/types'
 import { engagementKeys } from '@/api/hooks/useEngagements'
 import { portfolioKeys } from '@/api/hooks/usePortfolio'
 
-const ASSESSMENT_REQUEST_TIMEOUT_MS = 30_000
+const ASSESSMENT_REQUEST_TIMEOUT_MS = 20_000
 
 export const assessmentKeys = {
   detail: (engagementId: string) => ['assessment', engagementId] as const,

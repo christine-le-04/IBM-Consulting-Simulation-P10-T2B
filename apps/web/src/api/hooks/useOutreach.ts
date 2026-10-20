@@ -3,7 +3,7 @@ import apiClient from '@/api/client'
 import { isAxiosError } from 'axios'
 import type { CapabilityBrief, OutreachAttempt } from '@/api/types'
 
-const OUTREACH_REQUEST_TIMEOUT_MS = 20_000
+const OUTREACH_REQUEST_TIMEOUT_MS = 15_000
 
 export function useOutreach(engagementId: string) {
   return useQuery({
@@ -23,17 +23,22 @@ export function useSendOutreach(engagementId: string) {
   return useMutation({
     mutationFn: async (data: { subject: string; body: string }) => {
       const request = { ...data, requestId: crypto.randomUUID() }
+      const deadline = Date.now() + OUTREACH_REQUEST_TIMEOUT_MS
       for (let attempt = 0; ; attempt++) {
         try {
           const res = await apiClient.post<OutreachAttempt>(
             `/api/v1/engagements/${engagementId}/outreach`, request,
-            { timeout: OUTREACH_REQUEST_TIMEOUT_MS },
+            { timeout: Math.max(1, deadline - Date.now()) },
           )
           return res.data
         } catch (error) {
           if (attempt > 0 || !isAxiosError(error) || error.response?.status !== 503) throw error
+          // Recovery shares the original deadline instead of starting another
+          // full wait after an already slow provider failure.
+          if (deadline - Date.now() <= 1000) throw error
           // A provider failure consumes no attempt. Reuse the key so recovery cannot duplicate an email.
           await new Promise((resolve) => setTimeout(resolve, 1000))
+          if (Date.now() >= deadline) throw error
         }
       }
     },

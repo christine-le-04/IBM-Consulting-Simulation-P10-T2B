@@ -20,7 +20,7 @@ import java.util.concurrent.locks.ReentrantLock;
 class IamTokenProvider {
 
     private static final String IAM_TOKEN_URL = "https://iam.cloud.ibm.com/identity/token";
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(25);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration TOKEN_SAFETY_MARGIN = Duration.ofMinutes(2);
 
     private final WebClient iamClient = WebClient.builder().baseUrl(IAM_TOKEN_URL).build();
@@ -38,7 +38,16 @@ class IamTokenProvider {
         if (cachedToken != null && Instant.now().isBefore(tokenExpiresAt)) {
             return cachedToken;
         }
-        tokenLock.lock();
+        // A failed refresh must not queue every waiting learner behind another
+        // full network timeout. Bound both lock contention and the exchange.
+        try {
+            if (!tokenLock.tryLock(REQUEST_TIMEOUT.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                throw new IllegalStateException("IBM IAM token refresh is busy; please retry");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("IBM IAM token refresh interrupted", interrupted);
+        }
         try {
             if (cachedToken != null && Instant.now().isBefore(tokenExpiresAt)) {
                 return cachedToken;

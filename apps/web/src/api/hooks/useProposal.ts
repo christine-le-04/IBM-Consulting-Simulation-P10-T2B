@@ -8,7 +8,7 @@ import type {
   ProposalWorkspace,
 } from '@/api/types'
 
-const PROPOSAL_REQUEST_TIMEOUT_MS = 30_000
+const PROPOSAL_REQUEST_TIMEOUT_MS = 20_000
 
 export const proposalKeys = {
   detail: (engagementId: string) => ['proposal', engagementId] as const,
