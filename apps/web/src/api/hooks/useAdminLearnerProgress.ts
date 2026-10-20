@@ -11,7 +11,7 @@ export function useAdminLearnerProgress(enabled: boolean) {
   return useQuery({
     queryKey: adminLearnerKeys.progress,
     enabled,
-    queryFn: async () => (await apiClient.get<LearnerProgressEntry[]>('/api/v1/admin/learners/progress')).data,
+    queryFn: async ({ signal }) => (await apiClient.get<LearnerProgressEntry[]>('/api/v1/admin/learners/progress', { signal })).data,
     staleTime: 60_000,
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,
@@ -23,7 +23,7 @@ export function useAdminRunAssessment(engagementId: string, enabled: boolean) {
   return useQuery({
     queryKey: adminLearnerKeys.assessment(engagementId),
     enabled: enabled && Boolean(engagementId),
-    queryFn: async () => (await apiClient.get<Assessment>(`/api/v1/admin/engagements/${engagementId}/assessment`)).data,
+    queryFn: async ({ signal }) => (await apiClient.get<Assessment>(`/api/v1/admin/engagements/${engagementId}/assessment`, { signal })).data,
     retry: false,
     staleTime: 60_000,
     refetchOnWindowFocus: false,

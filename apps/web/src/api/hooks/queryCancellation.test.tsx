@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { cleanup, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CanceledError, type AxiosAdapter } from 'axios'
 import type { ReactNode } from 'react'
@@ -14,6 +14,14 @@ import { useOutreach, useCapabilityBrief } from './useOutreach'
 import { usePortfolioSummary, useReplayComparison } from './usePortfolio'
 import { useProposal, useProposalWorkspace } from './useProposal'
 import { useScenarios, useScenario, useScenarioCatalog, useScenarioCatalogIndustries } from './useScenarios'
+import { useAdminAchievements, useAchievementPreview } from './useAdminAchievements'
+import { useAdminAiOperations } from './useAdminAiOperations'
+import { useAdminAnnouncements } from './useAdminAnnouncements'
+import { useAdminAuditEvents } from './useAdminAuditEvents'
+import { useAdminLearnerProgress, useAdminRunAssessment } from './useAdminLearnerProgress'
+import { useAdminPlatformOverview } from './useAdminPlatformOverview'
+import { useAdminUsers } from './useAdminUsers'
+import { useAdminScenarioCatalog, useAllScenariosForAdmin, useScenarioAuthoring, useScenarioAuthoringLeads, useGetKnowledgeDocuments, useScenarioAssignments } from './useAdminScenarios'
 
 const originalAdapter = apiClient.defaults.adapter
 const requests: { url: string | undefined; signal: AbortSignal; params: unknown }[] = []
@@ -73,9 +81,27 @@ const reads = [
   ['scenario', function useRead() { return useScenario('scenario-1') }],
   ['catalogue', function useRead() { return useScenarioCatalog({ page: 0, size: 8 }) }],
   ['industries', function useRead() { return useScenarioCatalogIndustries() }],
+  ['admin achievements', function useRead() { return useAdminAchievements() }],
+  ['achievement preview', function useRead() { return useAchievementPreview({
+    rule: { kind: 'GROUP', operator: 'AND', children: [], type: null, competencyName: null, threshold: null },
+    scenarioId: null,
+  }) }],
+  ['AI operations', function useRead() { return useAdminAiOperations() }],
+  ['sent announcements', function useRead() { return useAdminAnnouncements(0) }],
+  ['audit events', function useRead() { return useAdminAuditEvents({ page: 0, size: 20 }) }],
+  ['learner progress', function useRead() { return useAdminLearnerProgress(true) }],
+  ['admin assessment', function useRead() { return useAdminRunAssessment('eng-1', true) }],
+  ['platform overview', function useRead() { return useAdminPlatformOverview(true) }],
+  ['user directory', function useRead() { return useAdminUsers({ page: 0, size: 20 }) }],
+  ['admin catalogue', function useRead() { return useAdminScenarioCatalog({ page: 0, size: 8 }) }],
+  ['admin scenarios', function useRead() { return useAllScenariosForAdmin() }],
+  ['scenario authoring', function useRead() { return useScenarioAuthoring('scenario-1') }],
+  ['scenario leads', function useRead() { return useScenarioAuthoringLeads('scenario-1') }],
+  ['knowledge documents', function useRead() { return useGetKnowledgeDocuments('scenario-1') }],
+  ['scenario assignments', function useRead() { return useScenarioAssignments('scenario-1') }],
 ] as const
 
-describe('learner query cancellation', () => {
+describe('query cancellation', () => {
   it.each(reads)('aborts the %s transport when its last consumer leaves', async (_, useRead) => {
     const { client, wrapper } = setup()
     const { unmount } = renderHook(() => useRead(), { wrapper })
@@ -124,5 +150,38 @@ describe('learner query cancellation', () => {
     expect(requests[0].signal.aborted).toBe(true)
     expect(requests[1].signal.aborted).toBe(false)
     expect(requests[1].params).toEqual({ page: 0, size: 8, search: 'retail' })
+  })
+
+  const directories = [
+    ['users', function useRead(search: string) { return useAdminUsers({ page: 0, size: 8, search }) }],
+    ['scenarios', function useRead(search: string) { return useAdminScenarioCatalog({ page: 0, size: 8, search }) }],
+  ] as const
+
+  it.each(directories)('cancels obsolete admin %s searches without cancelling the new search', async (_, useRead) => {
+    const { wrapper } = setup()
+    const { rerender } = renderHook(({ search }) => useRead(search), {
+      wrapper, initialProps: { search: 'old' },
+    })
+    await waitFor(() => expect(requests).toHaveLength(1))
+    rerender({ search: 'new' })
+    await waitFor(() => expect(requests).toHaveLength(2))
+    expect(requests[0].signal.aborted).toBe(true)
+    expect(requests[1].signal.aborted).toBe(false)
+    expect(requests[1].params).toEqual({ page: 0, size: 8, search: 'new' })
+  })
+
+  it.each(directories)('forwards cancellation to prefetched admin %s pages', async (name, useRead) => {
+    apiClient.defaults.adapter = (config) => config.params.page === 0
+      ? Promise.resolve({ config, status: 200, statusText: 'OK', headers: {}, data: {
+        items: [], totalElements: 16, totalPages: 2, page: 0, size: 8,
+      } })
+      : pendingAdapter(config)
+    const { client, wrapper } = setup()
+    renderHook(() => useRead('search'), { wrapper })
+    await waitFor(() => expect(requests).toHaveLength(1))
+    expect(requests[0].params).toEqual({ page: 1, size: 8, search: 'search' })
+    expect(requests[0].signal.aborted).toBe(false)
+    await act(async () => { await client.cancelQueries({ queryKey: ['admin', name] }) })
+    expect(requests[0].signal.aborted).toBe(true)
   })
 })

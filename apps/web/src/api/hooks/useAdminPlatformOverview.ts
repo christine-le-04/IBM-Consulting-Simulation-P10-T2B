@@ -10,7 +10,7 @@ export function useAdminPlatformOverview(enabled: boolean) {
   return useQuery({
     queryKey: adminPlatformKeys.overview,
     enabled,
-    queryFn: async () => (await apiClient.get<PlatformOverview>('/api/v1/admin/platform/overview')).data,
+    queryFn: async ({ signal }) => (await apiClient.get<PlatformOverview>('/api/v1/admin/platform/overview', { signal })).data,
     staleTime: 60_000,
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,

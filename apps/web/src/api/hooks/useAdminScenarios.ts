@@ -32,8 +32,8 @@ export interface AdminScenarioCatalogFilters {
   size: number
 }
 
-async function fetchAdminScenarioCatalog(filters: AdminScenarioCatalogFilters) {
-  const response = await apiClient.get<ScenarioCatalogPage>('/api/v1/admin/scenarios/catalog', { params: filters })
+async function fetchAdminScenarioCatalog(filters: AdminScenarioCatalogFilters, signal: AbortSignal) {
+  const response = await apiClient.get<ScenarioCatalogPage>('/api/v1/admin/scenarios/catalog', { params: filters, signal })
   return response.data
 }
 
@@ -46,7 +46,7 @@ export function useAdminScenarioCatalog(filters: AdminScenarioCatalogFilters, en
   const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: adminScenarioKeys.catalog(filters),
-    queryFn: () => fetchAdminScenarioCatalog(filters),
+    queryFn: ({ signal }) => fetchAdminScenarioCatalog(filters, signal),
     placeholderData: keepPreviousData,
     staleTime: 45_000,
     refetchOnWindowFocus: false,
@@ -58,7 +58,7 @@ export function useAdminScenarioCatalog(filters: AdminScenarioCatalogFilters, en
     const nextFilters = { ...filters, page: filters.page + 1 }
     void queryClient.prefetchQuery({
       queryKey: adminScenarioKeys.catalog(nextFilters),
-      queryFn: () => fetchAdminScenarioCatalog(nextFilters),
+      queryFn: ({ signal }) => fetchAdminScenarioCatalog(nextFilters, signal),
       staleTime: 45_000,
     })
   }, [filters, query.data, queryClient])
@@ -167,8 +167,8 @@ export function useUploadKnowledgeDocument(scenarioId: string) {
 export function useAllScenariosForAdmin(enabled = true) {
   return useQuery({
     queryKey: adminScenarioKeys.all,
-    queryFn: async () => {
-      const res = await apiClient.get<ScenarioSummary[]>('/api/v1/admin/scenarios')
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ScenarioSummary[]>('/api/v1/admin/scenarios', { signal })
       return res.data
     },
     enabled,
@@ -180,8 +180,8 @@ export function useAllScenariosForAdmin(enabled = true) {
 export function useScenarioAuthoring(scenarioId: string) {
   return useQuery({
     queryKey: [...adminScenarioKeys.all, scenarioId, 'authoring'],
-    queryFn: async () => {
-      const res = await apiClient.get<ScenarioAuthoringView>(`/api/v1/admin/scenarios/${scenarioId}/authoring`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ScenarioAuthoringView>(`/api/v1/admin/scenarios/${scenarioId}/authoring`, { signal })
       return res.data
     },
     staleTime: 60_000,
@@ -250,8 +250,8 @@ export function useCreateScenarioLead(scenarioId: string) {
 export function useScenarioAuthoringLeads(scenarioId: string) {
   return useQuery({
     queryKey: [...adminScenarioKeys.all, scenarioId, 'leads'],
-    queryFn: async () => {
-      const res = await apiClient.get<LeadAuthoringView[]>(`/api/v1/admin/scenarios/${scenarioId}/leads`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<LeadAuthoringView[]>(`/api/v1/admin/scenarios/${scenarioId}/leads`, { signal })
       return res.data
     },
     enabled: Boolean(scenarioId),
@@ -281,9 +281,9 @@ export function useDeleteScenarioLead(scenarioId: string) {
 export function useGetKnowledgeDocuments(scenarioId: string) {
   return useQuery({
     queryKey: [...adminScenarioKeys.all, scenarioId, 'documents'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<KnowledgeDocumentSummary[]>(
-        `/api/v1/admin/scenarios/${scenarioId}/documents`,
+        `/api/v1/admin/scenarios/${scenarioId}/documents`, { signal },
       )
       return res.data
     },
@@ -317,8 +317,8 @@ export function useUpdateKnowledgeDocument(scenarioId: string) {
 export function useScenarioAssignments(scenarioId: string, enabled = true) {
   return useQuery({
     queryKey: [...adminScenarioKeys.all, scenarioId, 'assignments'],
-    queryFn: async () => {
-      const res = await apiClient.get<ScenarioAssignmentView>(`/api/v1/admin/scenarios/${scenarioId}/assignments`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ScenarioAssignmentView>(`/api/v1/admin/scenarios/${scenarioId}/assignments`, { signal })
       return res.data
     },
     enabled: enabled && Boolean(scenarioId),
