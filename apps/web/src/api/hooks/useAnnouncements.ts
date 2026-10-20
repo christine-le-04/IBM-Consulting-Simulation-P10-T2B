@@ -58,12 +58,12 @@ export function usePublishAnnouncement() {
   })
 }
 
-export function useAnnouncements(page: number, unreadOnly = false) {
+export function useAnnouncements(page: number, unreadOnly = false, size = 20) {
   const userId = useAuthStore((state) => state.userId)
   return useQuery({
-    queryKey: ['announcements', userId, page, unreadOnly],
+    queryKey: ['announcements', userId, page, unreadOnly, size],
     queryFn: async ({ signal }) => (await apiClient.get<AnnouncementFeed>('/api/v1/announcements', {
-      params: { page, size: 20, unreadOnly }, signal,
+      params: { page, size, unreadOnly }, signal,
     })).data,
     enabled: Boolean(userId),
     // Covers offline clients, missed socket events and API instances using separate in-memory brokers.
