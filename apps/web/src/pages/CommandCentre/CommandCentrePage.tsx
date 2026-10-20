@@ -403,7 +403,7 @@ export default function CommandCentrePage() {
 
               <section className={styles.panel} aria-labelledby="other-engagements">
                 <div className={styles.panelHead}>
-                  <h3 id="other-engagements">Other engagements</h3>
+                  <h3 id="other-engagements">Other Engagements</h3>
                   <Button kind="ghost" size="sm" renderIcon={Add} className="objective-scenario-catalogue" onClick={() => setCatalogueOpen(true)}>Start new</Button>
                 </div>
                 {others.length > 1 && (
@@ -452,7 +452,7 @@ export default function CommandCentrePage() {
               )}
               <section className={styles.panel} aria-labelledby="recently-completed">
                 <div className={styles.panelHead}>
-                  <h3 id="recently-completed">Recently completed</h3>
+                  <h3 id="recently-completed">Recently Completed</h3>
                   <Button kind="ghost" size="sm" onClick={() => navigate('/dashboard/portfolio')}>View all</Button>
                 </div>
                 {completedHistory.length > 0 ? (
