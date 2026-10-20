@@ -33,7 +33,7 @@ export interface ProposalDraftRequest {
 export function useProposal(engagementId: string) {
   return useQuery({
     queryKey: proposalKeys.detail(engagementId),
-    queryFn: async () => (await apiClient.get<Proposal>(`/api/v1/engagements/${engagementId}/proposal`)).data,
+    queryFn: async ({ signal }) => (await apiClient.get<Proposal>(`/api/v1/engagements/${engagementId}/proposal`, { signal })).data,
     enabled: Boolean(engagementId),
     retry: false,
   })
@@ -42,7 +42,7 @@ export function useProposal(engagementId: string) {
 export function useProposalWorkspace(engagementId: string) {
   return useQuery({
     queryKey: proposalKeys.workspace(engagementId),
-    queryFn: async () => (await apiClient.get<ProposalWorkspace>(`/api/v1/engagements/${engagementId}/proposal/workspace`)).data,
+    queryFn: async ({ signal }) => (await apiClient.get<ProposalWorkspace>(`/api/v1/engagements/${engagementId}/proposal/workspace`, { signal })).data,
     enabled: Boolean(engagementId),
   })
 }

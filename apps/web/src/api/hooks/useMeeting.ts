@@ -13,9 +13,9 @@ export const meetingKeys = {
 export function useMeetingPreparation(engagementId: string) {
   return useQuery({
     queryKey: meetingKeys.preparation(engagementId),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<MeetingPreparation>(
-        `/api/v1/engagements/${engagementId}/preparation`
+        `/api/v1/engagements/${engagementId}/preparation`, { signal }
       )
       return res.data
     },
@@ -56,8 +56,8 @@ export function useStartMeeting(engagementId: string) {
 export function useMeeting(meetingId: string) {
   return useQuery({
     queryKey: meetingKeys.meeting(meetingId),
-    queryFn: async () => {
-      const res = await apiClient.get<Meeting>(`/api/v1/meetings/${meetingId}`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Meeting>(`/api/v1/meetings/${meetingId}`, { signal })
       return res.data
     },
     enabled: Boolean(meetingId),
@@ -67,8 +67,8 @@ export function useMeeting(meetingId: string) {
 export function useMeetingTranscript(meetingId: string) {
   return useQuery({
     queryKey: meetingKeys.transcript(meetingId),
-    queryFn: async () => {
-      const res = await apiClient.get<ConversationTurn[]>(`/api/v1/meetings/${meetingId}/transcript`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ConversationTurn[]>(`/api/v1/meetings/${meetingId}/transcript`, { signal })
       return res.data
     },
     enabled: Boolean(meetingId),
@@ -78,8 +78,8 @@ export function useMeetingTranscript(meetingId: string) {
 export function usePersonaState(meetingId: string) {
   return useQuery({
     queryKey: meetingKeys.personaState(meetingId),
-    queryFn: async () => {
-      const res = await apiClient.get<PersonaState>(`/api/v1/meetings/${meetingId}/persona-state`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<PersonaState>(`/api/v1/meetings/${meetingId}/persona-state`, { signal })
       return res.data
     },
     enabled: Boolean(meetingId),
@@ -89,8 +89,8 @@ export function usePersonaState(meetingId: string) {
 export function useMeetingResponseOptions(meetingId: string, enabled = true) {
   return useQuery({
     queryKey: meetingKeys.responseOptions(meetingId),
-    queryFn: async () => {
-      const res = await apiClient.get<MeetingResponseOptions>(`/api/v1/meetings/${meetingId}/response-options`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<MeetingResponseOptions>(`/api/v1/meetings/${meetingId}/response-options`, { signal })
       return res.data
     },
     enabled: Boolean(meetingId) && enabled,

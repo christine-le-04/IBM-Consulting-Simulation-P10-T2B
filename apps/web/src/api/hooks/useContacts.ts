@@ -11,8 +11,8 @@ export const contactKeys = {
 export function useContacts(engagementId: string) {
   return useQuery({
     queryKey: contactKeys.list(engagementId),
-    queryFn: async () => {
-      const res = await apiClient.get<ContactsResponse>(`/api/v1/engagements/${engagementId}/contacts`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ContactsResponse>(`/api/v1/engagements/${engagementId}/contacts`, { signal })
       return res.data
     },
     enabled: Boolean(engagementId),

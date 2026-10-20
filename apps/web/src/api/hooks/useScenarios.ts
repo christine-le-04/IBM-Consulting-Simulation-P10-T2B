@@ -14,8 +14,8 @@ export interface ScenarioCatalogFilters {
   size: number
 }
 
-async function fetchScenarioCatalog(filters: ScenarioCatalogFilters) {
-  const response = await apiClient.get<ScenarioCatalogPage>('/api/v1/scenarios/catalog', { params: filters })
+async function fetchScenarioCatalog(filters: ScenarioCatalogFilters, signal: AbortSignal) {
+  const response = await apiClient.get<ScenarioCatalogPage>('/api/v1/scenarios/catalog', { params: filters, signal })
   return response.data
 }
 
@@ -25,7 +25,7 @@ export function useScenarioCatalog(filters: ScenarioCatalogFilters) {
   const queryKey = ['scenario-catalog', userId, filters] as const
   const query = useQuery({
     queryKey,
-    queryFn: () => fetchScenarioCatalog(filters),
+    queryFn: ({ signal }) => fetchScenarioCatalog(filters, signal),
     placeholderData: (previous, previousQuery) => previousQuery?.queryKey[1] === userId ? previous : undefined,
     staleTime: 60_000,
     refetchInterval: (current) => current.state.data?.totalElements === 0 ? 10_000 : false,
@@ -36,7 +36,7 @@ export function useScenarioCatalog(filters: ScenarioCatalogFilters) {
     const nextFilters = { ...filters, page: filters.page + 1 }
     void queryClient.prefetchQuery({
       queryKey: ['scenario-catalog', userId, nextFilters],
-      queryFn: () => fetchScenarioCatalog(nextFilters),
+      queryFn: ({ signal }) => fetchScenarioCatalog(nextFilters, signal),
       staleTime: 60_000,
     })
   }, [filters, query.data, queryClient, userId])
@@ -48,7 +48,7 @@ export function useScenarioCatalogIndustries() {
   const userId = useAuthStore((state) => state.userId)
   return useQuery({
     queryKey: ['scenario-catalog', userId, 'industries'],
-    queryFn: async () => (await apiClient.get<string[]>('/api/v1/scenarios/catalog/industries')).data,
+    queryFn: async ({ signal }) => (await apiClient.get<string[]>('/api/v1/scenarios/catalog/industries', { signal })).data,
     staleTime: 10 * 60_000,
     refetchInterval: (current) => current.state.data?.length === 0 ? 10_000 : false,
   })
@@ -57,8 +57,8 @@ export function useScenarioCatalogIndustries() {
 export function useScenarios() {
   return useQuery({
     queryKey: ['scenarios'],
-    queryFn: async () => {
-      const res = await apiClient.get<ScenarioSummary[]>('/api/v1/scenarios')
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ScenarioSummary[]>('/api/v1/scenarios', { signal })
       return res.data
     },
   })
@@ -67,8 +67,8 @@ export function useScenarios() {
 export function useScenario(id: string) {
   return useQuery({
     queryKey: ['scenarios', id],
-    queryFn: async () => {
-      const res = await apiClient.get<ScenarioSummary>(`/api/v1/scenarios/${id}`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ScenarioSummary>(`/api/v1/scenarios/${id}`, { signal })
       return res.data
     },
     enabled: Boolean(id),

@@ -8,9 +8,9 @@ const OUTREACH_REQUEST_TIMEOUT_MS = 20_000
 export function useOutreach(engagementId: string) {
   return useQuery({
     queryKey: ['outreach', engagementId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<OutreachAttempt[]>(
-        `/api/v1/engagements/${engagementId}/outreach`
+        `/api/v1/engagements/${engagementId}/outreach`, { signal }
       )
       return res.data
     },
@@ -54,9 +54,9 @@ export function useSendOutreach(engagementId: string) {
 export function useCapabilityBrief(engagementId: string) {
   return useQuery({
     queryKey: ['capability-brief', engagementId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<CapabilityBrief | null>(
-        `/api/v1/engagements/${engagementId}/outreach/capability-brief`
+        `/api/v1/engagements/${engagementId}/outreach/capability-brief`, { signal }
       )
       return res.data
     },

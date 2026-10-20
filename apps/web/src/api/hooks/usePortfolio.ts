@@ -10,8 +10,8 @@ export const portfolioKeys = {
 export function usePortfolioSummary() {
   return useQuery({
     queryKey: portfolioKeys.summary,
-    queryFn: async () => {
-      const res = await apiClient.get<PortfolioSummary>('/api/v1/portfolio/summary')
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<PortfolioSummary>('/api/v1/portfolio/summary', { signal })
       return res.data
     },
     staleTime: 60_000,
@@ -22,8 +22,9 @@ export function usePortfolioSummary() {
 export function useReplayComparison(engagementA: string, engagementB: string) {
   return useQuery({
     queryKey: portfolioKeys.replay(engagementA, engagementB),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<ReplayComparison>('/api/v1/portfolio/replay', {
+        signal,
         params: { engagementA, engagementB },
       })
       return res.data

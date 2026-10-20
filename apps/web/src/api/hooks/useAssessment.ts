@@ -13,8 +13,8 @@ export const assessmentKeys = {
 export function useAssessment(engagementId: string) {
   return useQuery({
     queryKey: assessmentKeys.detail(engagementId),
-    queryFn: async () => {
-      const res = await apiClient.get<Assessment>(`/api/v1/engagements/${engagementId}/assessment`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Assessment>(`/api/v1/engagements/${engagementId}/assessment`, { signal })
       return res.data
     },
     enabled: Boolean(engagementId),
