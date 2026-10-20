@@ -278,7 +278,7 @@ export default function CommandCentrePage() {
       <blockquote>
         <p>
           {firstVisit
-            ? 'Hi, I’m Dana — I’ll be your mentor on your first engagements. At every step I’ll tell you what it’s for and what you’re still missing. You start with no clients, so let’s win your first one.'
+            ? 'Hi, I’m Dana! I’ll be your mentor for your first engagement. At every step I’ll tell you what it’s for and what you’re still missing. You start with no clients, so let’s win your first one.'
             : lobbyLine(featured, failed)}
         </p>
         <figcaption><strong>{MENTOR.name}</strong>, {MENTOR.role}</figcaption>
