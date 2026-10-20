@@ -79,7 +79,13 @@ export default function VerifyEmailPage() {
             </Stack>
           </Form>
         )}
-        <p style={{ color: '#525252', fontSize: '0.875rem', margin: 0 }}><Link to="/login" style={{ color: '#0f62fe' }}>Back to sign in</Link></p>
+        {!verificationSucceeded && (
+          <p style={{ color: '#525252', fontSize: '0.875rem', margin: 0 }}>
+            <Link to="/login" style={{ color: '#0f62fe' }}>
+              Back to sign in
+            </Link>
+          </p>
+        )}
       </Stack>
     </AuthFrame>
   )
