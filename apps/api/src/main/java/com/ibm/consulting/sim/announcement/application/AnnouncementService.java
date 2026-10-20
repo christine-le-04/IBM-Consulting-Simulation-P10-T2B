@@ -12,13 +12,15 @@ import java.util.UUID;
 
 @Service
 public class AnnouncementService {
+    // Only accounts that existed at publication may receive an announcement.
+    // Use publish_at so accounts created before a scheduled release remain eligible.
     // Resolve the role from the account, never from client-supplied filters or stale JWT claims.
     static final String VISIBLE = """
-            (a.audience = 'ALL' OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND (
-                (a.audience = 'ROLES' AND EXISTS (SELECT 1 FROM announcement_roles ar
+            EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.created_at <= a.publish_at AND (
+                a.audience = 'ALL' OR (a.audience = 'ROLES' AND EXISTS (SELECT 1 FROM announcement_roles ar
                     WHERE ar.announcement_id = a.id AND ar.role = u.role))
                 OR (a.audience = 'USERS' AND EXISTS (SELECT 1 FROM announcement_recipients recipient
-                    WHERE recipient.announcement_id = a.id AND recipient.user_id = u.id)))))
+                    WHERE recipient.announcement_id = a.id AND recipient.user_id = u.id))))
             """;
     static final String ELIGIBLE = "a.withdrawn_at IS NULL AND a.publish_at <= CURRENT_TIMESTAMP "
             + "AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP) AND " + VISIBLE;

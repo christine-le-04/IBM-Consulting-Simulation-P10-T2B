@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -219,6 +220,7 @@ class AnnouncementPersistenceTest {
 
     @Test void scheduledAndExpiredAnnouncementsStayOutOfFeedsAndTransitionsNotifyOnce() {
         User recipient = user();
+        jdbc.update("UPDATE users SET created_at = CURRENT_TIMESTAMP - INTERVAL '2 minutes' WHERE id = ?", recipient.getId());
         java.time.Instant future = java.time.Instant.now().plusSeconds(3600);
         UUID id = adminService.publish("Scheduled", "Later", null, future, future.plusSeconds(3600));
         assertThat(service.list(recipient.getId(), 0, 20).items()).isEmpty();
@@ -277,6 +279,8 @@ class AnnouncementPersistenceTest {
     @Test void unreadFilterAndBulkReadRespectIdentityAudienceAndNewArrivals() {
         User learner = user();
         User other = user();
+        jdbc.update("UPDATE users SET created_at = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id IN (?, ?)",
+                learner.getId(), other.getId());
         UUID first = adminService.publish("First", "First message");
         UUID hidden = adminService.publish("Private", "Not for learners", java.util.Set.of(UserRole.ADMINISTRATOR));
         var snapshot = service.list(learner.getId(), 0, 20);
@@ -293,9 +297,11 @@ class AnnouncementPersistenceTest {
     }
 
     @Test void customAnnouncementIsSharedAndAuditedAndKeepsPlainText() {
+        User first = user();
+        User second = user();
         String message = "First line\n<script>example</script>";
         var id = adminService.publish(" Maintenance ", " " + message + " ");
-        var item = service.list(user().getId(), 0, 20).items().getFirst();
+        var item = service.list(first.getId(), 0, 20).items().getFirst();
         assertThat(item.id()).isEqualTo(id);
         assertThat(item.kind()).isEqualTo(Kind.ADMIN_MESSAGE);
         assertThat(item.title()).isEqualTo("Maintenance");
@@ -303,7 +309,63 @@ class AnnouncementPersistenceTest {
         assertThat(item.scenarioId()).isNull();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM admin_audit_events WHERE action = 'ADMIN_ANNOUNCEMENT_PUBLISHED' AND target_id = ?",
                 Long.class, id.toString())).isEqualTo(1);
-        assertThat(service.list(user().getId(), 0, 20).unreadCount()).isEqualTo(1);
+        assertThat(service.list(second.getId(), 0, 20).unreadCount()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ALL", "ROLES", "USERS"})
+    void newAccountsCannotReceiveOrMarkHistoricalAnnouncements(String audience) {
+        User existing = user();
+        UUID old = adminService.publish("Old notice", "Historical update",
+                audience.equals("ROLES") ? java.util.Set.of(UserRole.LEARNER) : null);
+        User newcomer = user();
+        // Establish ordering explicitly rather than depending on clock resolution or sleeps.
+        jdbc.update("UPDATE users SET created_at = CURRENT_TIMESTAMP - INTERVAL '2 minutes' WHERE id = ?", existing.getId());
+        jdbc.update("UPDATE announcements SET publish_at = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id = ?", old);
+        if (audience.equals("USERS")) {
+            jdbc.update("UPDATE announcements SET audience = 'USERS' WHERE id = ?", old);
+            for (User recipient : List.of(existing, newcomer)) {
+                jdbc.update("INSERT INTO announcement_recipients (announcement_id, user_id) VALUES (?, ?)", old, recipient.getId());
+            }
+        }
+
+        var feed = service.list(newcomer.getId(), 0, 20);
+        assertThat(feed.items()).isEmpty();
+        assertThat(feed.totalElements()).isZero();
+        assertThat(feed.unreadCount()).isZero();
+        assertThat(service.list(newcomer.getId(), 0, 20, true).items()).isEmpty();
+        service.markRead(newcomer.getId(), List.of(old));
+        service.markAllRead(newcomer.getId(), feed.readThrough());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads WHERE user_id = ?", Long.class, newcomer.getId())).isZero();
+        assertThat(service.list(existing.getId(), 0, 20).items()).extracting(AnnouncementService.Item::id).containsExactly(old);
+
+        UUID next = adminService.publish("New notice", "Current update");
+        assertThat(service.list(newcomer.getId(), 0, 20).items()).extracting(AnnouncementService.Item::id).containsExactly(next);
+        assertThat(service.list(newcomer.getId(), 0, 20).unreadCount()).isEqualTo(1);
+        assertThat(history.list(0, 20).items()).extracting(entry -> entry.id()).contains(old, next);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Kind.class, names = {"SCENARIO_PUBLISHED", "SCENARIO_ARCHIVED"})
+    void newAccountsDoNotInheritScenarioAnnouncements(Kind kind) {
+        User existing = user();
+        new TransactionTemplate(manager).executeWithoutResult(status -> service.record(scenario(), kind));
+        User newcomer = user();
+        assertThat(service.list(existing.getId(), 0, 20).unreadCount()).isEqualTo(1);
+        assertThat(service.list(newcomer.getId(), 0, 20).items()).isEmpty();
+        assertThat(service.list(newcomer.getId(), 0, 20).unreadCount()).isZero();
+    }
+
+    @Test void accountsCreatedAfterSchedulingButBeforePublicationReceiveTheAnnouncement() {
+        UUID id = adminService.publish("Scheduled notice", "Upcoming update", null,
+                java.time.Instant.now().plusSeconds(3600), null);
+        User recipient = user();
+        jdbc.update("UPDATE announcements SET created_at = CURRENT_TIMESTAMP - INTERVAL '3 minutes', "
+                + "publish_at = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE id = ?", id);
+        jdbc.update("UPDATE users SET created_at = CURRENT_TIMESTAMP - INTERVAL '2 minutes' WHERE id = ?", recipient.getId());
+        schedule.notifyTransitions();
+        assertThat(service.list(recipient.getId(), 0, 20).items()).extracting(AnnouncementService.Item::id).containsExactly(id);
+        assertThat(service.list(recipient.getId(), 0, 20).unreadCount()).isEqualTo(1);
     }
 
     @Test void customAnnouncementAndAuditRollBackTogether() {
