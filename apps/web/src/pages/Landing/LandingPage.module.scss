@@ -3,10 +3,10 @@
 // IBM brand on Carbon: Gray 100 hero, Blue 60 action, Plex Sans Light display,
 // Plex Mono labels, square corners, 2x grid spacing.
 .page {
+  --landing-gutter: clamp(1rem, 4vw, 6rem);
   background: #fff;
   color: #161616;
   min-height: 100vh;
-  padding-bottom: 64px; // room for the prototype bar
 }
 
 .header {
@@ -14,10 +14,12 @@
   top: 0;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 2rem;
-  height: 56px;
-  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  gap: 0.5rem 1.5rem;
+  min-height: 56px;
+  padding-block: 0.5rem;
+  padding-inline: var(--landing-gutter);
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
   color: #161616;
@@ -27,7 +29,8 @@
   color: #161616;
   text-decoration: none;
   font-size: 1rem;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .brandIbm {
@@ -48,15 +51,32 @@
     &:hover { color: #161616; }
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 1056px) {
     display: none;
   }
 }
 
 .headerActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-left: auto;
+}
+
+@media (max-width: 560px) {
+  .brand {
+    flex-basis: 100%;
+  }
+
+  .headerActions {
+    width: 100%;
+    margin-left: 0;
+
+    :global(.cds--btn) {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+  }
 }
 
 // ─── Hero ────────────────────────────────────────────────────────────────────
@@ -65,8 +85,8 @@
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   gap: clamp(2rem, 5vw, 5rem);
   align-items: center;
-  padding-block: clamp(3rem, 7vw, 6rem) clamp(3rem, 6vw, 5rem);
-  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  padding-block: clamp(3rem, 3vw, 6rem) clamp(3rem, 3vw, 6rem);
+  padding-inline: var(--landing-gutter);
   background:
     radial-gradient(ellipse 55% 75% at 85% 35%, #d0e2ff, transparent 70%),
     linear-gradient(180deg, #fff 0%, #f6f9ff 100%);
@@ -79,10 +99,12 @@
 }
 
 .heroText {
-  max-width: 620px;
+  min-width: 0;
+  max-width: 48rem;
 
   h1 {
     margin: 0;
+    max-width: 18ch;
     font-size: clamp(2.5rem, 5.2vw, 4.25rem);
     font-weight: 300;
     line-height: 1.08;
@@ -138,11 +160,14 @@
 // Showcase: three real fragments, stacked like pages on a desk
 .showcase {
   position: relative;
-  min-height: 540px;
+  display: grid;
+  width: 100%;
+  max-width: 46rem;
+  justify-self: center;
+  padding-block: 1rem;
 
   @media (max-width: 960px) {
-    min-height: 0;
-    display: grid;
+    max-width: none;
     gap: 1rem;
   }
 }
@@ -152,8 +177,8 @@
   padding: 1.1rem 1.25rem 1.25rem;
   color: #161616;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 24px 44px -22px rgba(0, 29, 108, 0.45);
-  position: absolute;
-  width: min(420px, 88%);
+  position: relative;
+  width: 88%;
 
   figcaption {
     margin: 0 0 0.6rem;
@@ -165,17 +190,13 @@
   }
 
   @media (max-width: 960px) {
-    position: relative;
-    inset: auto !important;
     width: 100%;
-    margin-top: 1.75rem;
+    margin: 0 !important;
     transform: none !important;
   }
 }
 
 .shotNews {
-  top: 0;
-  left: 0;
   background: #fffefb;
   border: 1px solid #ebe6da;
   transform: rotate(-1.5deg);
@@ -216,8 +237,8 @@
 }
 
 .shotMail {
-  top: 236px;
-  right: 0;
+  justify-self: end;
+  margin-top: -0.75rem;
   background: #fff;
   border-top: 4px solid #0f62fe;
   transform: rotate(1deg);
@@ -247,8 +268,8 @@
 }
 
 .shotMeeting {
-  top: 396px;
-  left: 6%;
+  margin-top: -0.75rem;
+  margin-left: 6%;
   background: #262626;
   color: #f4f4f4;
   border: 1px solid #393939;
@@ -297,7 +318,7 @@
 // ─── How it works ────────────────────────────────────────────────────────────
 .how,
 .get {
-  padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 4vw, 3rem);
+  padding: clamp(3.5rem, 7vw, 6rem) var(--landing-gutter);
 }
 
 .how {
@@ -305,7 +326,6 @@
 }
 
 .sectionHead {
-  max-width: 1200px;
   margin: 0 auto 2.5rem;
 
   h2 {
@@ -321,7 +341,6 @@
   list-style: none;
   margin: 0 auto;
   padding: 0;
-  max-width: 1200px;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   border-top: 2px solid #161616;
@@ -350,6 +369,7 @@
   }
 
   span:last-child {
+    max-width: 28ch;
     font-size: var(--sim-font-body);
     line-height: 1.4;
     color: #525252;
@@ -373,7 +393,6 @@
 
 // ─── What you get ────────────────────────────────────────────────────────────
 .benefits {
-  max-width: 1200px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -396,6 +415,7 @@
 
   p {
     margin: 0;
+    max-width: 60ch;
     font-size: 1rem;
     line-height: 1.5;
     color: #525252;
@@ -447,7 +467,7 @@
   gap: 1.5rem;
   flex-wrap: wrap;
   padding-block: clamp(2.5rem, 5vw, 4rem);
-  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  padding-inline: var(--landing-gutter);
   background: #0f62fe;
   color: #fff;
 
@@ -464,7 +484,7 @@
   gap: 1rem;
   flex-wrap: wrap;
   padding-block: 1.5rem;
-  padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100% - 1200px) / 2));
+  padding-inline: var(--landing-gutter);
   background: #fff;
   border-top: 1px solid #e0e0e0;
   color: #6f6f6f;
