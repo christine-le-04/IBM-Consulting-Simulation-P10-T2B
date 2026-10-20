@@ -27,6 +27,7 @@ import { MENTOR } from '@/components/shell/mentor'
 import RoomGrid from '@/components/shell/RoomGrid'
 import { ROOMS, roomIndex } from '@/components/shell/rooms'
 import { isActiveEngagement, requiresMeetingRetry } from '@/features/engagement/services/engagementLifecycleService'
+import { portfolioOutcomeLabel } from '@/features/portfolio/portfolioPresentation'
 import { PHASE_LABEL } from '@/lifecycle/phases'
 import { useExperience } from '@/lifecycle/useExperience'
 import { useAuthStore } from '@/store/authStore'
@@ -165,7 +166,7 @@ function CompletedRow({ item }: { item: CompletedEngagementView }) {
           <small>{item.industry}{item.completedAt ? ` · ${new Date(item.completedAt).toLocaleDateString('en-GB')}` : ''}</small>
         </span>
         <span className={styles.completedResult}>
-          <Tag type={item.overallScore == null ? 'purple' : lost ? 'red' : 'green'} size="sm">{item.outcome.replaceAll('_', ' ').toLowerCase()}</Tag>
+          <Tag type={item.overallScore == null ? 'purple' : lost ? 'red' : 'green'} size="sm">{portfolioOutcomeLabel(item.outcome)}</Tag>
           <strong>{item.overallScore == null ? 'Assessment pending' : `${item.overallScore}/100`}</strong>
         </span>
       </button>
