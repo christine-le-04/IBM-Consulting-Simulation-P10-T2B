@@ -484,3 +484,22 @@
 .streaming {
   opacity: 0.85;
 }
+
+@media (max-width: 1000px), (max-height: 43.749rem) {
+  .teams {
+    height: auto;
+    min-height: 0;
+    align-items: start;
+  }
+
+  .messages {
+    flex: none;
+    max-height: 60vh;
+    max-height: 60dvh;
+  }
+
+  .panelBody {
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+}
