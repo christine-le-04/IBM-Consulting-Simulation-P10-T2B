@@ -58,21 +58,21 @@ export default function VerifyEmailPage() {
       <Stack gap={5}>
         {token && !verificationSucceeded && !confirmationProblem && confirmationPending && <InlineNotification kind="info" title="Confirming your email" subtitle="This will only take a moment." hideCloseButton />}
         {verificationSucceeded && <InlineNotification kind="success" title="Email confirmed" subtitle="Your account is active. You can now sign in." hideCloseButton />}
-        {confirmationProblem && <InlineNotification kind="error" title="This confirmation link is unavailable" subtitle="It may have expired or already been used. Request a new one below." hideCloseButton />}
-        {navigationState?.accountCreated && !token && (
-          <InlineNotification
-            kind="success"
-            title="Account created"
-            subtitle="Your confirmation email is being sent. Check your inbox and spam folder shortly."
-            hideCloseButton
-          />
-        )}
         {!token && !verificationSucceeded && <p style={{ margin: 0, color: '#525252' }}>Check your inbox for the confirmation link. You must confirm before signing in.</p>}
         {verificationSucceeded && <Button as={Link} to="/login">Continue to sign in</Button>}
         {(!token || confirmationProblem) && (!verificationSucceeded) && (
           <Form onSubmit={form.handleSubmit(requestAnother)}>
             <Stack gap={5}>
               <TextInput id="resend-email" type="email" labelText="Email address" invalid={Boolean(form.formState.errors.email)} invalidText={form.formState.errors.email?.message} {...form.register('email')} />
+              {confirmationProblem && <InlineNotification kind="error" title="This confirmation link is unavailable" subtitle="It may have expired or already been used. Request a new one below." hideCloseButton />}
+              {navigationState?.accountCreated && !token && (
+                <InlineNotification
+                  kind="success"
+                  title="Account created"
+                  subtitle="Your confirmation email is being sent. Check your inbox and spam folder shortly."
+                  hideCloseButton
+                />
+              )}
               {resend.isSuccess && <InlineNotification kind="success" title="Request received" subtitle="If the address is eligible, a new confirmation email will arrive shortly." hideCloseButton />}
               {resend.isError && <InlineNotification kind="error" title="Email could not be sent" subtitle="Please wait a moment and try again." hideCloseButton />}
               <Button type="submit" disabled={resend.isPending}>{resend.isPending ? 'Sending...' : 'Send a new confirmation link'}</Button>
