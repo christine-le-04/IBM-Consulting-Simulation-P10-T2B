@@ -1,13 +1,18 @@
 // Portfolio, ported from the UX prototype (src/prototype/screens/portfolio.module.scss).
 
 .page {
-  max-width: 1120px;
+  min-width: 0;
   width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: clamp(1rem, 1.4vw, 1.5rem) clamp(1rem, 3vw, 3rem) 1rem;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+
+  @media (max-width: 672px) {
+    padding: 1rem;
+  }
 }
 
 .profile {
@@ -18,6 +23,8 @@
   border: 1px solid var(--sim-line);
   padding: 1.5rem;
   background-image: linear-gradient(180deg, #0f62fe 0 64px, #fff 64px);
+
+  > div { min-width: 0; }
 
   h1 {
     margin: 3.2rem 0 0.1rem;
@@ -34,6 +41,7 @@
 
 .welcome {
   margin-top: 0.4rem !important;
+  max-width: 65ch;
 }
 
 .avatar {
@@ -97,6 +105,8 @@
 
 .sectionHead {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   justify-content: space-between;
   align-items: center;
 
@@ -105,7 +115,7 @@
 
 .trends {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   gap: 0.75rem;
   margin: 0.75rem 0 1rem;
 
@@ -115,6 +125,7 @@
 }
 
 .trend {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
   padding: 1rem;
@@ -124,6 +135,8 @@
 
 .trendHead {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: space-between;
   align-items: center;
   font-size: var(--sim-font-body);
@@ -156,6 +169,7 @@
 }
 
 .chartCard {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
   padding: 1rem;
@@ -186,7 +200,7 @@
 
 .history {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
   gap: 0.75rem;
   margin: 0 0 1rem;
   padding: 0;
@@ -198,6 +212,7 @@
 }
 
 .historyCard {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
   padding: 1rem;
@@ -233,6 +248,9 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+
+  h3 { min-width: 0; }
+  > svg { flex: none; }
 }
 
 .tags {
@@ -243,6 +261,8 @@
 
 .historyMeta {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: space-between;
   font-size: 0.8125rem;
   color: var(--sim-ink-2);
@@ -258,11 +278,12 @@
 
 .replayPickers {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin-top: 1.25rem;
 
   label {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
@@ -271,6 +292,8 @@
   }
 
   select {
+    min-width: 0;
+    width: 100%;
     font: inherit;
     font-size: var(--sim-font-body);
     padding: 0.5rem;
@@ -283,7 +306,7 @@
 
 .replayGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin-top: 1rem;
 }
@@ -334,7 +357,15 @@
 }
 
 @media (max-width: 640px) {
-  .replayGrid { grid-template-columns: 1fr; }
+  .replayGrid,
+  .replayPickers { grid-template-columns: 1fr; }
+
+  .profile {
+    flex-direction: column;
+    align-items: flex-start;
+
+    h1 { margin-top: 0; }
+  }
 }
 
 .snapshotRow {
@@ -347,11 +378,12 @@
 
 .achievements {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
   gap: 0.75rem;
 }
 
 .badge {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
   padding: 1rem;
@@ -371,7 +403,7 @@
   align-items: center;
   gap: 0.5rem;
 
-  svg { fill: #b28600; }
+  svg { fill: #b28600; flex: none; }
 }
 
 .badgeLocked {
@@ -464,6 +496,7 @@
   }
 
   p {
+    max-width: 75ch;
     font-size: var(--sim-font-body);
     line-height: 1.5;
   }
