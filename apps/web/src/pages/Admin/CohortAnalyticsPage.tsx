@@ -12,6 +12,7 @@ import progressStyles from './LearnerProgressPage.module.css'
 import styles from './CohortAnalyticsPage.module.css'
 
 const ALL = 'all'
+const runs = (count: number) => `${count} ${count === 1 ? 'run' : 'runs'}`
 
 function Tile({ label, value, detail }: { label: string; value: string | number; detail: string }) {
   return <div className={progressStyles.tile}><span className={progressStyles.tileLabel}>{label}</span><strong>{value}</strong><small>{detail}</small></div>
@@ -21,7 +22,7 @@ function StageFunnel({ cohort }: { cohort: CohortAnalytics }) {
   const stages = stageCounts(cohort)
   const max = Math.max(1, ...stages.map((stage) => stage.count))
   return <ol className={styles.bars} aria-label="Runs by current stage">
-    {stages.map(({ stage, count }) => <li key={stage} className={styles.barRow} title={`${stage}: ${count} ${count === 1 ? 'run' : 'runs'}`}>
+    {stages.map(({ stage, count }) => <li key={stage} className={styles.barRow} title={`${stage}: ${runs(count)}`}>
       <span className={styles.barLabel}>{stage}</span>
       <span className={styles.track}>{count > 0 && <span className={styles.fill} style={{ width: `${(count / max) * 100}%` }} />}</span>
       <span className={styles.barValue}>{count}</span>
@@ -37,7 +38,7 @@ function Competencies({ cohort, target }: { cohort: CohortAnalytics; target: num
       const weak = competency.averageScore < target
       return <tr key={competency.name}>
         <td>{competency.name}</td>
-        <td><div className={styles.scoreCell} title={`${competency.name}: average ${competency.averageScore}/100 across ${competency.assessedCount} assessed ${competency.assessedCount === 1 ? 'run' : 'runs'}`}>
+        <td><div className={styles.scoreCell} title={`${competency.name}: average ${competency.averageScore}/100 across ${runs(competency.assessedCount)} assessed`}>
           <span className={styles.track}>
             <span className={styles.fill} style={{ width: `${competency.averageScore}%` }} />
             <span className={styles.target} style={{ left: `${target}%` }} aria-hidden="true" />
@@ -60,13 +61,13 @@ function WeakAreas({ cohort, target }: { cohort: CohortAnalytics; target: number
     <div>
       <h3>Competencies below {target}</h3>
       {weakCompetencies.length ? <ul className={styles.weakList}>{weakCompetencies.map((competency) => <li key={competency.name}>
-        <strong>{competency.name}</strong><span>Average {competency.averageScore} · {competency.belowTargetCount} of {competency.assessedCount} assessed {competency.assessedCount === 1 ? 'run' : 'runs'} below {target}</span>
+        <strong>{competency.name}</strong><span>Average {competency.averageScore} · {competency.belowTargetCount} of {runs(competency.assessedCount)} assessed below {target}</span>
       </li>)}</ul> : <p className={styles.muted}>Every competency averages {target} or more.</p>}
     </div>
     <div>
       <h3>Advice repeated across runs</h3>
       {cohort.commonImprovementAreas.length ? <ul className={`${styles.weakList} ${styles.adviceList}`}>{cohort.commonImprovementAreas.map((area) => <li key={area.text}>
-        <strong>{area.text}</strong><span>Given to {area.runCount} runs</span>
+        <strong>{area.text}</strong><span>Given to {runs(area.runCount)}</span>
       </li>)}</ul> : <p className={styles.muted}>No coaching advice has been repeated yet.</p>}
     </div>
   </div>
@@ -108,15 +109,15 @@ export default function CohortAnalyticsPage() {
       ) : <>
         <section className={styles.picker}>
           <Select id="cohort-scenario" labelText="Cohort" value={scenarioId} onChange={(event) => setScenarioId(event.target.value)}>
-            <SelectItem value={ALL} text={`All scenarios (${overall.runCount} runs)`} />
-            {scenarios.map((scenario) => <SelectItem key={scenario.scenarioId} value={scenario.scenarioId ?? ''} text={`${scenario.scenarioTitle} (${scenario.runCount} runs)`} />)}
+            <SelectItem value={ALL} text={`All scenarios (${runs(overall.runCount)})`} />
+            {scenarios.map((scenario) => <SelectItem key={scenario.scenarioId} value={scenario.scenarioId ?? ''} text={`${scenario.scenarioTitle} (${runs(scenario.runCount)})`} />)}
           </Select>
           {analytics.isFetching && <InlineLoading description="Updating cohort analytics" />}
         </section>
 
         <section className={progressStyles.tiles} aria-label="Cohort summary">
-          <Tile label="Learners" value={cohort.learnerCount} detail={`${cohort.runCount} ${cohort.runCount === 1 ? 'run' : 'runs'} started`} />
-          <Tile label="Completion rate" value={rate == null ? '—' : `${rate}%`} detail={`${cohort.completedCount} of ${cohort.runCount} runs completed`} />
+          <Tile label="Learners" value={cohort.learnerCount} detail={`${runs(cohort.runCount)} started`} />
+          <Tile label="Completion rate" value={rate == null ? '—' : `${rate}%`} detail={`${cohort.completedCount} of ${runs(cohort.runCount)} completed`} />
           <Tile label="Average score" value={cohort.averageScore == null ? '—' : `${cohort.averageScore}/100`} detail="Assessed runs only" />
           <Tile label="Meeting failed" value={cohort.meetingFailedCount} detail="Runs that lost the client meeting" />
         </section>

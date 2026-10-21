@@ -97,6 +97,7 @@ describe('CohortAnalyticsPage', () => {
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: 'Northwind Retail' }))
     expect(within(tile('Completion rate')).getByText('0%')).toBeInTheDocument()
+    expect(within(tile('Completion rate')).getByText('0 of 1 run completed')).toBeInTheDocument()
     expect(screen.getByText(/Competency averages appear once/)).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Cohort'), { target: { value: 'all' } })
     expect(within(tile('Completion rate')).getByText('50%')).toBeInTheDocument()
