@@ -44,7 +44,7 @@ export default function ScenarioCatalogueModal({
   const { data: industries = [] } = useScenarioCatalogIndustries()
 
   return (
-    <ComposedModal open onClose={onClose} size="lg" aria-label="Scenario catalogue">
+    <ComposedModal open onClose={onClose} size="lg" aria-label="Scenario catalogue" className={styles.catalogueModal}>
       <ModalHeader label="Scenario catalogue" title={firstVisit ? 'Other clients' : 'Find your next client'} buttonOnClick={onClose} />
       <ModalBody className={styles.catalogueBody}>
         <p className={styles.note}>

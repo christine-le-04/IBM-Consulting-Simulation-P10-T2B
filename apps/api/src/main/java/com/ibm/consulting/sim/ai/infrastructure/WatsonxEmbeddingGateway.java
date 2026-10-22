@@ -20,7 +20,7 @@ import java.util.Map;
 public class WatsonxEmbeddingGateway implements EmbeddingGateway {
 
     private static final String EMBEDDINGS_PATH = "/ml/v1/text/embeddings?version=2024-05-01";
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(25);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
 
     private final WebClient client;
     private final IamTokenProvider tokenProvider;

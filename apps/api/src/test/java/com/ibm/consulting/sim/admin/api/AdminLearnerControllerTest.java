@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -70,14 +71,48 @@ class AdminLearnerControllerTest {
     @Test
     @WithMockUser(roles = "ADMINISTRATOR")
     void administratorCanViewLearnerProgress() throws Exception {
-        when(progressService.getProgress()).thenReturn(List.of(new LearnerProgressEntry("e1", "u1", "Ana Lee",
+        when(progressService.getProgress(null, null, null, null, 0, 25)).thenReturn(new LearnerProgressService.ProgressPage(List.of(new LearnerProgressEntry("e1", "u1", "Ana Lee",
                 "ana@example.com", "s1", "AeroVector Aviation", "OUTREACHING", null,
-                Instant.parse("2026-10-13T00:00:00Z"), null)));
+                Instant.parse("2026-10-13T00:00:00Z"), null)), 1, 0, 25, 1,
+                new LearnerProgressService.Summary(1, 0, 0, 0, null, 1), List.of(), Instant.now()));
 
         mockMvc.perform(get("/api/v1/admin/learners/progress"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].displayName").value("Ana Lee"))
-                .andExpect(jsonPath("$[0].state").value("OUTREACHING"));
+                .andExpect(jsonPath("$.items[0].displayName").value("Ana Lee"))
+                .andExpect(jsonPath("$.items[0].state").value("OUTREACHING"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test @WithMockUser(roles = "ADMINISTRATOR")
+    void rejectsInvalidPagingAndFilters() throws Exception {
+        for (String query : List.of("?page=-1", "?size=0", "?size=101", "?page=100001", "?stage=unknown", "?status=unknown", "?scenarioId=invalid", "?search=" + "x".repeat(101))) {
+            mockMvc.perform(get("/api/v1/admin/learners/progress" + query)).andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test @WithMockUser(roles = "LEARNER")
+    void learnerCannotViewAnotherRun() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/learners/" + java.util.UUID.randomUUID())).andExpect(status().isForbidden());
+    }
+
+    @Test @WithMockUser(roles = "ADMINISTRATOR")
+    void forwardsPagingAndFiltersToTheBoundedQuery() throws Exception {
+        var scenarioId = java.util.UUID.randomUUID();
+        mockMvc.perform(get("/api/v1/admin/learners/progress")
+                .param("search", "Ana").param("scenarioId", scenarioId.toString())
+                .param("stage", "Meeting").param("status", "STUCK").param("page", "2").param("size", "50"))
+                .andExpect(status().isOk());
+        verify(progressService).getProgress("Ana", scenarioId, "Meeting", "STUCK", 2, 50);
+    }
+
+    @Test @WithMockUser(roles = "ADMINISTRATOR")
+    void looksUpASingleRunWithoutLoadingTheDirectory() throws Exception {
+        var id = java.util.UUID.randomUUID();
+        when(progressService.getRun(id)).thenReturn(new LearnerProgressEntry(id.toString(), "u1", "Ana Lee",
+                "ana@example.com", "s1", "Aviation", "OUTREACHING", null, Instant.now(), null));
+        mockMvc.perform(get("/api/v1/admin/learners/" + id)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.engagementId").value(id.toString()));
+        verify(progressService).getRun(id);
     }
 
     // tests that only administrators can see cohort analytics

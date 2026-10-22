@@ -35,6 +35,13 @@ public class ScenarioController {
         return scenarioService.listActive();
     }
 
+    /** Active scenarios explicitly assigned to the signed-in learner by an administrator. */
+    @GetMapping("/assigned")
+    List<ScenarioSummary> listAdminAssigned(@AuthenticationPrincipal User viewer) {
+        if (viewer == null || viewer.getRole() != com.ibm.consulting.sim.identity.domain.UserRole.LEARNER) return List.of();
+        return scenarioService.listActiveAdminAssignedTo(viewer.getId());
+    }
+
     /** Paged learner catalogue. The original collection endpoint stays available for existing clients. */
     @GetMapping("/catalog")
     ScenarioCatalogResponse listCatalog(

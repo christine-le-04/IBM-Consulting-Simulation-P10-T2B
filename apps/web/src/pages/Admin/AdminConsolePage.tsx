@@ -19,7 +19,7 @@ import { useAdminLearnerProgress } from '@/api/hooks/useAdminLearnerProgress'
 import { useAdminPlatformOverview } from '@/api/hooks/useAdminPlatformOverview'
 import { useAllScenariosForAdmin } from '@/api/hooks/useAdminScenarios'
 import { useAuthStore } from '@/store/authStore'
-import { DEFAULT_STUCK_DAYS, statusOf } from '@/features/admin/learnerProgress'
+import { DEFAULT_STUCK_DAYS } from '@/features/admin/learnerProgress'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
 import styles from './AdminConsolePage.module.css'
@@ -80,14 +80,14 @@ export default function AdminConsolePage() {
   const scenarios = useAllScenariosForAdmin(canAuthorScenarios)
   const aiOperations = useAdminAiOperations(canViewAiOperations)
   const platform = useAdminPlatformOverview(canAdminister)
-  const learners = useAdminLearnerProgress(canAdminister)
+  const learners = useAdminLearnerProgress({ page: 0, size: 1 }, canAdminister)
 
   const scenarioList = scenarios.data ?? []
   const activeScenarioCount = canAuthorScenarios
     ? scenarioList.filter((scenario) => scenario.status === 'ACTIVE').length
     : platform.data?.scenariosByStatus?.ACTIVE ?? 0
   const draftScenarioCount = scenarioList.filter((scenario) => scenario.status === 'DRAFT').length
-  const stuckLearnerCount = (learners.data ?? []).filter((entry) => statusOf(entry, learners.dataUpdatedAt) === 'STUCK').length
+  const stuckLearnerCount = learners.data?.summary.stuck ?? 0
   const healthyProviders = (aiOperations.data?.providers ?? []).filter((provider) => provider.available).length
   const unavailableProviders = (aiOperations.data?.providers ?? []).filter((provider) => !provider.available).length
   const scenarioStates = platform.data?.scenariosByStatus ?? {}

@@ -1,10 +1,19 @@
-.page { max-width: 58rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+.page {
+  min-width: 0;
+  width: 100%;
+  padding: clamp(1rem, 1.4vw, 1.5rem) clamp(1rem, 3vw, 3rem) 1rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 672px) {
+  .page { padding: 1rem; }
+}
 .title { font-size: var(--sim-font-title); font-weight: 500; margin: 0 0 0.5rem; }
 .lede { color: #525252; margin: 0 0 1.5rem; }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: 1rem;
   margin-top: 1.5rem;
 }
@@ -25,6 +34,7 @@
 .locked { background: #f4f4f4; color: #6f6f6f; }
 
 .cardHead { display: flex; gap: 1rem; align-items: flex-start; padding: 1.25rem; border-bottom: 3px solid #161616; }
+.cardHead > div { min-width: 0; }
 .locked .cardHead { border-bottom-color: #8d8d8d; }
 .avatar {
   flex: 0 0 3rem;
@@ -48,7 +58,17 @@
 .chosenLabel { color: #0043ce; }
 .muted { color: #8d8d8d; }
 
-.footer { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
+.footer { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
+
+.cardFoot,
+.footer {
+  :global(.cds--btn) {
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 
 /* ContactLine, shown on Make contact */
 .contactLine { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; color: #525252; font-size: var(--sim-font-body); }

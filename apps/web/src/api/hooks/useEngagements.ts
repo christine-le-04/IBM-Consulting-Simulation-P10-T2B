@@ -10,8 +10,8 @@ export const engagementKeys = {
 export function useMyEngagements() {
   return useQuery({
     queryKey: engagementKeys.all,
-    queryFn: async () => {
-      const res = await apiClient.get<Engagement[]>('/api/v1/engagements')
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Engagement[]>('/api/v1/engagements', { signal })
       return res.data
     },
     staleTime: ENGAGEMENT_STALE_TIME,
@@ -22,8 +22,8 @@ export function useMyEngagements() {
 export function useEngagement(id: string) {
   return useQuery({
     queryKey: engagementKeys.detail(id),
-    queryFn: async () => {
-      const res = await apiClient.get<Engagement>(`/api/v1/engagements/${id}`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Engagement>(`/api/v1/engagements/${id}`, { signal })
       return res.data
     },
     enabled: Boolean(id),

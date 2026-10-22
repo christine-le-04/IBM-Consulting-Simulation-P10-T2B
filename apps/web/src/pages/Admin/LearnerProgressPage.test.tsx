@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { useAdminLearnerProgress } from '@/api/hooks/useAdminLearnerProgress'
+import apiClient from '@/api/client'
+import { useAdminLearnerProgress, type LearnerProgressPage as ProgressPage } from '@/api/hooks/useAdminLearnerProgress'
 import type { LearnerProgressEntry } from '@/api/types'
 import LearnerProgressPage from './LearnerProgressPage'
 
 vi.mock('@/api/hooks/useAdminLearnerProgress', () => ({ useAdminLearnerProgress: vi.fn() }))
+vi.mock('@/api/client', () => ({ default: { get: vi.fn() } }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
 vi.mock('@/components/shared/ErrorState', () => ({ default: ({ onAction }: { onAction?: () => void }) => <button onClick={onAction}>Error...</button> }))
 
@@ -34,8 +36,15 @@ const learners = [
   entry({ engagementId: 'e3', displayName: 'Cara Diaz', email: 'cara@example.com', scenarioId: 's2', scenarioTitle: 'Northwind Retail', state: 'COMPLETED', overallScore: 82, completedAt: new Date().toISOString() }),
 ]
 
-function setup(data: LearnerProgressEntry[] | undefined, overrides: Record<string, unknown> = {}) {
+function setup(items: LearnerProgressEntry[] | undefined, overrides: Record<string, unknown> = {}, pageOverrides: Partial<ProgressPage> = {}) {
   const refetch = vi.fn()
+  const data: ProgressPage | undefined = items && {
+    items, totalElements: items.length, page: 0, size: 25, totalPages: items.length ? 1 : 0,
+    asOf: new Date().toISOString(),
+    summary: { inProgress: 1, stuck: 1, completed: 1, meetingFailed: 0, averageScore: 82, totalRuns: items.length },
+    scenarios: [{ id: 's1', title: 'AeroVector Aviation' }, { id: 's2', title: 'Northwind Retail' }],
+    ...pageOverrides,
+  }
   mockedProgress.mockReturnValue({ data, dataUpdatedAt: Date.now(), isLoading: false, isError: false, isFetching: false, refetch, ...overrides } as unknown as ReturnType<typeof useAdminLearnerProgress>)
   return refetch
 }
@@ -68,36 +77,34 @@ describe('LearnerProgressPage', () => {
     expect(screen.getByText('No learners have started a scenario yet')).toBeInTheDocument()
   })
 
-  it('summarises statuses and lists the most recent activity first', () => {
+  it('renders the server summary and preserves server row order', () => {
     setup(learners)
     renderPage()
     expect(screen.getByRole('button', { name: /Stuck\s*1/ })).toBeInTheDocument()
     expect(screen.getByText('82/100')).toBeInTheDocument()
-    expect(rowNames()[2]).toContain('Ben Ng')
+    expect(rowNames()[1]).toContain('Ben Ng')
   })
 
   it('filters to stuck learners from the summary tile', () => {
     setup(learners)
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: /Stuck\s*1/ }))
-    expect(rowNames()).toHaveLength(1)
-    expect(rowNames()[0]).toContain('Ben Ng')
+    expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'STUCK', page: 0 }))
   })
 
   it('opens pre-filtered from the status query parameter', () => {
     setup(learners)
     renderPage('/dashboard/admin/learners?status=COMPLETED')
-    expect(rowNames()).toHaveLength(1)
-    expect(rowNames()[0]).toContain('Cara Diaz')
+    expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'COMPLETED' }))
   })
 
   it('searches by name or email and can clear filters', () => {
     setup(learners)
     renderPage()
     fireEvent.change(screen.getByLabelText('Search learner'), { target: { value: 'nobody' } })
-    expect(screen.getByText('No learners match these filters')).toBeInTheDocument()
+    expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'nobody', page: 0 }))
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
-    expect(rowNames()).toHaveLength(3)
+    expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ search: undefined, status: undefined, page: 0 }))
   })
 
   it('links each learner to their run page', () => {
@@ -111,17 +118,43 @@ describe('LearnerProgressPage', () => {
     renderPage()
     fireEvent.change(screen.getByLabelText('Scenario'), { target: { value: 's1' } })
     fireEvent.change(screen.getByLabelText('Stage'), { target: { value: 'Outreach' } })
-    expect(rowNames()).toEqual([expect.stringContaining('Ben Ng')])
+    expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ scenarioId: 's1', stage: 'Outreach', page: 0 }))
   })
 
-  it('exports only the filtered learners as CSV', async () => {
+  it('keeps filters and global metadata when the server returns no matches', () => {
+    setup([], {}, { summary: { inProgress: 1, stuck: 1, completed: 1, meetingFailed: 0, averageScore: 82, totalRuns: 3 } })
+    renderPage('/dashboard/admin/learners?status=MEETING_FAILED')
+    expect(screen.getByText('No learners match these filters')).toBeInTheDocument()
+    expect(screen.getByLabelText('Status')).toHaveValue('MEETING_FAILED')
+    expect(screen.getByRole('option', { name: 'Northwind Retail' })).toBeInTheDocument()
+    expect(screen.getByText('82/100')).toBeInTheDocument()
+  })
+
+  it('requests another server page and resets paging when filters change', () => {
+    setup([learners[0]], {}, { totalElements: 76, totalPages: 4 })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, size: 25 }))
+    fireEvent.change(screen.getByLabelText('Stage'), { target: { value: 'Outreach' } })
+    expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0, stage: 'Outreach' }))
+  })
+
+  it('exports all server-filtered learners as CSV', async () => {
     setup(learners)
+    vi.mocked(apiClient.get).mockResolvedValue({ data: {
+      items: [learners[1]], totalElements: 1, page: 0, size: 100, totalPages: 1,
+      asOf: new Date().toISOString(), summary: { inProgress: 0, stuck: 1, completed: 0, meetingFailed: 0, averageScore: null, totalRuns: 1 },
+      scenarios: [],
+    } } as never)
     const createUrl = vi.fn<(blob: Blob) => string>(() => 'blob:learners')
     Object.assign(URL, { createObjectURL: createUrl, revokeObjectURL: vi.fn() })
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: /Stuck\s*1/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Export filtered CSV' }))
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/api/v1/admin/learners/progress', expect.objectContaining({
+      params: expect.objectContaining({ status: 'STUCK', page: 0, size: 100 }),
+    })))
     expect(click).toHaveBeenCalled()
     const csv = await createUrl.mock.calls[0][0].text()
     expect(csv).toContain('Ben Ng')
@@ -130,9 +163,8 @@ describe('LearnerProgressPage', () => {
   })
 
   it('disables export when no learner matches', () => {
-    setup(learners)
+    setup([])
     renderPage()
-    fireEvent.change(screen.getByLabelText('Search learner'), { target: { value: 'nobody' } })
-    expect(screen.getByRole('button', { name: 'Export filtered CSV' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
   })
 })

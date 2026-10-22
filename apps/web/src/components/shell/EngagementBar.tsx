@@ -33,7 +33,6 @@ export default function EngagementBar() {
   const usable = (evidence ?? []).filter((item) => item.evidenceType !== 'HYPOTHESIS' && item.verificationStatus !== 'CONTRADICTED').length
   const key = briefKey(engagement.id, viewingPhase)
   const briefHidden = Boolean(briefDismissed[key])
-
   return (
     <div className={styles.bar} aria-label="Engagement">
       <button type="button" className={styles.barButton} onClick={() => setMapOpen(true)}>

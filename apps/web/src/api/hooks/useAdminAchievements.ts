@@ -9,8 +9,8 @@ const adminAchievementKeys = {
 export function useAdminAchievements() {
   return useQuery({
     queryKey: adminAchievementKeys.all,
-    queryFn: async () => {
-      const res = await apiClient.get<AchievementAdminView[]>('/api/v1/admin/achievements')
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<AchievementAdminView[]>('/api/v1/admin/achievements', { signal })
       return res.data
     },
   })
@@ -61,9 +61,9 @@ export function useAchievementPreview(
 ) {
   return useQuery({
     queryKey: [...adminAchievementKeys.all, 'preview', achievementId ?? null, draft],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.post<AchievementPreview>('/api/v1/admin/achievements/preview', draft,
-        { params: achievementId ? { achievementId } : undefined })
+        { params: achievementId ? { achievementId } : undefined, signal })
       return res.data
     },
     enabled: draft !== null,

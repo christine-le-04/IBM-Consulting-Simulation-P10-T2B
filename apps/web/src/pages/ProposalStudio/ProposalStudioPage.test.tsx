@@ -518,7 +518,7 @@ describe('ProposalStudioPage after submission', () => {
         evidenceImpacts: [],
         submittedAt: '2026-09-28T10:00:00Z',
       },
-      draft: { ...studio.draft, problemStatement: 'Duplicate entry costs nursing time.', evidenceLinks: [{ section: 'PROBLEM', sourceId: '1' }] },
+      draft: { ...studio.draft, problemStatement: 'Duplicate entry costs nursing time.', components: ['Architecture', 'Data migration', 'Change management'], evidenceLinks: [{ section: 'PROBLEM', sourceId: '1' }] },
       attachedSourceIds: new Set(['1']),
     } as unknown as ReturnType<typeof useProposalStudio>)
   }
@@ -549,6 +549,9 @@ describe('ProposalStudioPage after submission', () => {
     renderAt('/dashboard/engagements/eng-1/proposal?view=proposal')
 
     expect(screen.getByLabelText('Problem statement')).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('Solution component 1')).toHaveValue('Architecture')
+    expect(screen.getByLabelText('Solution component 2')).toHaveValue('Data migration')
+    expect(screen.getByLabelText('Solution component 3')).toHaveValue('Change management')
     expect(screen.getByRole('button', { name: 'Back to their decision' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Submit to client' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Review proposal' })).not.toBeInTheDocument()

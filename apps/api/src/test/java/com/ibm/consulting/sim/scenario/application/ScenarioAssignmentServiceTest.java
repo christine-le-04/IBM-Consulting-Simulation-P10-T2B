@@ -1,9 +1,11 @@
 package com.ibm.consulting.sim.scenario.application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -35,6 +37,7 @@ class ScenarioAssignmentServiceTest {
     private final ScenarioAssignmentRepository assignments = mock(ScenarioAssignmentRepository.class);
     private final ScenarioRepository scenarios = mock(ScenarioRepository.class);
     private final UserRepository users = mock(UserRepository.class);
+    private final AuditLogger auditLogger = mock(AuditLogger.class);
     private final com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService announcements = mock(com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService.class);
     private ScenarioAssignmentService service;
 
@@ -45,7 +48,7 @@ class ScenarioAssignmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ScenarioAssignmentService(assignments, scenarios, users, mock(AuditLogger.class), announcements);
+        service = new ScenarioAssignmentService(assignments, scenarios, users, auditLogger, announcements, new ObjectMapper());
         when(scenarios.findLineageIdById(scenario.getId())).thenReturn(Optional.of(scenario.getScenarioLineageId()));
         when(scenarios.findByIdForUpdate(scenario.getScenarioLineageId())).thenReturn(Optional.of(scenario));
         for (User user : List.of(alice, bob, author)) {
@@ -105,6 +108,11 @@ class ScenarioAssignmentServiceTest {
             assertThat(assignment.getScenarioLineageId()).isEqualTo(scenario.getScenarioLineageId());
             assertThat(assignment.getAssignedBy()).isEqualTo(author.getId());
         });
+
+        org.mockito.ArgumentCaptor<String> details = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(auditLogger).recordAdmin(eq(com.ibm.consulting.sim.shared.infrastructure.observability.AuditAction.ADMIN_SCENARIO_ASSIGNMENTS_UPDATED),
+                eq("SCENARIO"), eq(scenario.getScenarioLineageId().toString()), details.capture());
+        assertThat(details.getValue()).contains("Retail turnaround", "Bob", "bob@example.com", "Alice", "alice@example.com");
     }
 
     @Test

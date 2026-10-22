@@ -10,9 +10,9 @@ const RESEARCH_SOURCE_DECK_STALE_TIME = 10 * 60_000
 export function useResearch(engagementId: string) {
   return useQuery({
     queryKey: ['research', engagementId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<ResearchEvidence[]>(
-        `/api/v1/engagements/${engagementId}/research`
+        `/api/v1/engagements/${engagementId}/research`, { signal }
       )
       return res.data
     },
@@ -51,8 +51,8 @@ export function useSaveResearch(engagementId: string) {
 export function useResearchSourceDeck(engagementId: string) {
   return useQuery({
     queryKey: ['research-source-deck', engagementId],
-    queryFn: async () => {
-      const res = await apiClient.get<ResearchSourceDeck>(`/api/v1/engagements/${engagementId}/research-source-deck`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ResearchSourceDeck>(`/api/v1/engagements/${engagementId}/research-source-deck`, { signal })
       return res.data
     },
     enabled: Boolean(engagementId),
@@ -81,9 +81,9 @@ export function useAnalyzeUserContext(engagementId: string) {
 export function useLeadIntelligence(engagementId: string) {
   return useQuery({
     queryKey: ['lead-intelligence', engagementId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<LeadIntelligence>(
-        `/api/v1/engagements/${engagementId}/lead-intelligence`
+        `/api/v1/engagements/${engagementId}/lead-intelligence`, { signal }
       )
       return res.data
     },
@@ -96,9 +96,9 @@ export function useLeadIntelligence(engagementId: string) {
 export function useResearchGateStatus(engagementId: string) {
   return useQuery({
     queryKey: ['research-gate', engagementId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await apiClient.get<ResearchGateStatus>(
-        `/api/v1/engagements/${engagementId}/research-readiness`
+        `/api/v1/engagements/${engagementId}/research-readiness`, { signal }
       )
       return res.data
     },

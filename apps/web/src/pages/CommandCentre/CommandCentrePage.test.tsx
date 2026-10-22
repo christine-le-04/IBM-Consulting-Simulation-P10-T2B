@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import CommandCentrePage from './CommandCentrePage'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
-import { useScenarioCatalog, useScenarioCatalogIndustries } from '@/api/hooks/useScenarios'
+import { useAssignedScenarios, useScenarioCatalog, useScenarioCatalogIndustries } from '@/api/hooks/useScenarios'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
 import type { Engagement, ScenarioCatalogPage, ScenarioSummary } from '@/api/types'
 
@@ -14,6 +14,7 @@ vi.mock('@/api/hooks/useEngagements', () => ({
   useStartEngagement: vi.fn(),
 }))
 vi.mock('@/api/hooks/useScenarios', () => ({
+  useAssignedScenarios: vi.fn(),
   useScenarioCatalog: vi.fn(),
   useScenarioCatalogIndustries: vi.fn(),
 }))
@@ -34,6 +35,7 @@ vi.mock('@/store/authStore', () => ({
 const mockedMyEngagements = vi.mocked(useMyEngagements)
 const mockedStartEngagement = vi.mocked(useStartEngagement)
 const mockedScenarioCatalog = vi.mocked(useScenarioCatalog)
+const mockedAssignedScenarios = vi.mocked(useAssignedScenarios)
 const mockedCatalogIndustries = vi.mocked(useScenarioCatalogIndustries)
 const mockedPortfolio = vi.mocked(usePortfolioSummary)
 
@@ -98,6 +100,8 @@ function setup(engagements: Engagement[]) {
     isError: false,
   } as unknown as ReturnType<typeof useScenarioCatalog>)
 
+  mockedAssignedScenarios.mockReturnValue({ data: [], isLoading: false, isError: false } as unknown as ReturnType<typeof useAssignedScenarios>)
+
   mockedCatalogIndustries.mockReturnValue({
     data: [],
   } as unknown as ReturnType<typeof useScenarioCatalogIndustries>)
@@ -156,28 +160,30 @@ function withCatalogue(items: ScenarioSummary[]) {
 }
 
 describe('Office: engagements on the floor', () => {
-  it('keeps the welcome separate from Dana and places her guidance above other engagements', () => {
+  it('aligns Dana with the welcome and places her message above recent completions', () => {
     setup([makeEngagement({})])
     renderPage()
 
     const welcome = screen.getByRole('heading', { name: 'Welcome back, Viet.' })
     expect(within(welcome.parentElement!).queryByText('Dana')).not.toBeInTheDocument()
+    expect(welcome.closest('div')?.className).toContain('mainColumn')
+    expect(screen.getByRole('img', { name: 'Dana, your mentor' }).parentElement).toBe(welcome.parentElement)
     const sidebar = screen.getByRole('complementary', { name: 'Engagement overview' })
-    const dana = within(sidebar).getByText('Dana')
-    const otherEngagements = within(sidebar).getByRole('heading', { name: 'Other engagements' })
+    const dana = within(sidebar).getByText('Dana').closest('blockquote')!
+    const otherEngagements = within(sidebar).getByRole('heading', { name: 'Recently Completed' })
     expect(dana.compareDocumentPosition(otherEngagements) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('places recently completed engagements below the active client in the main column', () => {
+  it('places other engagements below the active client and recent completions in the sidebar', () => {
     setup([makeEngagement({})])
     renderPage()
 
     const floor = screen.getByRole('heading', { name: 'Acme Insurance' }).closest('section')!
-    const completed = screen.getByRole('heading', { name: 'Recently completed' }).closest('section')!
+    const completed = screen.getByRole('heading', { name: 'Other Engagements' }).closest('section')!
     expect(completed.parentElement).toBe(floor.parentElement)
     expect(floor.nextElementSibling).toBe(completed)
     const sidebar = screen.getByRole('complementary', { name: 'Engagement overview' })
-    expect(within(sidebar).queryByRole('heading', { name: 'Recently completed' })).not.toBeInTheDocument()
+    expect(within(sidebar).getByRole('heading', { name: 'Recently Completed' })).toBeInTheDocument()
   })
 
   it('puts the most recent engagement on the floor with a way to continue it', () => {
@@ -213,6 +219,15 @@ describe('Office: engagements on the floor', () => {
 })
 
 describe('Office: completed scores', () => {
+  it('shows the three newest completions regardless of response order', () => {
+    setup([makeEngagement({})])
+    mockedPortfolio.mockReturnValue({ data: { completedEngagementsHistory: [1, 4, 2, 3].map((day) => ({ engagementId: 'done-' + day, scenarioTitle: 'Completed ' + day, industry: 'Healthcare', outcome: 'PILOT_APPROVED', overallScore: 80, completedAt: '2026-10-0' + day + 'T10:00:00Z' })) } } as unknown as ReturnType<typeof usePortfolioSummary>)
+    renderPage()
+    const recent = screen.getByRole('region', { name: 'Recently Completed' })
+    expect(within(recent).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(recent).getAllByText(/^Completed /).map((node) => node.textContent)).toEqual(['Completed 4', 'Completed 3', 'Completed 2'])
+  })
+
   it('shows a pending assessment separately from a recorded zero score', () => {
     setup([makeEngagement({})])
     mockedPortfolio.mockReturnValue({
@@ -314,6 +329,21 @@ describe('Office: scenario catalogue', () => {
 })
 
 describe('Office: finding an engagement', () => {
+  it('pages five other engagements and searches across pages', async () => {
+    setup(Array.from({ length: 8 }, (_, i) => makeEngagement({ id: 'eng-' + i, leadCompanyName: 'Client ' + i, createdAt: '2026-08-' + String(20 - i).padStart(2, '0') + 'T10:00:00Z' })))
+    renderPage()
+    const other = screen.getByRole('region', { name: 'Other Engagements' })
+    expect(within(other).getAllByRole('listitem')).toHaveLength(5)
+    expect(screen.getByRole('button', { name: 'Previous engagements' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Next engagements' }))
+    expect(within(other).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByText('Client 7')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next engagements' })).toBeDisabled()
+    await userEvent.type(screen.getByPlaceholderText('Search engagements'), 'Client 1')
+    expect(within(other).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByText('Client 1')).toBeInTheDocument()
+  })
+
   beforeEach(() => vi.clearAllMocks())
 
   const three = () => [
@@ -371,5 +401,23 @@ describe('Office: finding an engagement', () => {
     expect(screen.getByText('Retail returns')).toBeInTheDocument()
     expect(screen.queryByText('Already running')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start scenario' })).toBeInTheDocument()
+    expect(screen.getByText('Recommended for you').compareDocumentPosition(screen.getByRole('heading', { name: 'Recently Completed' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows administrator-assigned scenarios between recommendations and recent completions', () => {
+    setup([])
+    const assigned = scenario({ id: 'assigned-1', title: 'Assigned retail scenario' })
+    mockedAssignedScenarios.mockReturnValue({ data: [assigned], isLoading: false, isError: false } as unknown as ReturnType<typeof useAssignedScenarios>)
+    withCatalogue([assigned, scenario({ id: 'recommended-1', title: 'Recommended healthcare scenario' })])
+    renderPage()
+
+    const recommendedHeading = screen.getByText('Recommended for you')
+    const assignedRegion = screen.getByRole('region', { name: 'Assigned Scenarios' })
+    const completedHeading = screen.getByRole('heading', { name: 'Recently Completed' })
+    expect(within(assignedRegion).getByText('Assigned retail scenario')).toBeInTheDocument()
+    expect(within(assignedRegion).getByRole('button', { name: 'Start' })).toBeInTheDocument()
+    expect(screen.getByText('Recommended healthcare scenario')).toBeInTheDocument()
+    expect(recommendedHeading.compareDocumentPosition(assignedRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(assignedRegion.compareDocumentPosition(completedHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

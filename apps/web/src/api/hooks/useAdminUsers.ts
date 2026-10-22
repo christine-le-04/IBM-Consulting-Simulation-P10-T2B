@@ -25,15 +25,15 @@ export interface CreateAdminUserInput {
   skipEmailVerification: boolean
 }
 
-async function fetchAdminUserDirectory(filters: AdminUserDirectoryFilters) {
-  return (await apiClient.get<AdminUserPage>('/api/v1/admin/users', { params: filters })).data
+async function fetchAdminUserDirectory(filters: AdminUserDirectoryFilters, signal: AbortSignal) {
+  return (await apiClient.get<AdminUserPage>('/api/v1/admin/users', { params: filters, signal })).data
 }
 
 export function useAdminUsers(filters: AdminUserDirectoryFilters) {
   const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: adminUserKeys.directory(filters),
-    queryFn: () => fetchAdminUserDirectory(filters),
+    queryFn: ({ signal }) => fetchAdminUserDirectory(filters, signal),
     placeholderData: keepPreviousData,
     staleTime: ADMIN_USER_DIRECTORY_STALE_TIME,
     gcTime: 10 * 60_000,
@@ -45,7 +45,7 @@ export function useAdminUsers(filters: AdminUserDirectoryFilters) {
     const nextFilters = { ...filters, page: filters.page + 1 }
     void queryClient.prefetchQuery({
       queryKey: adminUserKeys.directory(nextFilters),
-      queryFn: () => fetchAdminUserDirectory(nextFilters),
+      queryFn: ({ signal }) => fetchAdminUserDirectory(nextFilters, signal),
       staleTime: ADMIN_USER_DIRECTORY_STALE_TIME,
     })
   }, [filters, query.data, queryClient])

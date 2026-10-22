@@ -1,13 +1,23 @@
 // Your review, ported from the UX prototype (src/prototype/screens/assessment.module.scss).
 
-.page {
-  // The review sits on its own desk, edge to edge (the negative margin undoes
-  // Carbon's content padding).
-  flex: 1;
-  margin: -2rem;
-  min-height: calc(100vh - var(--sim-header) - 2.75rem);
-  padding: 1.5rem 1rem 3rem;
+// This page owns its spacing and desk background, including the shell edges.
+:global(.cds--content):has(> .page) {
+  padding: 0;
   background: #eceff3;
+}
+
+.page {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  min-height: calc(100dvh - var(--sim-header) - 2.75rem);
+  padding: clamp(1rem, 1.4vw, 1.5rem) clamp(1rem, 3vw, 3rem) 1rem;
+  overflow-wrap: anywhere;
+  background: #eceff3;
+
+  @media (max-width: 672px) {
+    padding: 1rem;
+  }
 }
 
 .state {
@@ -26,7 +36,7 @@
 }
 
 .report {
-  max-width: 920px;
+  min-width: 0;
   margin: 0 auto;
   background: #fff;
   padding: 2.5rem 3rem;
@@ -52,11 +62,14 @@
 
 .reportHead {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-end;
   gap: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #161616;
+
+  > div { min-width: 0; }
 
   h1 {
     margin: 0.2rem 0;
@@ -159,8 +172,14 @@
   li + li { margin-top: 0.35rem; }
 }
 
+.scoreExplanation {
+  margin: 0 0 1.25rem;
+}
+
 .competencyHead {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
   justify-content: space-between;
   font-size: var(--sim-font-body);
   margin-bottom: 0.3rem;
@@ -181,7 +200,7 @@
 
 .columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2rem;
 
   @media (max-width: 672px) {
@@ -208,7 +227,16 @@
 
 .actions {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   gap: 0.5rem;
+
+  :global(.cds--btn) {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 .achievementsUnlocked {

@@ -200,7 +200,7 @@ export default function UserManagementPage() {
   }
 
   return <main className={styles.page}>
-    <Grid condensed><Column lg={16} md={8} sm={4}>
+    <Grid fullWidth condensed><Column lg={16} md={8} sm={4}>
       <header className={styles.userHeader}>
         <div><p className={styles.eyebrow}>Access control</p><Heading>People and access</Heading><p>Invite people, prepare test accounts and keep permissions current.</p></div>
         <div className={styles.headerActions}>

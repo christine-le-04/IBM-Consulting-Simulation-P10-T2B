@@ -15,11 +15,11 @@ import { ROOMS } from '@/components/shell/rooms'
 import styles from './LandingPage.module.scss'
 
 const ROOM_LINE: Record<string, string> = {
-  RESEARCH: 'Research the company, choose who to contact',
-  MAIL: 'Earn a meeting by email',
+  RESEARCH: 'Research the company and choose who to contact',
+  MAIL: 'Earn a meeting through email',
   PREP: 'Plan what you need to learn',
-  MEETING: 'Talk it through with the client',
-  PROPOSAL: 'Pitch, then hear their decision',
+  MEETING: 'Discuss with the client',
+  PROPOSAL: 'Present your proposal and hear their decision',
   REVIEW: 'See exactly how you did',
 }
 
@@ -47,7 +47,7 @@ export default function LandingPage() {
           <p className={styles.eyebrow}>IBM Consulting · Training simulation</p>
           <h1>Win your first client before you meet a real one.</h1>
           <p className={styles.lede}>
-            Research a company, email the decision maker, run the meeting and pitch — to an AI client who reacts to everything you do.
+            Research a company, email the relevant contact, meet with an AI client, and present your proposal while it reacts to everything you do.
           </p>
           <div className={styles.ctas}>
             <Button as={Link} to="/register" size="lg" renderIcon={ArrowRight}>Start your first engagement</Button>
@@ -67,12 +67,12 @@ export default function LandingPage() {
           <figure className={`${styles.shot} ${styles.shotMail}`}>
             <figcaption>Outreach</figcaption>
             <p className={styles.mailFrom}><strong>Sarah Chen</strong> replied</p>
-            <p className={styles.mailBody}>“This is useful, and the phasing answers my main worry. I can give you 30 minutes on Thursday.”</p>
+            <p className={styles.mailBody}>“This is useful and the phasing answers my main concern. I can send a 30 minute meeting invite for Thursday.”</p>
             <span className={styles.mailTag}>Meeting accepted</span>
           </figure>
           <figure className={`${styles.shot} ${styles.shotMeeting}`}>
             <figcaption>Meeting</figcaption>
-            <p className={styles.bubbleClient}>“I have heard ‘we can fix that’ from three vendors. Why is your version different?”</p>
+            <p className={styles.bubbleClient}>“I have heard ‘we can fix that’ from three vendors. Why should I choose you?”</p>
             <p className={styles.cue}><i aria-hidden="true" /> Sceptical — wants specifics before she believes you.</p>
           </figure>
         </div>
@@ -105,7 +105,7 @@ export default function LandingPage() {
               <p className={styles.cueLight}><i aria-hidden="true" /> Polite, but nothing you have said lands on a problem she owns.</p>
             </div>
             <h3>A client who pushes back</h3>
-            <p>She stays in character, raises objections and only shares what you earn by asking the right question.</p>
+            <p>They stay in character, raise objections, and only share what you earn by asking the right question.</p>
           </article>
           <article>
             <div className={styles.proof}>
@@ -118,7 +118,7 @@ export default function LandingPage() {
               ))}
             </div>
             <h3>Feedback you can act on</h3>
-            <p>A score for each competency, with coaching tied to what you actually did — not generic tips.</p>
+            <p>Know where you excel, where you fall short, and exactly how to improve.</p>
           </article>
           <article>
             <div className={styles.proof}>
@@ -129,7 +129,7 @@ export default function LandingPage() {
               </svg>
             </div>
             <h3>A record of your growth</h3>
-            <p>Contracts won, relationship health and how each skill moves from one engagement to the next.</p>
+            <p>Contracts won, relationship health, and how each skill moves from one engagement to the next.</p>
           </article>
         </div>
       </section>

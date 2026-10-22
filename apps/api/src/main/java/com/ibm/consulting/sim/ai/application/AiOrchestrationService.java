@@ -33,14 +33,15 @@ public class AiOrchestrationService {
 
     private static final Logger log = LoggerFactory.getLogger(AiOrchestrationService.class);
 
+    static final long ASSESSMENT_TIMEOUT_MS = 15_000;
+    static final long CONVERSATION_TIMEOUT_MS = 10_000;
+    static final long MEETING_TIMEOUT_MS = 15_000;
+    static final long CLIENT_INTELLIGENCE_TIMEOUT_MS = 15_000;
+
     private final AiModelGateway gateway;
     private final ObjectProvider<AiProviderRouter> parallelRouterProvider;
     private final AiTraceRecorder traceRecorder;
     private final ExecutorService executor;
-    private final long timeoutMs;
-    private final long conversationTimeoutMs;
-    private final long meetingTimeoutMs;
-    private final long clientIntelligenceTimeoutMs;
     private final long classificationTimeoutMs;
     private final String modelId;
 
@@ -48,20 +49,12 @@ public class AiOrchestrationService {
                                    ObjectProvider<AiProviderRouter> parallelRouterProvider,
                                    AiTraceRecorder traceRecorder,
                                    @Qualifier("aiProviderExecutor") ExecutorService executor,
-                                   @Value("${app.ai.timeout-ms:15000}") long timeoutMs,
-                                   @Value("${app.ai.conversation-timeout-ms:14000}") long conversationTimeoutMs,
-                                   @Value("${app.ai.meeting-timeout-ms:25000}") long meetingTimeoutMs,
-                                   @Value("${app.ai.client-intelligence-timeout-ms:1200}") long clientIntelligenceTimeoutMs,
                                    @Value("${app.ai.classification-timeout-ms:2500}") long classificationTimeoutMs,
                                    @Value("${app.watsonx.model-id}") String modelId) {
         this.gateway = gateway;
         this.parallelRouterProvider = parallelRouterProvider;
         this.traceRecorder = traceRecorder;
         this.executor = executor;
-        this.timeoutMs = timeoutMs;
-        this.conversationTimeoutMs = conversationTimeoutMs;
-        this.meetingTimeoutMs = meetingTimeoutMs;
-        this.clientIntelligenceTimeoutMs = clientIntelligenceTimeoutMs;
         this.classificationTimeoutMs = classificationTimeoutMs;
         this.modelId = modelId;
     }
@@ -75,7 +68,7 @@ public class AiOrchestrationService {
     public <T> T execute(String useCase, UUID engagementId, String prompt, int promptVersion,
                           AiResponseParser<T> parser, Supplier<T> fallback) {
         long start = System.currentTimeMillis();
-        long budgetMs = "persona_dialogue".equals(useCase) ? meetingTimeoutMs : budgetFor(AiTaskType.fromUseCase(useCase));
+        long budgetMs = "persona_dialogue".equals(useCase) ? MEETING_TIMEOUT_MS : budgetFor(AiTaskType.fromUseCase(useCase));
         long deadline = start + budgetMs;
         try {
             AiValidatedResponse<T> response = callValidated(useCase, prompt, parser, remainingMillis(deadline));
@@ -93,10 +86,10 @@ public class AiOrchestrationService {
 
     private long budgetFor(AiTaskType taskType) {
         return switch (taskType) {
-            case CONVERSATION, PROPOSAL_REVIEW -> conversationTimeoutMs;
-            case CLIENT_INTELLIGENCE -> clientIntelligenceTimeoutMs;
+            case CONVERSATION, PROPOSAL_REVIEW -> CONVERSATION_TIMEOUT_MS;
+            case CLIENT_INTELLIGENCE -> CLIENT_INTELLIGENCE_TIMEOUT_MS;
             case CLASSIFICATION, EVIDENCE_EXTRACTION -> classificationTimeoutMs;
-            case ASSESSMENT -> timeoutMs;
+            case ASSESSMENT -> ASSESSMENT_TIMEOUT_MS;
         };
     }
 

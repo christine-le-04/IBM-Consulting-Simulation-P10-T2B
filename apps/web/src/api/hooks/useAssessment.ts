@@ -4,7 +4,7 @@ import type { Assessment } from '@/api/types'
 import { engagementKeys } from '@/api/hooks/useEngagements'
 import { portfolioKeys } from '@/api/hooks/usePortfolio'
 
-const ASSESSMENT_REQUEST_TIMEOUT_MS = 30_000
+const ASSESSMENT_REQUEST_TIMEOUT_MS = 20_000
 
 export const assessmentKeys = {
   detail: (engagementId: string) => ['assessment', engagementId] as const,
@@ -13,8 +13,8 @@ export const assessmentKeys = {
 export function useAssessment(engagementId: string) {
   return useQuery({
     queryKey: assessmentKeys.detail(engagementId),
-    queryFn: async () => {
-      const res = await apiClient.get<Assessment>(`/api/v1/engagements/${engagementId}/assessment`)
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Assessment>(`/api/v1/engagements/${engagementId}/assessment`, { signal })
       return res.data
     },
     enabled: Boolean(engagementId),

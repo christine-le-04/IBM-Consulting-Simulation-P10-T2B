@@ -22,10 +22,14 @@ export const recipientRoles: { value: AnnouncementRole; label: string }[] = [
 export const audienceLabel = (audience: string, roles: AnnouncementRole[]) => audience === 'ALL'
   ? 'All users' : recipientRoles.filter((role) => roles.includes(role.value)).map((role) => role.label).join(', ')
 
-export function useAdminAnnouncements(page: number) {
+export type AnnouncementStatusFilter = '' | SentAnnouncement['status']
+export type AnnouncementAudienceFilter = '' | 'ALL' | AnnouncementRole
+export function useAdminAnnouncements(page: number, search = '', status: AnnouncementStatusFilter = '', audience: AnnouncementAudienceFilter = '') {
   return useQuery({
-    queryKey: ['admin', 'announcements', page],
-    queryFn: async ({ signal }) => (await apiClient.get<SentAnnouncementsPage>('/api/v1/admin/announcements', { params: { page, size: 20 }, signal })).data,
+    queryKey: ['admin', 'announcements', page, search, status, audience],
+    queryFn: async ({ signal }) => (await apiClient.get<SentAnnouncementsPage>('/api/v1/admin/announcements', {
+      params: { page, size: 20, ...(search ? { search } : {}), ...(status ? { status } : {}), ...(audience ? { audience } : {}) }, signal,
+    })).data,
     refetchInterval: 60_000,
   })
 }

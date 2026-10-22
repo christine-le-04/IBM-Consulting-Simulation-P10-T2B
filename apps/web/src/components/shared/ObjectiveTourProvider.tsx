@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { TourProvider, type StepType } from '@reactour/tour'
 import ObjectiveGuide from './ObjectiveGuide'
+import ObjectiveTourAction from './ObjectiveTourAction'
 
 interface Objective {
   id: string
@@ -38,6 +39,7 @@ export default function ObjectiveTourProvider({ tourId, objectives, children }: 
         maskArea: (base) => ({ ...base, rx: 4 }),
       }}
     >
+      <ObjectiveTourAction />
       <ObjectiveGuide tourId={tourId} />
       {children}
     </TourProvider>

@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.springframework.validation.annotation.Validated;
 import com.ibm.consulting.sim.identity.domain.UserRole;
 import java.util.Set;
@@ -29,8 +31,13 @@ public class AdminAnnouncementController {
 
     @GetMapping
     public ResponseEntity<AdminAnnouncementHistory.Page> list(@RequestParam(defaultValue = "0") @Min(0) @Max(100000) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(history.list(page, size));
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
+            @RequestParam(required = false) @Size(max = 120) String search,
+            @RequestParam(required = false) @Pattern(regexp = "PUBLISHED|WITHDRAWN|SCHEDULED|EXPIRED") String status,
+            @RequestParam(required = false) @Pattern(regexp = "ALL|LEARNER|SCENARIO_AUTHOR|REVIEWER|ADMINISTRATOR") String audience) {
+        var result = (search == null || search.isBlank()) && status == null && audience == null
+                ? history.list(page, size) : history.list(page, size, search, status, audience);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result);
     }
 
     @PostMapping("/{id}/withdraw")

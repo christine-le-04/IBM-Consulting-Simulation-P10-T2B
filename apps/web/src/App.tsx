@@ -15,6 +15,7 @@ const VerifyEmailPage = lazy(() => import('@/pages/Auth/VerifyEmailPage'))
 const ForgotPasswordPage = lazy(() => import('@/pages/Auth/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/pages/Auth/ResetPasswordPage'))
 const CommandCentrePage = lazy(() => import('@/pages/CommandCentre/CommandCentrePage'))
+const NotificationsPage = lazy(() => import('@/pages/Notifications/NotificationsPage'))
 const ChooseContactPage = lazy(() => import('@/pages/ChooseContact/ChooseContactPage'))
 const ClientIntelligencePage = lazy(() => import('@/pages/ClientIntelligence/ClientIntelligencePage'))
 const OutreachWorkspacePage = lazy(() => import('@/pages/OutreachWorkspace/OutreachWorkspacePage'))
@@ -31,7 +32,6 @@ const AiOperationsPage = lazy(() => import('@/pages/Admin/AiOperationsPage'))
 const LearnerProgressPage = lazy(() => import('@/pages/Admin/LearnerProgressPage'))
 const AuditLogPage = lazy(() => import('@/pages/Admin/AuditLogPage'))
 const AnnouncementsPage = lazy(() => import('@/pages/Admin/AnnouncementsPage'))
-const ScenarioAnnouncementPage = lazy(() => import('@/pages/Announcements/ScenarioAnnouncementPage'))
 const LearnerRunPage = lazy(() => import('@/pages/Admin/LearnerRunPage'))
 const CohortAnalyticsPage = lazy(() => import('@/pages/Admin/CohortAnalyticsPage'))
 
@@ -126,7 +126,7 @@ export default function App() {
           }
         >
           <Route index element={<CommandCentrePage />} />
-          <Route path="scenarios/:scenarioId" element={<ScenarioAnnouncementPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="engagements/:engagementId/intelligence" element={<ClientIntelligencePage />} />
           <Route path="engagements/:engagementId/contact" element={<ChooseContactPage />} />
           <Route path="engagements/:engagementId/outreach" element={<RequireContact><OutreachWorkspacePage /></RequireContact>} />

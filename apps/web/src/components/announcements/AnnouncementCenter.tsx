@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, HeaderGlobalAction, InlineLoading, InlineNotification, Select, SelectItem, Tag } from '@carbon/react'
+import { Button, HeaderGlobalAction, InlineLoading, InlineNotification } from '@carbon/react'
 import { Link } from 'react-router-dom'
 import { Notification } from '@carbon/icons-react'
-import { announcementTitle, announcementMessage, useAnnouncements, useAnnouncementUpdates, useReadAnnouncements, useMarkAllAnnouncementsRead } from '@/api/hooks/useAnnouncements'
+import { announcementTitle, announcementMessage, useAnnouncements, useAnnouncementUpdates } from '@/api/hooks/useAnnouncements'
 import styles from './AnnouncementCenter.module.css'
+
+const PREVIEW_SIZE = 5
+const relativeTime = (value: string) => {
+  const elapsedSeconds = Math.max(0, (Date.now() - new Date(value).getTime()) / 1000)
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 60) return 'Just now'
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 31_536_000], ['month', 2_592_000], ['week', 604_800], ['day', 86_400], ['hour', 3_600], ['minute', 60],
+  ]
+  const [unit, seconds] = units.find(([, duration]) => elapsedSeconds >= duration) ?? units[units.length - 1]
+  const label = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-Math.floor(elapsedSeconds / seconds), unit)
+  return label.charAt(0).toLocaleUpperCase() + label.slice(1)
+}
 
 export default function AnnouncementCenter() {
   const [open, setOpen] = useState(false)
-  const [page, setPage] = useState(0)
-  const [unreadOnly, setUnreadOnly] = useState(false)
-  const feed = useAnnouncements(page, unreadOnly)
-  const markAll = useMarkAllAnnouncementsRead()
-  const markRead = useReadAnnouncements()
-  useEffect(() => {
-    if (feed.data && page > 0 && page * feed.data.size >= feed.data.totalElements) setPage(0)
-  }, [feed.data, page])
+  const feed = useAnnouncements(0, false, PREVIEW_SIZE)
   useAnnouncementUpdates()
   const root = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLElement>(null)
@@ -36,46 +41,28 @@ export default function AnnouncementCenter() {
     }
   }, [open])
   const unread = feed.data?.unreadCount ?? 0
-  const unreadIds = feed.data?.items.filter((item) => !item.read).map((item) => item.id) ?? []
   return <div ref={root} className={styles.root}>
-    <HeaderGlobalAction ref={trigger} aria-label={`Announcements${unread ? `, ${unread} unread` : ''}`}
+    <HeaderGlobalAction ref={trigger} aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
       aria-expanded={open} aria-controls="announcement-panel" isActive={open}
-      tooltipAlignment="end" onClick={() => { setOpen((value) => !value); if (!open) { setPage(0); void feed.refetch() } }}>
+      tooltipAlignment="end" onClick={() => { setOpen((value) => !value); if (!open) void feed.refetch() }}>
       <Notification size={20} />
       {unread > 0 && <span className={styles.badge} aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
     </HeaderGlobalAction>
-    {open && <section id="announcement-panel" aria-label="Announcements" className={styles.panel} ref={panel} tabIndex={-1}>
-      <div className={styles.heading}><h2>Announcements</h2></div>
-      <p aria-live="polite">{unread} unread</p>
-      <Select id="announcement-filter" labelText="Show announcements" value={unreadOnly ? 'unread' : 'all'}
-        onChange={(event) => { setUnreadOnly(event.target.value === 'unread'); setPage(0) }}>
-        <SelectItem value="all" text="All announcements" /><SelectItem value="unread" text="Unread only" />
-      </Select>
-      {unread > 0 && <Button kind="ghost" size="sm" disabled={markAll.isPending || !feed.data?.readThrough}
-        onClick={() => { if (feed.data?.readThrough) markAll.mutate(feed.data.readThrough) }}>Mark all as read</Button>}
-      {markAll.isError && <InlineNotification kind="error" title="Could not mark all announcements as read" subtitle="Please try again." hideCloseButton />}
-      {feed.isLoading && <InlineLoading description="Loading announcements" />}
-      {feed.isError && <InlineNotification kind="error" title="Announcements unavailable" subtitle="Try again in a moment." hideCloseButton />}
+    {open && <section id="announcement-panel" aria-label="Recent notifications" className={styles.panel} ref={panel} tabIndex={-1}>
+      <div className={styles.heading}><h2>Notifications</h2><span aria-live="polite">{unread} unread</span></div>
+      {feed.isLoading && <InlineLoading description="Loading notifications" />}
+      {feed.isError && <InlineNotification kind="error" title="Notifications unavailable" subtitle="Try again in a moment." hideCloseButton />}
       {feed.isError && <Button kind="ghost" size="sm" onClick={() => void feed.refetch()}>Try again</Button>}
-      {markRead.isError && <InlineNotification kind="error" title="Could not mark announcements as read" subtitle="Please try again." hideCloseButton />}
-      {unreadIds.length > 0 && <Button kind="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate(unreadIds)}>Mark this page as read</Button>}
-      {feed.data?.items.length === 0 && <p>{unreadOnly ? 'You have no unread announcements.' : 'No announcements yet.'}</p>}
+      {feed.data?.items.length === 0 && <p className={styles.empty}>No notifications yet.</p>}
       <ul className={styles.list}>{feed.data?.items.map((item) => <li key={item.id} className={item.read ? '' : styles.unread}>
-        <div><strong>{item.kind === 'SCENARIO_PUBLISHED' ? 'Scenario published' : item.kind === 'SCENARIO_ARCHIVED' ? 'Scenario archived' : item.kind === 'SCENARIO_ASSIGNED' ? 'New scenario assignment' : 'From the administration team'}</strong>{!item.read && <Tag type="blue">Unread</Tag>}</div>
-        <p><strong>{announcementTitle(item)}</strong></p>
+        <div className={styles.itemTop}>
+          <span className={styles.typeLabel}>{item.kind === 'ADMIN_MESSAGE' ? 'Announcement' : 'System'}</span>
+          <time dateTime={item.createdAt}>{relativeTime(item.createdAt)}</time>
+        </div>
+        <p className={styles.title}>{announcementTitle(item)}</p>
         <p className={styles.message}>{announcementMessage(item)}</p>
-        {item.scenarioId && (item.kind === 'SCENARIO_PUBLISHED' || item.kind === 'SCENARIO_ASSIGNED') &&
-          <p><Link to={`/dashboard/scenarios/${encodeURIComponent(item.scenarioId)}`} onClick={() => setOpen(false)}>View scenario</Link></p>}
-        {item.kind === 'SCENARIO_ARCHIVED' && <p><Link to="/dashboard" onClick={() => setOpen(false)}>Open your Office</Link></p>}
-        <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
-        {!item.read && <Button kind="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate([item.id])}
-          aria-label={`Mark ${announcementTitle(item)} as read`}>Mark as read</Button>}
       </li>)}</ul>
-      {feed.data && feed.data.totalElements > feed.data.size && <div className={styles.paging}>
-        <Button kind="ghost" size="sm" disabled={page === 0 || feed.isFetching} onClick={() => setPage((value) => value - 1)}>Newer</Button>
-        <span>Page {page + 1}</span>
-        <Button kind="ghost" size="sm" disabled={(page + 1) * feed.data.size >= feed.data.totalElements || feed.isFetching} onClick={() => setPage((value) => value + 1)}>Older</Button>
-      </div>}
+      <Link className={styles.allLink} to="/dashboard/notifications" onClick={() => setOpen(false)}>See all notifications</Link>
     </section>}
   </div>
 }

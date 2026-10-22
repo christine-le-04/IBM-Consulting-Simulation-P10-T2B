@@ -47,4 +47,23 @@ describe('outreach provider recovery', () => {
     })
     expect(apiClient.post).toHaveBeenCalledTimes(1)
   })
+
+  it('does not restart the timeout budget after a slow provider failure', async () => {
+    const now = Date.now()
+    const clock = vi.spyOn(Date, 'now')
+    const error = { isAxiosError: true, response: { status: 503 } }
+    vi.mocked(apiClient.post).mockImplementationOnce(async () => {
+      clock.mockReturnValueOnce(now + 14_500)
+      throw error
+    })
+    try {
+      const { result } = setup()
+      await act(async () => {
+        await expect(result.current.mutateAsync({ subject: 'Subject', body: 'Body' })).rejects.toEqual(error)
+      })
+      expect(apiClient.post).toHaveBeenCalledTimes(1)
+    } finally {
+      clock.mockRestore()
+    }
+  })
 })

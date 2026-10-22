@@ -105,7 +105,7 @@ describe('AnnouncementsPage', () => {
     fireEvent.click(screen.getByLabelText('Learners'))
     fireEvent.click(screen.getByRole('button', { name: 'Preview announcement' }))
     if (screen.queryByRole('button', { name: /Confirm publication|Confirm schedule/ })) fireEvent.click(screen.getByRole('button', { name: /Confirm publication|Confirm schedule/ }))
-    expect(screen.getByText('Your update is available to learners in their announcement bell.')).toBeInTheDocument()
+    expect(screen.getByText('Your update is available to learners.')).toBeInTheDocument()
     expect(screen.getByLabelText('Recipients')).toHaveValue('ROLES')
     expect(screen.getByLabelText('Learners')).toBeChecked()
   })
@@ -113,9 +113,11 @@ describe('AnnouncementsPage', () => {
   it('preserves failed submissions and allows retrying', () => {
     const view = render(<AnnouncementsPage />)
     fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Preview announcement' }))
     setup({ isError: true, error: new Error('network unavailable') })
     view.rerender(<AnnouncementsPage />)
     expect(screen.getByText('Announcement could not be published')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
     expect(screen.getByLabelText('Title')).toHaveValue(' Maintenance ')
     expect(screen.getByLabelText('Message')).toHaveValue(' Restart tonight. ')
     expect(screen.getByRole('button', { name: 'Preview announcement' })).toBeEnabled()
@@ -127,11 +129,26 @@ describe('AnnouncementsPage', () => {
       isLoading: false, isError: false } as unknown as ReturnType<typeof useAdminAnnouncements>)
     render(<AnnouncementsPage />)
     expect(screen.getByText('Learner update')).toBeInTheDocument()
-    expect(screen.getByText('Sent to: Learners')).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'Learners' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Withdraw' }))
     expect(withdraw).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Withdraw announcement' }))
     expect(withdraw).toHaveBeenCalledWith('notice', expect.any(Object))
+  })
+
+  it('shows publication, expiry, and withdrawal times without seconds', () => {
+    vi.mocked(useAdminAnnouncements).mockReturnValue({ data: { items: [{
+      id: 'notice', title: 'Maintenance', message: 'Service update', audience: 'ALL', targetRoles: [],
+      createdAt: '2026-10-16T04:05:06Z', publishAt: '2026-10-16T04:05:06Z',
+      expiresAt: '2026-10-17T04:05:06Z', withdrawnAt: '2026-10-16T05:06:07Z', status: 'WITHDRAWN',
+    }], totalElements: 1 }, isLoading: false, isError: false } as unknown as ReturnType<typeof useAdminAnnouncements>)
+
+    render(<AnnouncementsPage />)
+
+    const table = screen.getByRole('table')
+    const displayedTimes = Array.from(table.querySelectorAll('time, td small')).map((node) => node.textContent ?? '')
+    expect(displayedTimes).toHaveLength(4)
+    expect(displayedTimes.join(' ')).not.toMatch(/\d{1,2}:\d{2}:\d{2}/)
   })
 
   it('blocks blank text and repeat submissions while publishing', () => {
@@ -142,7 +159,7 @@ describe('AnnouncementsPage', () => {
     fill()
     setup({ isPending: true })
     view.rerender(<AnnouncementsPage />)
-    expect(screen.getByRole('button', { name: 'Publishing…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Preview announcement' })).toBeDisabled()
     expect(screen.getByLabelText('Title')).toBeDisabled()
     expect(screen.getByLabelText('Message')).toBeDisabled()
     expect(screen.getByLabelText('Title')).toHaveAttribute('maxlength', '120')

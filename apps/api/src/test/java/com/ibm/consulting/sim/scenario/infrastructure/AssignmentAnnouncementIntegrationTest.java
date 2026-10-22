@@ -15,7 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -41,11 +43,19 @@ import static org.mockito.ArgumentMatchers.*;
 
 @DataJpaTest
 @Import({JpaScenarioRepository.class, JpaScenarioAssignmentRepository.class, ScenarioAssignmentService.class,
-        AssignmentAnnouncementService.class, AnnouncementService.class, AnnouncementBroadcaster.class, AuditLogger.class})
+        AssignmentAnnouncementService.class, AnnouncementService.class, AnnouncementBroadcaster.class, AuditLogger.class,
+        AssignmentAnnouncementIntegrationTest.JsonConfiguration.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AssignmentAnnouncementIntegrationTest {
+    @TestConfiguration
+    static class JsonConfiguration {
+        @Bean com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
+            return new com.fasterxml.jackson.databind.ObjectMapper();
+        }
+    }
+
     @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
             DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {

@@ -1,5 +1,6 @@
 package com.ibm.consulting.sim.scenario.infrastructure;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.identity.domain.User;
 import com.ibm.consulting.sim.identity.domain.UserDirectoryPage;
 import com.ibm.consulting.sim.identity.domain.UserDirectoryQuery;
@@ -118,6 +119,20 @@ class ScenarioAssignmentIntegrationTest {
     }
 
     @Test
+    void dashboardAdminAssignmentsExcludeAutomaticallyAssignedStarterScenarios() {
+        User ada = inTransaction(() -> persistUser("Ada", UserRole.LEARNER));
+        User admin = inTransaction(() -> persistUser("Admin", UserRole.ADMINISTRATOR));
+        Scenario adminAssigned = inTransaction(() -> persistScenario("Admin assignment " + token(), "Retail", true));
+        Scenario starterAssigned = inTransaction(() -> persistScenario("Starter assignment " + token(), "Healthcare", true));
+        inTransaction(() -> assignmentRepository.saveAll(List.of(
+                ScenarioAssignment.assign(adminAssigned.getScenarioLineageId(), ada.getId(), admin.getId()),
+                ScenarioAssignment.assign(starterAssigned.getScenarioLineageId(), ada.getId(), null))));
+
+        assertThat(inTransaction(() -> scenarioRepository.findAllActiveAdminAssignedTo(ada.getId())))
+                .extracting(Scenario::getId).containsExactly(adminAssigned.getId());
+    }
+
+    @Test
     void assignmentsFollowTheLineageToANewlyPublishedRevision() {
         String token = token();
         User ada = inTransaction(() -> persistUser("Ada", UserRole.LEARNER));
@@ -176,7 +191,7 @@ class ScenarioAssignmentIntegrationTest {
         Scenario scenario = inTransaction(() -> persistScenario("Service " + token(), "Service", true));
         ScenarioAssignmentService service = new ScenarioAssignmentService(
                 assignmentRepository, scenarioRepository, new EntityManagerUserRepository(), mock(AuditLogger.class),
-                mock(com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService.class));
+                mock(com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService.class), new ObjectMapper());
 
         inTransaction(() -> service.replaceAssignments(scenario.getId(), List.of(ada.getId(), bob.getId()), author.getId()));
         ScenarioAssignmentView afterSecondSave = inTransaction(

@@ -8,6 +8,8 @@ public interface ScenarioRepository {
     List<Scenario> findAllActive();
     /** Live scenarios assigned to one consultant. */
     List<Scenario> findAllActiveAssignedTo(UUID userId);
+    /** Live scenarios explicitly assigned by an administrator to one consultant. */
+    List<Scenario> findAllActiveAdminAssignedTo(UUID userId);
     ScenarioCatalogPage findCatalog(ScenarioCatalogQuery query);
     ScenarioCatalogPage findAdminCatalog(AdminScenarioCatalogQuery query);
     List<String> findCatalogIndustries();

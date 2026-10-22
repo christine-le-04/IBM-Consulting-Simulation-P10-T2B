@@ -4,16 +4,16 @@
  *
  * It answers three things: what is in flight, how to resume, how to start
  * something new. The engagement on the floor gets the six rooms as plain
- * buttons; the mentor's guidance sits above the other engagements. The catalogue, briefing and
+ * buttons; the mentor's guidance sits above recommendations and recent completions. The catalogue, briefing and
  * persona picker are kept, behind "Start new" instead of on the page.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, InlineNotification, Tag, TextInput } from '@carbon/react'
-import { Add, ArrowRight, Renew, Search } from '@carbon/icons-react'
+import { Add, ArrowRight, ChevronLeft, ChevronRight, Renew, Search } from '@carbon/icons-react'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
-import { useScenarioCatalog } from '@/api/hooks/useScenarios'
+import { useAssignedScenarios, useScenarioCatalog } from '@/api/hooks/useScenarios'
 import { resolveEngagementRoute } from '@/api/engagementRouting'
 import { getApiProblem } from '@/api/problemDetails'
 import type { CompletedEngagementView, Engagement, ScenarioSummary } from '@/api/types'
@@ -27,6 +27,7 @@ import { MENTOR } from '@/components/shell/mentor'
 import RoomGrid from '@/components/shell/RoomGrid'
 import { ROOMS, roomIndex } from '@/components/shell/rooms'
 import { isActiveEngagement, requiresMeetingRetry } from '@/features/engagement/services/engagementLifecycleService'
+import { portfolioOutcomeLabel } from '@/features/portfolio/portfolioPresentation'
 import { PHASE_LABEL } from '@/lifecycle/phases'
 import { useExperience } from '@/lifecycle/useExperience'
 import { useAuthStore } from '@/store/authStore'
@@ -131,6 +132,12 @@ function lobbyLine(featured: Engagement | undefined, failed: Engagement[]): stri
   return 'Nothing on the floor right now. Pick your next client — a new industry is the fastest way to grow.'
 }
 
+function WelcomeHeading({ displayName, firstVisit }: { displayName: string | null; firstVisit: boolean }) {
+  return <h1 className={`${styles.greeting} objective-command-centre`}>
+    {firstVisit ? `Welcome, ${displayName}.` : `Welcome back, ${displayName}.`}
+  </h1>
+}
+
 function EngagementRow({ engagement, attemptLabel }: { engagement: Engagement; attemptLabel?: string }) {
   const navigate = useNavigate()
   const status = statusOf(engagement)
@@ -165,10 +172,32 @@ function CompletedRow({ item }: { item: CompletedEngagementView }) {
           <small>{item.industry}{item.completedAt ? ` · ${new Date(item.completedAt).toLocaleDateString('en-GB')}` : ''}</small>
         </span>
         <span className={styles.completedResult}>
-          <Tag type={item.overallScore == null ? 'purple' : lost ? 'red' : 'green'} size="sm">{item.outcome.replaceAll('_', ' ').toLowerCase()}</Tag>
+          <Tag type={item.overallScore == null ? 'purple' : lost ? 'red' : 'green'} size="sm">{portfolioOutcomeLabel(item.outcome)}</Tag>
           <strong>{item.overallScore == null ? 'Assessment pending' : `${item.overallScore}/100`}</strong>
         </span>
       </button>
+    </li>
+  )
+}
+
+function AssignedScenarioRow({ scenario, engagement, onStart, disabled }: {
+  scenario: ScenarioSummary
+  engagement?: Engagement
+  onStart: (scenario: ScenarioSummary) => void
+  disabled: boolean
+}) {
+  const navigate = useNavigate()
+  return (
+    <li className={styles.assignedRow}>
+      <IndustryArt industry={scenario.industry} size={32} />
+      <div className={styles.assignedCopy}>
+        <strong>{scenario.title}</strong>
+        <small>{scenario.industry} · Complexity {scenario.difficulty}/5</small>
+      </div>
+      <Button kind="ghost" size="sm" disabled={disabled && !engagement}
+        onClick={() => engagement ? navigate(resolveEngagementRoute(engagement)) : onStart(scenario)}>
+        {engagement ? 'Continue' : 'Start'}
+      </Button>
     </li>
   )
 }
@@ -179,6 +208,7 @@ export default function CommandCentrePage() {
   const location = useLocation()
   const { data: engagements, isLoading: engLoading, isError: engError, refetch: refetchEngagements } = useMyEngagements()
   const { data: portfolio } = usePortfolioSummary()
+  const { data: assignedScenarios = [] } = useAssignedScenarios()
   const startEngagement = useStartEngagement()
   const { data: starterPage, isLoading: scenLoading, isError: scenarioError, refetch: refetchScenarios } = useScenarioCatalog({ page: 0, size: 8 })
   const { stage } = useExperience()
@@ -189,6 +219,7 @@ export default function CommandCentrePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [sortMode, setSortMode] = useState<SortMode>('RECENT')
+  const [othersPage, setOthersPage] = useState(1)
 
   const allEngagements = useMemo(() => engagements ?? [], [engagements])
   const active = useMemo(
@@ -216,7 +247,14 @@ export default function CommandCentrePage() {
         return latestActivity(b) - latestActivity(a)
       })
   }, [others, searchTerm, sortMode, statusFilter])
-  const completedHistory = portfolio?.completedEngagementsHistory ?? []
+  const othersPageSize = 5
+  const othersPageCount = Math.max(1, Math.ceil(visibleOthers.length / othersPageSize))
+  const currentOthersPage = Math.min(othersPage, othersPageCount)
+  const othersOffset = (currentOthersPage - 1) * othersPageSize
+  const pagedOthers = visibleOthers.slice(othersOffset, othersOffset + othersPageSize)
+  const completedHistory = [...(portfolio?.completedEngagementsHistory ?? [])]
+    .sort((a, b) => new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime())
+    .slice(0, 3)
 
   /**
    * One scenario, not two thousand. A newcomer has no basis for choosing
@@ -224,7 +262,9 @@ export default function CommandCentrePage() {
    */
   const starterScenario = starterPage?.items[0] ?? null
   // A recommendation is something new: never a scenario already started.
-  const recommended = starterPage?.items.find((item) => !allEngagements.some((engagement) => engagement.scenarioId === item.id)) ?? null
+  const assignedScenarioIds = new Set(assignedScenarios.map((scenario) => scenario.id))
+  const recommended = starterPage?.items.find((item) => !assignedScenarioIds.has(item.id)
+    && !allEngagements.some((engagement) => engagement.scenarioId === item.id)) ?? null
 
   // Shows a notification when the learner was redirected from a protected route.
   const [deniedReason, setDeniedReason] = useState<string | undefined>(
@@ -272,19 +312,17 @@ export default function CommandCentrePage() {
   if (engLoading || scenLoading) return <LoadingState />
   if (engError || scenarioError) return <ErrorState title="The Office could not be opened" message="Your engagements are saved. Check your connection, then try again." actionLabel="Try again" onAction={() => { void refetchEngagements(); void refetchScenarios() }} />
 
-  const mentorNote = (
-    <figure className={styles.mentorSays}>
-      <DanaAvatar size={48} />
-      <blockquote>
+  const mentorMessage = (
+      <blockquote className={styles.mentorQuote}>
         <p>
           {firstVisit
-            ? 'Hi, I’m Dana — I’ll be your mentor on your first engagements. At every step I’ll tell you what it’s for and what you’re still missing. You start with no clients, so let’s win your first one.'
+            ? 'I’m Dana, your mentor. I’ll guide you through your first engagement.'
             : lobbyLine(featured, failed)}
         </p>
         <figcaption><strong>{MENTOR.name}</strong>, {MENTOR.role}</figcaption>
       </blockquote>
-    </figure>
   )
+  const mentorNote = <figure className={styles.mentorSays}><DanaAvatar size={48} />{mentorMessage}</figure>
 
   return (
     <ObjectiveTourProvider tourId="command-centre" objectives={COMMAND_CENTRE_OBJECTIVES}>
@@ -304,12 +342,12 @@ export default function CommandCentrePage() {
           />
         )}
 
-        <header className={`${styles.lobby} objective-command-centre`}>
-          <h1 className={styles.greeting}>{firstVisit ? `Welcome, ${displayName}.` : `Welcome back, ${displayName}.`}</h1>
-          {firstVisit && mentorNote}
-        </header>
-
         {firstVisit ? (
+          <>
+          <header className={`${styles.lobby} ${styles.firstVisitLobby}`}>
+            <WelcomeHeading displayName={displayName} firstVisit />
+            {mentorNote}
+          </header>
           <section className={styles.floorCard} aria-labelledby="first-run">
             {starterScenario ? (
               <div className={`${styles.floorHead} objective-start-engagement`}>
@@ -347,9 +385,14 @@ export default function CommandCentrePage() {
             <p className={styles.eyebrow}>Your office — each room opens when you finish the one before</p>
             <RoomGrid large />
           </section>
+          </>
         ) : (
           <div className={styles.grid}>
             <div className={styles.mainColumn}>
+              <header className={styles.lobby}>
+                <WelcomeHeading displayName={displayName} firstVisit={false} />
+                <DanaAvatar size={48} className={styles.greetingAvatar} />
+              </header>
               {featured ? (
                 <section className={styles.floorCard} aria-labelledby="in-flight">
                   <div className={styles.floorHead}>
@@ -392,43 +435,39 @@ export default function CommandCentrePage() {
                 </section>
               )}
 
-              <section className={styles.panel}>
+              <section className={styles.panel} aria-labelledby="other-engagements">
                 <div className={styles.panelHead}>
-                  <h3>Recently completed</h3>
-                  <Button kind="ghost" size="sm" onClick={() => navigate('/dashboard/portfolio')}>View all</Button>
-                </div>
-                {completedHistory.length > 0 ? (
-                  <ul className={styles.list}>{completedHistory.slice(0, 2).map((item) => <CompletedRow key={item.engagementId} item={item} />)}</ul>
-                ) : (
-                  <p className={styles.sideEmpty}>Completed engagements will appear here.</p>
-                )}
-              </section>
-            </div>
-
-            <aside className={styles.side} aria-label="Engagement overview">
-              {mentorNote}
-              <section className={styles.panel}>
-                <div className={styles.panelHead}>
-                  <h3>Other engagements</h3>
+                  <h3 id="other-engagements">Other Engagements</h3>
                   <Button kind="ghost" size="sm" renderIcon={Add} className="objective-scenario-catalogue" onClick={() => setCatalogueOpen(true)}>Start new</Button>
                 </div>
                 {others.length > 1 && (
                   <div className={styles.listControls}>
-                    <TextInput id="engagement-search" labelText="Search engagements" hideLabel size="sm" placeholder="Search engagements" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+                    <TextInput id="engagement-search" labelText="Search engagements" hideLabel size="sm" placeholder="Search engagements" value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setOthersPage(1) }} />
                     <div className={styles.listFilters}>
-                      <Choice id="status-filter" label="Filter" hideLabel size="sm" value={statusFilter} options={STATUS_FILTERS} onChange={setStatusFilter} />
-                      <Choice id="sort-mode" label="Sort" hideLabel size="sm" value={sortMode} options={SORT_MODES} onChange={setSortMode} />
+                      <Choice id="status-filter" label="Filter" hideLabel size="sm" value={statusFilter} options={STATUS_FILTERS} onChange={(value) => { setStatusFilter(value); setOthersPage(1) }} />
+                      <Choice id="sort-mode" label="Sort" hideLabel size="sm" value={sortMode} options={SORT_MODES} onChange={(value) => { setSortMode(value); setOthersPage(1) }} />
                     </div>
                   </div>
                 )}
                 {others.length === 0 ? (
                   <p className={styles.sideEmpty}>Nothing else in flight.</p>
                 ) : visibleOthers.length > 0 ? (
-                  <ul className={styles.list}>{visibleOthers.map((item) => <EngagementRow key={item.id} engagement={item} attemptLabel={labelsByEngagement.get(item.id)} />)}</ul>
+                  <ul className={styles.list}>{pagedOthers.map((item) => <EngagementRow key={item.id} engagement={item} attemptLabel={labelsByEngagement.get(item.id)} />)}</ul>
                 ) : (
                   <p className={styles.sideEmpty}><Search size={16} /> No engagements match this search.</p>
                 )}
+                {visibleOthers.length > othersPageSize && (
+                  <nav className={styles.engagementPagination} aria-label="Other engagement pages">
+                    <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Previous engagements" disabled={currentOthersPage === 1} onClick={() => setOthersPage(currentOthersPage - 1)} />
+                    <span aria-live="polite">{othersOffset + 1}–{Math.min(othersOffset + othersPageSize, visibleOthers.length)} of {visibleOthers.length}</span>
+                    <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Next engagements" disabled={currentOthersPage === othersPageCount} onClick={() => setOthersPage(currentOthersPage + 1)} />
+                  </nav>
+                )}
               </section>
+            </div>
+
+            <aside className={styles.side} aria-label="Engagement overview">
+              <figure className={styles.mentorSpeech}>{mentorMessage}</figure>
 
               {recommended && (
                 <section className={styles.panel}>
@@ -445,6 +484,31 @@ export default function CommandCentrePage() {
                   </Button>
                 </section>
               )}
+              {assignedScenarios.length > 0 && (
+                <section className={styles.panel} aria-labelledby="assigned-scenarios">
+                  <div className={styles.panelHead}>
+                    <h3 id="assigned-scenarios">Assigned Scenarios</h3>
+                  </div>
+                  <ul className={styles.assignedList}>
+                    {assignedScenarios.map((scenario) => {
+                      const engagement = [...active, ...failed].find((item) => item.scenarioId === scenario.id)
+                      return <AssignedScenarioRow key={scenario.id} scenario={scenario} engagement={engagement}
+                        onStart={openBriefing} disabled={startEngagement.isPending} />
+                    })}
+                  </ul>
+                </section>
+              )}
+              <section className={styles.panel} aria-labelledby="recently-completed">
+                <div className={styles.panelHead}>
+                  <h3 id="recently-completed">Recently Completed</h3>
+                  <Button kind="ghost" size="sm" onClick={() => navigate('/dashboard/portfolio')}>View all</Button>
+                </div>
+                {completedHistory.length > 0 ? (
+                  <ul className={styles.list}>{completedHistory.map((item) => <CompletedRow key={item.engagementId} item={item} />)}</ul>
+                ) : (
+                  <p className={styles.sideEmpty}>Completed engagements will appear here.</p>
+                )}
+              </section>
             </aside>
           </div>
         )}

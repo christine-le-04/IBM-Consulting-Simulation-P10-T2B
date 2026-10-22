@@ -1,13 +1,27 @@
 // Portfolio, ported from the UX prototype (src/prototype/screens/portfolio.module.scss).
 
 .page {
-  max-width: 1120px;
+  --portfolio-card-padding: 1rem;
+  --portfolio-section-gap: 1.5rem;
+  --portfolio-content-gap: 0.75rem;
+  --portfolio-detail-gap: 0.5rem;
+  font-family: var(--sim-sans);
+  font-size: var(--sim-font-body);
+  line-height: var(--sim-line-height);
+  min-width: 0;
   width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: clamp(1rem, 1.4vw, 1.5rem) clamp(1rem, 3vw, 3rem) 1rem;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--portfolio-section-gap);
+
+  :where(p) { margin: 0; }
+
+  @media (max-width: 672px) {
+    padding: 1rem;
+  }
 }
 
 .profile {
@@ -18,6 +32,8 @@
   border: 1px solid var(--sim-line);
   padding: 1.5rem;
   background-image: linear-gradient(180deg, #0f62fe 0 64px, #fff 64px);
+
+  > div { min-width: 0; }
 
   h1 {
     margin: 3.2rem 0 0.1rem;
@@ -34,6 +50,7 @@
 
 .welcome {
   margin-top: 0.4rem !important;
+  max-width: 65ch;
 }
 
 .avatar {
@@ -62,7 +79,7 @@
   div {
     background: #fff;
     border: 1px solid var(--sim-line);
-    padding: 1rem;
+    padding: var(--portfolio-card-padding);
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
@@ -74,7 +91,7 @@
   }
 
   strong {
-    font-size: 1.75rem;
+    font-size: var(--sim-font-title);
     font-weight: 300;
   }
 
@@ -97,6 +114,8 @@
 
 .sectionHead {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   justify-content: space-between;
   align-items: center;
 
@@ -107,7 +126,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
-  margin: 0.75rem 0 1rem;
+  margin: var(--portfolio-content-gap) 0;
 
   @media (max-width: 672px) {
     grid-template-columns: 1fr;
@@ -115,18 +134,27 @@
 }
 
 .trend {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
-  padding: 1rem;
+  padding: var(--portfolio-card-padding);
   display: grid;
   gap: 0.5rem;
 }
 
 .trendHead {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: space-between;
   align-items: center;
   font-size: var(--sim-font-body);
+
+  h3 {
+    margin: 0;
+    font-size: var(--sim-font-subheading);
+    font-weight: 600;
+  }
 }
 
 .trendRow {
@@ -156,19 +184,20 @@
 }
 
 .chartCard {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
-  padding: 1rem;
+  padding: var(--portfolio-card-padding);
 
   h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--sim-font-subheading);
     font-weight: 600;
   }
 
   p {
-    margin: 0.2rem 0 0.75rem;
-    font-size: 0.8125rem;
+    margin: var(--portfolio-detail-gap) 0 var(--portfolio-content-gap);
+    font-size: var(--sim-font-body);
     color: var(--sim-ink-2);
   }
 }
@@ -176,6 +205,8 @@
 .legend {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
   gap: 0.5rem 1.25rem;
 
   > div {
@@ -186,9 +217,9 @@
 
 .history {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
   gap: 0.75rem;
-  margin: 0 0 1rem;
+  margin: var(--portfolio-content-gap) 0 0;
   padding: 0;
   list-style: none;
 
@@ -198,15 +229,16 @@
 }
 
 .historyCard {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
-  padding: 1rem;
+  padding: var(--portfolio-card-padding);
   display: grid;
+  align-content: start;
   height: 100%;
   gap: 0.5rem;
   color: inherit;
   text-decoration: none;
-  cursor: pointer;
   transition: border-color 0.12s, box-shadow 0.12s;
 
   &:hover {
@@ -216,14 +248,14 @@
     .historyOpen { text-decoration: underline; }
   }
 
-  &:focus-visible {
+  &:focus-within {
     outline: 2px solid var(--sim-blue);
     outline-offset: 2px;
   }
 
   h3 {
     margin: 0;
-    font-size: var(--sim-font-body);
+    font-size: var(--sim-font-subheading);
     font-weight: 600;
     line-height: 1.35;
   }
@@ -233,6 +265,9 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+
+  h3 { min-width: 0; }
+  > svg { flex: none; }
 }
 
 .tags {
@@ -243,26 +278,49 @@
 
 .historyMeta {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: space-between;
-  font-size: 0.8125rem;
+  font-size: var(--sim-font-caption);
   color: var(--sim-ink-2);
 
-  strong { color: var(--sim-ink); }
+  strong { color: var(--sim-ink); font-size: var(--sim-font-subheading); }
 }
 
 .replay {
   background: #fff;
   border: 1px solid var(--sim-line);
-  padding: 1rem;
+  padding: var(--portfolio-card-padding);
+  display: grid;
+  gap: var(--portfolio-content-gap);
 }
 
 .replayPickers {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
-  margin-top: 1.25rem;
+  min-width: 0;
+
+  > div { min-width: 0; }
+
+  :global(.cds--list-box),
+  :global(.cds--list-box__field),
+  :global(.cds--list-box__menu-item),
+  :global(.cds--list-box__menu-item__option) {
+    height: auto;
+    min-height: 2.5rem;
+  }
+
+  :global(.cds--list-box__label),
+  :global(.cds--list-box__menu-item__option) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: var(--sim-line-height);
+    padding-block: 0.5rem;
+  }
 
   label {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
@@ -271,6 +329,8 @@
   }
 
   select {
+    min-width: 0;
+    width: 100%;
     font: inherit;
     font-size: var(--sim-font-body);
     padding: 0.5rem;
@@ -283,42 +343,53 @@
 
 .replayGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
-  margin-top: 1rem;
 }
 
 .snapshot {
   border: 1px solid var(--sim-line);
-  padding: 0.9rem;
+  padding: var(--portfolio-card-padding);
+  display: grid;
+  align-content: start;
+  gap: var(--portfolio-detail-gap);
+
+  :global(.cds--tag) { justify-self: start; }
 
   h3 {
     margin: 0;
-    font-size: var(--sim-font-body);
+    font-size: var(--sim-font-subheading);
   }
 
   p {
-    margin: 0.2rem 0 0.5rem;
-    font-size: var(--sim-font-caption);
+    margin: 0;
+    font-size: var(--sim-font-body);
     color: var(--sim-ink-2);
   }
 }
 
 .snapshotScore {
   display: block;
-  font-size: 1.5rem;
+  font-size: var(--sim-font-title);
   font-weight: 300;
-  margin-bottom: 0.5rem;
+  margin: 0;
 }
 
+.snapshot p.snapshotLabel,
+.selectedScenario {
+  font-size: var(--sim-font-caption);
+  color: var(--sim-ink-2);
+}
+
+.selectedScenario { margin-top: var(--portfolio-detail-gap); }
+
 .comparisonTable {
-  margin-top: 1rem;
   overflow-x: auto;
 
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.8125rem;
+    font-size: var(--sim-font-body);
   }
 
   caption {
@@ -334,34 +405,43 @@
 }
 
 @media (max-width: 640px) {
-  .replayGrid { grid-template-columns: 1fr; }
+  .replayGrid,
+  .replayPickers { grid-template-columns: 1fr; }
+
+  .profile {
+    flex-direction: column;
+    align-items: flex-start;
+
+    h1 { margin-top: 0; }
+  }
 }
 
 .snapshotRow {
   display: flex;
   justify-content: space-between;
-  font-size: 0.8125rem;
+  font-size: var(--sim-font-body);
   padding: 0.2rem 0;
   border-bottom: 1px dashed var(--sim-line);
 }
 
 .achievements {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
   gap: 0.75rem;
 }
 
 .badge {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--sim-line);
-  padding: 1rem;
+  padding: var(--portfolio-card-padding);
   display: grid;
   gap: 0.5rem;
   align-content: start;
 
   p {
     margin: 0;
-    font-size: 0.8125rem;
+    font-size: var(--sim-font-body);
     color: var(--sim-ink-2);
   }
 }
@@ -371,7 +451,9 @@
   align-items: center;
   gap: 0.5rem;
 
-  svg { fill: #b28600; }
+  svg { fill: #b28600; flex: none; }
+
+  h3 { margin: 0; font-size: var(--sim-font-subheading); }
 }
 
 .badgeLocked {
@@ -385,7 +467,7 @@
 }
 
 .badgeScope {
-  font-size: 0.75rem;
+  font-size: var(--sim-font-caption);
   font-weight: 600;
   color: var(--sim-ink-2);
 }
@@ -422,14 +504,45 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.8125rem;
+  font-size: var(--sim-font-body);
   color: var(--sim-blue);
+  text-decoration: none;
+  justify-self: start;
+
+  &:hover { text-decoration: underline; }
+
+  &:focus-visible {
+    outline: 2px solid var(--sim-blue);
+    outline-offset: 3px;
+  }
 
   svg { fill: currentColor; }
 }
 
 .stageScores {
-  font-size: 0.8125rem;
+  font-size: var(--sim-font-body);
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker { display: none; }
+
+    &:focus-visible {
+      outline: 2px solid var(--sim-blue);
+      outline-offset: 2px;
+    }
+
+    svg { flex: none; }
+  }
+
+  &[open] summary svg { transform: rotate(180deg); }
 
   dl { margin: 0.5rem 0 0; }
 
@@ -451,19 +564,46 @@
   span { color: var(--sim-ink-2); }
 }
 
+.historyNavigation {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--sim-font-caption);
+  color: var(--sim-ink-2);
+
+  button {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--sim-line);
+    background: #fff;
+    color: var(--sim-blue);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--sim-blue-soft); }
+    &:disabled { color: #8d8d8d; cursor: default; }
+    &:focus-visible { outline: 2px solid var(--sim-blue); outline-offset: 2px; }
+  }
+}
+
 .practiceFocus {
-  padding: 1rem;
+  padding: var(--portfolio-card-padding);
+  display: grid;
+  gap: var(--portfolio-content-gap);
+  justify-items: start;
   background: #fff;
   border: 1px solid var(--sim-line);
   border-left: 4px solid var(--sim-blue);
 
   h2 {
-    margin: 0 0 0.5rem;
+    margin: 0;
     font-size: var(--sim-font-section);
     font-weight: 600;
   }
 
   p {
+    max-width: 75ch;
     font-size: var(--sim-font-body);
     line-height: 1.5;
   }

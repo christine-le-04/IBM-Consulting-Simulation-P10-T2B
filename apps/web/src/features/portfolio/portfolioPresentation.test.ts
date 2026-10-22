@@ -1,6 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import type { CompletedEngagementView, CompetencyTrend, PortfolioStageScore } from '@/api/types'
-import { portfolioDifficultyLabel, portfolioPracticeFocus, portfolioTooltipLabel } from './portfolioPresentation'
+import { portfolioDifficultyLabel, portfolioOutcomeLabel, portfolioPracticeFocus, portfolioReplayLabel, portfolioScenarioTitle, portfolioTooltipLabel } from './portfolioPresentation'
+
+describe('portfolio display labels', () => {
+  it('uses title case for stored outcome codes', () => {
+    expect(['PILOT_APPROVED', 'PROPOSAL_ACCEPTED', 'REVISION_REQUESTED', 'REJECTED'].map(portfolioOutcomeLabel))
+      .toEqual(['Pilot Approved', 'Proposal Accepted', 'Revision Requested', 'Rejected'])
+  })
+
+  it('formats descriptive suffixes without changing authored prefixes or acronyms', () => {
+    expect(portfolioScenarioTitle('Brightline Consumer Goods Atlas 0164: trade promotion execution'))
+      .toBe('Brightline Consumer Goods Atlas 0164: Trade Promotion Execution')
+    expect(portfolioScenarioTitle("IBM: AI-driven CRM rollout for client's teams"))
+      .toBe("IBM: AI-Driven CRM Rollout For Client's Teams")
+    expect(portfolioScenarioTitle('Existing iPhone and IBM title')).toBe('Existing iPhone and IBM title')
+  })
+
+  it('shortens only replay picker labels while retaining score and date', () => {
+    const item: CompletedEngagementView = { engagementId: 'run', scenarioId: 'scenario',
+      scenarioTitle: 'Brightline Consumer Goods Atlas 0164: trade promotion execution', industry: 'Retail',
+      outcome: 'PILOT_APPROVED', overallScore: 81, completedAt: '2026-10-08T10:00:00Z' }
+    expect(portfolioReplayLabel(item)).toBe('Brightline Consumer Goods Atlas 0164 — 81/100 · 08/10/2026')
+    expect(item.scenarioTitle).toBe('Brightline Consumer Goods Atlas 0164: trade promotion execution')
+    expect(portfolioTooltipLabel({ engagementId: 'run', engagement: 'Engagement 1', generatedAt: '2026-10-08T10:00:00Z' }, [item]))
+      .toContain('Brightline Consumer Goods Atlas 0164: Trade Promotion Execution')
+  })
+})
 
 describe('portfolio chart context', () => {
   const point = { engagementId: 'run-2', engagement: 'Engagement 2', generatedAt: '2026-10-02T10:00:00Z' }

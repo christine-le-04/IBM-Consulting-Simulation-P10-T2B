@@ -83,6 +83,19 @@ class ScenarioControllerAssignmentTest {
     }
 
     @Test
+    void consultantsCanFetchOnlyScenariosAssignedToThemByAnAdministrator() throws Exception {
+        signInAs(consultant);
+        when(scenarios.listActiveAdminAssignedTo(consultant.getId())).thenReturn(List.of(liveSummary("Admin assigned")));
+
+        mockMvc.perform(get("/api/v1/scenarios/assigned"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("Admin assigned"))
+                .andExpect(jsonPath("$.length()").value(1));
+
+        verify(scenarios).listActiveAdminAssignedTo(consultant.getId());
+    }
+
+    @Test
     void staffListEveryLiveScenario() throws Exception {
         signInAs(author);
         when(scenarios.listActive()).thenReturn(List.of(liveSummary("One"), liveSummary("Two")));
