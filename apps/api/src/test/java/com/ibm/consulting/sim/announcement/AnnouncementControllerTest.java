@@ -35,6 +35,8 @@ class AnnouncementControllerTest {
         mvc.perform(get("/api/v1/announcements")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/announcements/read").contentType(MediaType.APPLICATION_JSON).content("{\"ids\":[]}"))
                 .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/announcements/unread").contentType(MediaType.APPLICATION_JSON).content("{\"ids\":[]}"))
+                .andExpect(status().isUnauthorized());
         verifyNoInteractions(service);
     }
 
@@ -63,5 +65,9 @@ class AnnouncementControllerTest {
                 .content("{\"ids\":[\"" + id + "\"],\"userId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isNoContent());
         verify(service).markRead(learner.getId(), List.of(id));
+        mvc.perform(post("/api/v1/announcements/unread").with(authentication(auth)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[\"" + id + "\"]}"))
+                .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control", "no-store"));
+        verify(service).markUnread(learner.getId(), List.of(id));
     }
 }

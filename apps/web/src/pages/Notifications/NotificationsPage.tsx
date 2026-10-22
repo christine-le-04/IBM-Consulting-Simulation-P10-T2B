@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Button, InlineLoading, InlineNotification, Tag } from '@carbon/react'
 import { Link } from 'react-router-dom'
-import { announcementMessage, announcementTitle, useAnnouncements, useAnnouncementUpdates, useMarkAllAnnouncementsRead, useReadAnnouncements } from '@/api/hooks/useAnnouncements'
+import { announcementMessage, announcementTitle, useAnnouncements, useAnnouncementUpdates, useMarkAllAnnouncementsRead, useReadAnnouncements, useUnreadAnnouncements } from '@/api/hooks/useAnnouncements'
 import styles from './NotificationsPage.module.css'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 export default function NotificationsPage() {
   const [unreadOnly, setUnreadOnly] = useState(false)
@@ -12,6 +12,7 @@ export default function NotificationsPage() {
   const feed = useAnnouncements(page, unreadOnly, PAGE_SIZE)
   const markAll = useMarkAllAnnouncementsRead()
   const markRead = useReadAnnouncements()
+  const markUnread = useUnreadAnnouncements()
   useAnnouncementUpdates()
 
   const unread = feed.data?.unreadCount ?? 0
@@ -39,7 +40,7 @@ export default function NotificationsPage() {
     </div>
 
     {markAll.isError && <InlineNotification kind="error" title="Could not mark notifications as read" subtitle="Please try again." hideCloseButton />}
-    {markRead.isError && <InlineNotification kind="error" title="Could not mark notifications as read" subtitle="Please try again." hideCloseButton />}
+    {(markRead.isError || markUnread.isError) && <InlineNotification kind="error" title="Could not update notification status" subtitle="Please try again." hideCloseButton />}
     {feed.isLoading && <div className={styles.loading}><InlineLoading description="Loading notifications" /></div>}
     {feed.isError && <div className={styles.error}><InlineNotification kind="error" title="Notifications unavailable" subtitle="Try again in a moment." hideCloseButton /><Button kind="ghost" onClick={() => void feed.refetch()}>Try again</Button></div>}
 
@@ -49,11 +50,10 @@ export default function NotificationsPage() {
     </section>}
 
     <ul className={styles.list}>{feed.data?.items.map((item) => <li key={item.id} className={`${styles.item} ${item.read ? '' : styles.unread}`}>
-      <span className={styles.statusDot} aria-label={item.read ? 'Read' : 'Unread'} />
       <div className={styles.itemContent}>
         <div className={styles.itemHeader}>
           <Tag type={item.kind === 'ADMIN_MESSAGE' ? 'purple' : 'cool-gray'}>{notificationType(item.kind)}</Tag>
-          <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
+          <time dateTime={item.createdAt}>{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.createdAt))}</time>
         </div>
         <h2 className={styles.itemTitle}>{announcementTitle(item)}</h2>
         <p className={styles.message}>{announcementMessage(item)}</p>
@@ -61,8 +61,11 @@ export default function NotificationsPage() {
           {item.scenarioId && (item.kind === 'SCENARIO_PUBLISHED' || item.kind === 'SCENARIO_ASSIGNED') &&
             <Link to={`/dashboard/scenarios/${encodeURIComponent(item.scenarioId)}`}>View scenario</Link>}
           {item.kind === 'SCENARIO_ARCHIVED' && <Link to="/dashboard">Open your Office</Link>}
-          {!item.read && <Button kind="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate([item.id])}
-            aria-label={`Mark ${announcementTitle(item)} as read`}>Mark as read</Button>}
+          <Button kind="ghost" size="sm" disabled={markRead.isPending || markUnread.isPending}
+            onClick={() => item.read ? markUnread.mutate([item.id]) : markRead.mutate([item.id])}
+            aria-label={`Mark ${announcementTitle(item)} as ${item.read ? 'unread' : 'read'}`}>
+            Mark as {item.read ? 'unread' : 'read'}
+          </Button>
         </div>
       </div>
     </li>)}</ul>

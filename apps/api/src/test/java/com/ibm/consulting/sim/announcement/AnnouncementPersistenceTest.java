@@ -475,7 +475,10 @@ class AnnouncementPersistenceTest {
         assertThat(service.list(first.getId(), 0, 20).unreadCount()).isZero();
         assertThat(service.list(first.getId(), 0, 20).items().getFirst().read()).isTrue();
         assertThat(service.list(second.getId(), 0, 20).unreadCount()).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads", Long.class)).isEqualTo(1);
+        service.markUnread(first.getId(), List.of(id));
+        assertThat(service.list(first.getId(), 0, 20).unreadCount()).isEqualTo(1);
+        assertThat(service.list(second.getId(), 0, 20).unreadCount()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM announcement_reads", Long.class)).isZero();
     }
 
     @Test void paginationAndMarkingOnePageDoesNotMarkUnseenAnnouncements() {

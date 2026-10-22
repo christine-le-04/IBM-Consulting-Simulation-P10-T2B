@@ -1,15 +1,17 @@
 .root { position: relative; display: flex; }
 .badge { position: absolute; top: .2rem; right: .2rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 1rem; height: 1rem; padding: 0 .15rem; border-radius: 1rem; background: #da1e28; color: white; font-size: .65rem; line-height: 1; text-align: center; }
-.panel { position: fixed; z-index: 10000; top: 3rem; right: 0; display: flex; flex-direction: column; width: min(26rem, 100vw); max-height: calc(100dvh - 3rem); overflow-y: auto; padding: 1rem; background: #fff; color: #161616; box-shadow: 0 4px 12px #0003; border: 1px solid #e0e0e0; }
-.heading, .itemHeading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.panel { position: fixed; z-index: 10000; top: 3rem; right: 0; display: flex; flex-direction: column; width: min(26rem, 100vw); max-height: calc(100dvh - 3rem); overflow: hidden; padding: 1rem; background: #fff; color: #161616; box-shadow: 0 4px 12px #0003; border: 1px solid #e0e0e0; }
+.heading, .itemTop { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .heading h2 { margin: 0; font-size: 1.25rem; font-weight: 600; }
 .heading span { color: #525252; font-size: .875rem; }
-.panel p { margin: .5rem 0; line-height: 1.5; overflow-wrap: anywhere; }
-.message { white-space: pre-wrap; }
+.panel p { margin: .35rem 0 0; line-height: 1.4; overflow-wrap: anywhere; }
+.message { display: -webkit-box; overflow: hidden; color: #525252; font-size: .875rem; white-space: pre-wrap; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.title { display: -webkit-box; overflow: hidden; font-weight: 600; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
 .empty { padding: .75rem 0; color: #525252; }
-.list { list-style: none; padding: 0; margin: .75rem 0; }
-.list li { padding: .875rem .75rem; border-bottom: 1px solid #e0e0e0; }
+.list { flex: 1 1 auto; min-height: 0; overflow-y: auto; list-style: none; padding: 0; margin: .5rem 0; }
+.list li { padding: .6rem .6rem .7rem; border-bottom: 1px solid #e0e0e0; }
 .list .unread { background: #edf5ff; border-left: 3px solid #0f62fe; }
-.list time { display: block; margin-bottom: .5rem; font-size: .75rem; color: #525252; }
-.allLink { display: block; padding: .875rem .25rem .25rem; font-weight: 600; text-align: center; }
+.typeLabel { color: #525252; font-size: .75rem; font-weight: 600; letter-spacing: .02em; }
+.list time { flex: 0 0 auto; font-size: .75rem; color: #525252; }
+.allLink { flex: 0 0 auto; display: block; padding: .75rem .25rem 0; background: #fff; font-weight: 600; text-align: center; }
 @media (max-width: 672px) { .panel { right: 0; width: min(100vw, 26rem); } }

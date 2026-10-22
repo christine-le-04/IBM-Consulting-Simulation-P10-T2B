@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, HeaderGlobalAction, InlineLoading, InlineNotification, Tag } from '@carbon/react'
+import { Button, HeaderGlobalAction, InlineLoading, InlineNotification } from '@carbon/react'
 import { Link } from 'react-router-dom'
 import { Notification } from '@carbon/icons-react'
-import { announcementTitle, announcementMessage, useAnnouncements, useAnnouncementUpdates, useReadAnnouncements } from '@/api/hooks/useAnnouncements'
+import { announcementTitle, announcementMessage, useAnnouncements, useAnnouncementUpdates } from '@/api/hooks/useAnnouncements'
 import styles from './AnnouncementCenter.module.css'
 
 const PREVIEW_SIZE = 5
+const relativeTime = (value: string) => {
+  const elapsedSeconds = Math.max(0, (Date.now() - new Date(value).getTime()) / 1000)
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 60) return 'Just now'
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 31_536_000], ['month', 2_592_000], ['week', 604_800], ['day', 86_400], ['hour', 3_600], ['minute', 60],
+  ]
+  const [unit, seconds] = units.find(([, duration]) => elapsedSeconds >= duration) ?? units[units.length - 1]
+  const label = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-Math.floor(elapsedSeconds / seconds), unit)
+  return label.charAt(0).toLocaleUpperCase() + label.slice(1)
+}
 
 export default function AnnouncementCenter() {
   const [open, setOpen] = useState(false)
   const feed = useAnnouncements(0, false, PREVIEW_SIZE)
-  const markRead = useReadAnnouncements()
   useAnnouncementUpdates()
   const root = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLElement>(null)
@@ -44,18 +53,14 @@ export default function AnnouncementCenter() {
       {feed.isLoading && <InlineLoading description="Loading notifications" />}
       {feed.isError && <InlineNotification kind="error" title="Notifications unavailable" subtitle="Try again in a moment." hideCloseButton />}
       {feed.isError && <Button kind="ghost" size="sm" onClick={() => void feed.refetch()}>Try again</Button>}
-      {markRead.isError && <InlineNotification kind="error" title="Could not mark notification as read" subtitle="Please try again." hideCloseButton />}
       {feed.data?.items.length === 0 && <p className={styles.empty}>No notifications yet.</p>}
       <ul className={styles.list}>{feed.data?.items.map((item) => <li key={item.id} className={item.read ? '' : styles.unread}>
-        <div className={styles.itemHeading}><strong>{item.kind === 'SCENARIO_PUBLISHED' ? 'Scenario published' : item.kind === 'SCENARIO_ARCHIVED' ? 'Scenario archived' : item.kind === 'SCENARIO_ASSIGNED' ? 'New scenario assignment' : 'From the administration team'}</strong>{!item.read && <Tag type="blue">Unread</Tag>}</div>
-        <p><strong>{announcementTitle(item)}</strong></p>
+        <div className={styles.itemTop}>
+          <span className={styles.typeLabel}>{item.kind === 'ADMIN_MESSAGE' ? 'Announcement' : 'System'}</span>
+          <time dateTime={item.createdAt}>{relativeTime(item.createdAt)}</time>
+        </div>
+        <p className={styles.title}>{announcementTitle(item)}</p>
         <p className={styles.message}>{announcementMessage(item)}</p>
-        {item.scenarioId && (item.kind === 'SCENARIO_PUBLISHED' || item.kind === 'SCENARIO_ASSIGNED') &&
-          <p><Link to={`/dashboard/scenarios/${encodeURIComponent(item.scenarioId)}`} onClick={() => setOpen(false)}>View scenario</Link></p>}
-        {item.kind === 'SCENARIO_ARCHIVED' && <p><Link to="/dashboard" onClick={() => setOpen(false)}>Open your Office</Link></p>}
-        <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
-        {!item.read && <Button kind="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate([item.id])}
-          aria-label={`Mark ${announcementTitle(item)} as read`}>Mark as read</Button>}
       </li>)}</ul>
       <Link className={styles.allLink} to="/dashboard/notifications" onClick={() => setOpen(false)}>See all notifications</Link>
     </section>}

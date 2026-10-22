@@ -80,6 +80,14 @@ export function useReadAnnouncements() {
   })
 }
 
+export function useUnreadAnnouncements() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: string[]) => apiClient.post('/api/v1/announcements/unread', { ids }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['announcements'] }) },
+  })
+}
+
 export function useMarkAllAnnouncementsRead() {
   const qc = useQueryClient()
   return useMutation({

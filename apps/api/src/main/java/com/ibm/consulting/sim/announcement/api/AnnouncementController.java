@@ -41,4 +41,10 @@ public class AnnouncementController {
         service.markRead(user.getId(), request.ids());
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
+
+    @PostMapping("/unread")
+    public ResponseEntity<Void> markUnread(@AuthenticationPrincipal User user, @Valid @RequestBody ReadRequest request) {
+        service.markUnread(user.getId(), request.ids());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
 }

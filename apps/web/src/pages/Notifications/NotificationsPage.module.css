@@ -15,27 +15,24 @@
 .empty h2 { margin: 0 0 .75rem; font-size: var(--sim-font-section); font-weight: 500; }
 .empty p { margin: 0; color: #525252; }
 .list { list-style: none; margin: 0; padding: 0; }
-.item { display: grid; grid-template-columns: .5rem minmax(0, 1fr); align-items: start; gap: .5rem; min-width: 0; padding: 1.125rem .25rem; border-bottom: 1px solid #e0e0e0; background: #fff; }
+.item { min-width: 0; padding: 1.125rem 1rem; border-bottom: 1px solid #e0e0e0; background: #fff; }
 .item:hover { background: #f4f4f4; }
 .unread { background: #f4f8ff; }
 .unread:hover { background: #edf5ff; }
-.statusDot { width: .5rem; height: .5rem; margin: .6rem 0 0; border-radius: 50%; background: transparent; }
-.unread .statusDot { background: #0f62fe; }
 .itemContent { min-width: 0; }
 .itemHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; }
 .itemHeader time { color: #525252; font-size: var(--sim-font-caption); }
-.itemTitle { margin: .5rem 0 .25rem; font-size: var(--sim-font-body); line-height: 1.4; font-weight: 500; overflow-wrap: anywhere; }
-.unread .itemTitle { font-weight: 600; }
+.itemTitle { margin: .5rem 0 .25rem; font-size: var(--sim-font-body); line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
 .message { margin: 0; color: #525252; font-size: var(--sim-font-body); white-space: pre-wrap; line-height: 1.5; overflow-wrap: anywhere; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-top: .375rem; }
 .actions a { font-size: var(--sim-font-body); }
-.actions button { min-height: 2rem; padding: 0 .5rem; }
+.actions button { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 2rem; margin-block: 0; margin-inline-start: auto; padding: 0 .5rem; line-height: 1; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem 0; }
 .pagination span { color: #525252; font-size: var(--sim-font-caption); }
 @media (max-width: 672px) {
   .page { padding: 1rem; }
   .header { align-items: flex-start; flex-direction: column; }
-  .item { padding: .875rem .125rem; }
+  .item { padding: .875rem 1rem; }
   .itemBottom { align-items: flex-start; flex-direction: column; gap: .5rem; }
   .actions { justify-content: flex-start; }
 }

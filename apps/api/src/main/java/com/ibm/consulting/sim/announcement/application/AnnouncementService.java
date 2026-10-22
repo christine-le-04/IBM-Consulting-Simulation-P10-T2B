@@ -101,4 +101,12 @@ public class AnnouncementService {
                     """.formatted(ELIGIBLE), userId, id, userId);
         }
     }
+
+    @Transactional
+    public void markUnread(UUID userId, List<UUID> ids) {
+        // Read state is per-user; deleting a receipt cannot affect another user's feed.
+        for (UUID id : ids.stream().distinct().toList()) {
+            jdbc.update("DELETE FROM announcement_reads WHERE user_id = ? AND announcement_id = ?", userId, id);
+        }
+    }
 }

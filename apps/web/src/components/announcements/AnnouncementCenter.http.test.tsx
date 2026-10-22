@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import apiClient from '@/api/client'
-import { useAnnouncements, useAnnouncementUpdates, useMarkAllAnnouncementsRead, type Announcement, type AnnouncementFeed } from '@/api/hooks/useAnnouncements'
+import { useAnnouncements, useAnnouncementUpdates, useMarkAllAnnouncementsRead, useReadAnnouncements, useUnreadAnnouncements, type Announcement, type AnnouncementFeed } from '@/api/hooks/useAnnouncements'
 import { useAuthStore } from '@/store/authStore'
 import AnnouncementCenter from './AnnouncementCenter'
 
@@ -60,12 +60,12 @@ const adapter: AxiosAdapter = async (config) => {
     }
     return response(snapshot)
   }
-  if (config.method === 'post' && ['/api/v1/announcements/read', '/api/v1/announcements/read-all'].includes(config.url ?? '')) {
+  if (config.method === 'post' && ['/api/v1/announcements/read', '/api/v1/announcements/unread', '/api/v1/announcements/read-all'].includes(config.url ?? '')) {
     if (failRead) throw new AxiosError('Unavailable', 'ERR_BAD_RESPONSE', config, undefined, { ...response({}), status: 503 })
     const body = JSON.parse(config.data as string) as { ids?: string[]; through?: string }
     const ids = body.ids ?? notices.map((item) => item.id)
     const saved = reads.get(userId) ?? new Set<string>()
-    ids.forEach((id) => saved.add(id))
+    ids.forEach((id) => config.url === '/api/v1/announcements/unread' ? saved.delete(id) : saved.add(id))
     reads.set(userId, saved)
     return { ...response(null), status: 204 }
   }
@@ -102,30 +102,34 @@ describe('announcement HTTP handling and missed-update recovery', () => {
     vi.useRealTimers()
   })
 
-  it('marks an item read through HTTP and refreshes the visible unread count', async () => {
-    showCenter()
-    fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Mark Update one as read' }))
-    await screen.findByText('0 unread')
-    expect(screen.queryByRole('button', { name: 'Mark Update one as read' })).not.toBeInTheDocument()
+  it('marks an item read through HTTP', async () => {
+    const { result } = renderHook(() => useReadAnnouncements(), context())
+    act(() => result.current.mutate(['one']))
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
     const request = requests.find((item) => item.url === '/api/v1/announcements/read')
     expect(JSON.parse(request?.data as string)).toEqual({ ids: ['one'] })
     expect(request?.headers.Authorization).toBe('Bearer first')
-    expect(getRequests().length).toBeGreaterThan(1)
+  })
+
+  it('marks an item unread through HTTP', async () => {
+    reads.set('first', new Set(['one']))
+    const { result } = renderHook(() => useUnreadAnnouncements(), context())
+    act(() => result.current.mutate(['one']))
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const request = requests.find((item) => item.url === '/api/v1/announcements/unread')
+    expect(JSON.parse(request?.data as string)).toEqual({ ids: ['one'] })
+    expect(request?.headers.Authorization).toBe('Bearer first')
   })
 
   it('keeps a failed read unread and allows a successful retry', async () => {
     failRead = true
-    showCenter()
-    fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Mark Update one as read' }))
-    await screen.findByText('Could not mark notification as read')
-    expect(screen.getByText('1 unread')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Mark Update one as read' })).toBeEnabled()
+    const { result } = renderHook(() => useReadAnnouncements(), context())
+    act(() => result.current.mutate(['one']))
+    await waitFor(() => expect(result.current.isError).toBe(true))
     failRead = false
-    fireEvent.click(screen.getByRole('button', { name: 'Mark Update one as read' }))
-    await screen.findByText('0 unread')
-    expect(screen.queryByText('Could not mark notification as read')).not.toBeInTheDocument()
+    act(() => result.current.mutate(['one']))
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(requests.filter((item) => item.url === '/api/v1/announcements/read')).toHaveLength(2)
   })
 
   it('marks all read through HTTP using the server snapshot', async () => {
