@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/api/client'
-import type { Assessment, LearnerProgressEntry } from '@/api/types'
+import type { Assessment, CohortAnalyticsResponse, LearnerProgressEntry } from '@/api/types'
 
 export const adminLearnerKeys = {
   progress: ['admin', 'learners', 'progress'] as const,
+  cohorts: ['admin', 'learners', 'cohorts'] as const,
   assessment: (engagementId: string) => ['admin', 'learners', 'assessment', engagementId] as const,
 }
 
@@ -14,6 +15,16 @@ export function useAdminLearnerProgress(enabled: boolean) {
     queryFn: async () => (await apiClient.get<LearnerProgressEntry[]>('/api/v1/admin/learners/progress')).data,
     staleTime: 60_000,
     refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useAdminCohortAnalytics(enabled: boolean) {
+  return useQuery({
+    queryKey: adminLearnerKeys.cohorts,
+    enabled,
+    queryFn: async () => (await apiClient.get<CohortAnalyticsResponse>('/api/v1/admin/learners/cohorts')).data,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   })
 }

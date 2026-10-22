@@ -1,4 +1,4 @@
-import type { EngagementState, LearnerProgressEntry } from '@/api/types'
+import type { CohortAnalytics, EngagementState, LearnerProgressEntry } from '@/api/types'
 
 export const LEARNER_STAGES = ['Research', 'Outreach', 'Preparation', 'Meeting', 'Proposal', 'Review'] as const
 export type LearnerStage = typeof LEARNER_STAGES[number]
@@ -100,3 +100,15 @@ export function toLearnerProgressCsv(entries: LearnerProgressEntry[], now: numbe
 }
 
 export const learnerProgressCsvName = (now: number) => `learner-progress-${new Date(now).toISOString().slice(0, 10)}.csv`
+
+/** Runs currently sitting in each stage, in journey order. */
+export function stageCounts(cohort: CohortAnalytics) {
+  const counts = Object.fromEntries(LEARNER_STAGES.map((stage) => [stage, 0])) as Record<LearnerStage, number>
+  for (const [state, count] of Object.entries(cohort.stateCounts) as [EngagementState, number][]) {
+    if (STAGE_BY_STATE[state]) counts[STAGE_BY_STATE[state]] += count
+  }
+  return LEARNER_STAGES.map((stage) => ({ stage, count: counts[stage] }))
+}
+
+export const completionRate = (cohort: CohortAnalytics) =>
+  cohort.runCount ? Math.round((cohort.completedCount / cohort.runCount) * 100) : null

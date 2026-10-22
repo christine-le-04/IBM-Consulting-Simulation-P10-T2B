@@ -2,6 +2,7 @@ package com.ibm.consulting.sim.admin.api;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ibm.consulting.sim.admin.application.CohortAnalytics;
+import com.ibm.consulting.sim.admin.application.CohortAnalyticsService;
 import com.ibm.consulting.sim.admin.application.LearnerProgressEntry;
 import com.ibm.consulting.sim.admin.application.LearnerProgressService;
 import com.ibm.consulting.sim.identity.domain.UserRepository;
@@ -30,6 +33,9 @@ class AdminLearnerControllerTest {
 
     @MockBean
     private LearnerProgressService progressService;
+
+    @MockBean
+    private CohortAnalyticsService cohortService;
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
@@ -72,5 +78,30 @@ class AdminLearnerControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].displayName").value("Ana Lee"))
                 .andExpect(jsonPath("$[0].state").value("OUTREACHING"));
+    }
+
+    // tests that only administrators can see cohort analytics
+    @Test
+    @WithMockUser(roles = "REVIEWER")
+    void reviewerCannotViewCohortAnalytics() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/learners/cohorts"))
+                .andExpect(status().isForbidden());
+    }
+
+    // tests successful cohort analytics response for administrator role
+    @Test
+    @WithMockUser(roles = "ADMINISTRATOR")
+    void administratorCanViewCohortAnalytics() throws Exception {
+        CohortAnalytics overall = new CohortAnalytics(null, "All scenarios", 1, 2, 1, 0, 82, Map.of("COMPLETED", 1, "OUTREACHING", 1),
+                List.of(new CohortAnalytics.CompetencyAverage("Solution Alignment", 64, 1, 1)),
+                List.of(new CohortAnalytics.RecurringFeedback("Probe budget earlier", 2)));
+        when(cohortService.getCohorts()).thenReturn(new CohortAnalytics.Response(70, overall, List.of()));
+
+        mockMvc.perform(get("/api/v1/admin/learners/cohorts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.targetScore").value(70))
+                .andExpect(jsonPath("$.overall.completedCount").value(1))
+                .andExpect(jsonPath("$.overall.competencies[0].name").value("Solution Alignment"))
+                .andExpect(jsonPath("$.overall.commonImprovementAreas[0].runCount").value(2));
     }
 }
