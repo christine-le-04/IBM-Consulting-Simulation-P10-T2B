@@ -176,7 +176,7 @@ function Bullets({ items, label, placeholder, onChange, readOnly = false, errorI
           {!readOnly && <button type="button" aria-label={`Remove item ${index + 1}`} onClick={() => onChange(items.length === 1 ? [''] : items.filter((_, position) => position !== index))}><TrashCan size={14} /></button>}
         </li>
       ))}
-      {!readOnly && <li><button type="button" className={styles.addRow} onClick={() => { markAdded(); onChange([...items, '']) }}><Add size={14} /> Add item</button></li>}
+      {!readOnly && <li className={styles.addBullet}><button type="button" className={styles.addRow} onClick={() => { markAdded(); onChange([...items, '']) }}><Add size={14} /> Add item</button></li>}
     </ul>
   )
 }

@@ -85,6 +85,7 @@ export default function AppShell() {
         </HeaderNavigation>
         {onEngagement && <EngagementBar />}
         <HeaderGlobalBar className={shell.globalBar}>
+          <span id="objective-tour-action-slot" style={{ display: 'contents' }} />
           <AnnouncementCenter />
           <NavLink
             to="/dashboard/portfolio"

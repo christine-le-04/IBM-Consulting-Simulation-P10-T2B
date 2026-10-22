@@ -82,10 +82,10 @@ export default function ObjectiveGuide({ tourId }: { tourId: string }) {
     openedAtLeastOnce.current = false
     markComplete(userId, tourId)
 
-    if (hasCompletedAllTours(completedFor(userId))) {
+    if (onboardingRequired && hasCompletedAllTours(completedFor(userId))) {
       completeMutation()
     }
-  }, [completeMutation, completedFor, isOpen, markComplete, tourId, userId])
+  }, [completeMutation, completedFor, isOpen, markComplete, onboardingRequired, tourId, userId])
 
   return null
 }
