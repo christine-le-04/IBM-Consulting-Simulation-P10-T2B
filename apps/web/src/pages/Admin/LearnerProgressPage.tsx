@@ -1,5 +1,5 @@
 import { Button, Column, Grid, Heading, InlineLoading, Pagination, Select, SelectItem, Tag, TextInput } from '@carbon/react'
-import { Renew, UserMultiple } from '@carbon/icons-react'
+import { Download, Renew, UserMultiple } from '@carbon/icons-react'
 import { useDeferredValue, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAdminLearnerProgress } from '@/api/hooks/useAdminLearnerProgress'
@@ -9,6 +9,7 @@ import {
   DEFAULT_STUCK_DAYS,
   LEARNER_STAGES,
   LEARNER_STATUSES as STATUSES,
+  learnerProgressCsvName,
   type LearnerStage,
   type LearnerStatus,
   relativeTime,
@@ -17,12 +18,23 @@ import {
   stageOf,
   statusOf,
   summarise,
+  toLearnerProgressCsv,
 } from '@/features/admin/learnerProgress'
 import LearnerStageBar from './LearnerStageBar'
 import shared from './AdminOperationsPage.module.css'
 import styles from './LearnerProgressPage.module.css'
 
 const PAGE_SIZES = [25, 50, 100]
+
+function downloadCsv(fileName: string, csv: string) {
+  // The byte-order mark makes Excel open the file as UTF-8 so accented names survive.
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
 const isStatus = (value: string | null): value is LearnerStatus => STATUSES.includes(value as LearnerStatus)
 
@@ -99,6 +111,9 @@ export default function LearnerProgressPage() {
           <p>See where every learner is in their engagement, how they scored, and who needs a nudge.</p>
         </div>
         <div className={shared.headerActions}>
+          <Button kind="tertiary" renderIcon={Download} disabled={filtered.length === 0} onClick={() => downloadCsv(learnerProgressCsvName(now), toLearnerProgressCsv(filtered, now))}>
+            {hasFilters ? 'Export filtered CSV' : 'Export CSV'}
+          </Button>
           <Button kind="tertiary" renderIcon={Renew} disabled={progress.isFetching} onClick={() => progress.refetch()}>Refresh</Button>
         </div>
       </header>
