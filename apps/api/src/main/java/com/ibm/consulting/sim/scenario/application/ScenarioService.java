@@ -83,6 +83,15 @@ public class ScenarioService {
                 .toList();
     }
 
+    /** Live scenarios explicitly assigned by an administrator to one consultant. */
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = SCENARIOS_CACHE, key = "'starter-v1:admin-assigned:' + #userId")
+    public List<ScenarioSummary> listActiveAdminAssignedTo(UUID userId) {
+        return scenarioRepository.findAllActiveAdminAssignedTo(userId).stream()
+                .map(this::summary)
+                .toList();
+    }
+
     /** Bounded learner catalogue query that never loads every scenario into a dashboard request. */
     @Transactional(readOnly = true)
     // New namespace avoids pre-backfill empty results in persistent caches.

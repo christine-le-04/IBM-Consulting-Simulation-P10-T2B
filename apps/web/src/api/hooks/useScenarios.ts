@@ -64,6 +64,17 @@ export function useScenarios() {
   })
 }
 
+/** Scenarios assigned to the current learner by an administrator. */
+export function useAssignedScenarios() {
+  const userId = useAuthStore((state) => state.userId)
+  return useQuery({
+    queryKey: ['scenarios', 'assigned', userId],
+    queryFn: async ({ signal }) => (await apiClient.get<ScenarioSummary[]>('/api/v1/scenarios/assigned', { signal })).data,
+    enabled: Boolean(userId),
+    staleTime: 30_000,
+  })
+}
+
 export function useScenario(id: string) {
   return useQuery({
     queryKey: ['scenarios', id],

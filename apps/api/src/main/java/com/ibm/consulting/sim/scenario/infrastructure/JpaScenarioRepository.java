@@ -61,6 +61,16 @@ interface SpringDataScenarioRepository extends JpaRepository<Scenario, UUID>, or
     List<Scenario> findByStatusAssignedTo(@Param("status") ScenarioStatus status, @Param("userId") UUID userId);
 
     @Query("""
+            select distinct scenario from Scenario scenario
+            where scenario.status = :status
+              and scenario.scenarioLineageId in (
+                  select assignment.scenarioLineageId from ScenarioAssignment assignment
+                  where assignment.userId = :userId and assignment.assignedBy is not null)
+            order by scenario.title asc
+            """)
+    List<Scenario> findByStatusAdminAssignedTo(@Param("status") ScenarioStatus status, @Param("userId") UUID userId);
+
+    @Query("""
             select distinct scenario.industry from Scenario scenario
             where scenario.status = :status
               and scenario.scenarioLineageId in (
@@ -83,6 +93,9 @@ class JpaScenarioRepository implements ScenarioRepository {
     @Override public List<Scenario> findAllActive() { return repo.findByStatus(ScenarioStatus.ACTIVE); }
     @Override public List<Scenario> findAllActiveAssignedTo(UUID userId) {
         return repo.findByStatusAssignedTo(ScenarioStatus.ACTIVE, userId);
+    }
+    @Override public List<Scenario> findAllActiveAdminAssignedTo(UUID userId) {
+        return repo.findByStatusAdminAssignedTo(ScenarioStatus.ACTIVE, userId);
     }
     @Override public ScenarioCatalogPage findCatalog(ScenarioCatalogQuery query) {
         var page = repo.findAll(catalogueSpecification(query), PageRequest.of(

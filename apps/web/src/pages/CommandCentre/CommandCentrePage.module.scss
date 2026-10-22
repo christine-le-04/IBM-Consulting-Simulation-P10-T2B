@@ -277,6 +277,39 @@
   gap: 0.5rem;
 }
 
+.assignedList {
+  display: grid;
+  gap: 0.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.assignedRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--sim-line);
+
+  &:last-child { border-bottom: 0; }
+
+  > svg { flex: none; }
+  :global(.cds--btn) { flex: none; }
+}
+
+.assignedCopy {
+  display: grid;
+  flex: 1;
+  gap: 0.2rem;
+  min-width: 0;
+  font-size: var(--sim-font-caption);
+
+  strong { overflow-wrap: anywhere; }
+  small { color: var(--sim-ink-2); }
+}
+
 .identity {
   min-width: 0;
   display: flex;

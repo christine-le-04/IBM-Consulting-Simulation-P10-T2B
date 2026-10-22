@@ -13,7 +13,7 @@ import { Button, InlineNotification, Tag, TextInput } from '@carbon/react'
 import { Add, ArrowRight, ChevronLeft, ChevronRight, Renew, Search } from '@carbon/icons-react'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
-import { useScenarioCatalog } from '@/api/hooks/useScenarios'
+import { useAssignedScenarios, useScenarioCatalog } from '@/api/hooks/useScenarios'
 import { resolveEngagementRoute } from '@/api/engagementRouting'
 import { getApiProblem } from '@/api/problemDetails'
 import type { CompletedEngagementView, Engagement, ScenarioSummary } from '@/api/types'
@@ -174,12 +174,35 @@ function CompletedRow({ item }: { item: CompletedEngagementView }) {
   )
 }
 
+function AssignedScenarioRow({ scenario, engagement, onStart, disabled }: {
+  scenario: ScenarioSummary
+  engagement?: Engagement
+  onStart: (scenario: ScenarioSummary) => void
+  disabled: boolean
+}) {
+  const navigate = useNavigate()
+  return (
+    <li className={styles.assignedRow}>
+      <IndustryArt industry={scenario.industry} size={32} />
+      <div className={styles.assignedCopy}>
+        <strong>{scenario.title}</strong>
+        <small>{scenario.industry} · Complexity {scenario.difficulty}/5</small>
+      </div>
+      <Button kind="ghost" size="sm" disabled={disabled && !engagement}
+        onClick={() => engagement ? navigate(resolveEngagementRoute(engagement)) : onStart(scenario)}>
+        {engagement ? 'Continue' : 'Start'}
+      </Button>
+    </li>
+  )
+}
+
 export default function CommandCentrePage() {
   const { displayName } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const { data: engagements, isLoading: engLoading, isError: engError, refetch: refetchEngagements } = useMyEngagements()
   const { data: portfolio } = usePortfolioSummary()
+  const { data: assignedScenarios = [] } = useAssignedScenarios()
   const startEngagement = useStartEngagement()
   const { data: starterPage, isLoading: scenLoading, isError: scenarioError, refetch: refetchScenarios } = useScenarioCatalog({ page: 0, size: 8 })
   const { stage } = useExperience()
@@ -233,7 +256,9 @@ export default function CommandCentrePage() {
    */
   const starterScenario = starterPage?.items[0] ?? null
   // A recommendation is something new: never a scenario already started.
-  const recommended = starterPage?.items.find((item) => !allEngagements.some((engagement) => engagement.scenarioId === item.id)) ?? null
+  const assignedScenarioIds = new Set(assignedScenarios.map((scenario) => scenario.id))
+  const recommended = starterPage?.items.find((item) => !assignedScenarioIds.has(item.id)
+    && !allEngagements.some((engagement) => engagement.scenarioId === item.id)) ?? null
 
   // Shows a notification when the learner was redirected from a protected route.
   const [deniedReason, setDeniedReason] = useState<string | undefined>(
@@ -451,6 +476,20 @@ export default function CommandCentrePage() {
                   <Button kind="secondary" size="sm" renderIcon={Renew} disabled={startEngagement.isPending} onClick={() => openBriefing(recommended)}>
                     Start scenario
                   </Button>
+                </section>
+              )}
+              {assignedScenarios.length > 0 && (
+                <section className={styles.panel} aria-labelledby="assigned-scenarios">
+                  <div className={styles.panelHead}>
+                    <h3 id="assigned-scenarios">Assigned Scenarios</h3>
+                  </div>
+                  <ul className={styles.assignedList}>
+                    {assignedScenarios.map((scenario) => {
+                      const engagement = [...active, ...failed].find((item) => item.scenarioId === scenario.id)
+                      return <AssignedScenarioRow key={scenario.id} scenario={scenario} engagement={engagement}
+                        onStart={openBriefing} disabled={startEngagement.isPending} />
+                    })}
+                  </ul>
                 </section>
               )}
               <section className={styles.panel} aria-labelledby="recently-completed">

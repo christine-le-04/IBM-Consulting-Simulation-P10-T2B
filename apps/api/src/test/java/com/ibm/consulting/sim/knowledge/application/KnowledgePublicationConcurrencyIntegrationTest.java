@@ -195,6 +195,7 @@ class KnowledgePublicationConcurrencyIntegrationTest {
         @Override public ScenarioCatalogPage findCatalog(ScenarioCatalogQuery query) { throw new UnsupportedOperationException(); }
         @Override public ScenarioCatalogPage findAdminCatalog(AdminScenarioCatalogQuery query) { throw new UnsupportedOperationException(); }
         @Override public List<Scenario> findAllActiveAssignedTo(UUID userId) { throw new UnsupportedOperationException(); }
+        @Override public List<Scenario> findAllActiveAdminAssignedTo(UUID userId) { throw new UnsupportedOperationException(); }
         @Override public List<String> findCatalogIndustriesAssignedTo(UUID userId) { throw new UnsupportedOperationException(); }
         @Override public List<String> findCatalogIndustries() { return List.of(); }
         @Override public List<Scenario> findAll() { return List.of(); }

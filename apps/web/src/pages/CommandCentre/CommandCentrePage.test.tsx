@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import CommandCentrePage from './CommandCentrePage'
 import { useMyEngagements, useStartEngagement } from '@/api/hooks/useEngagements'
-import { useScenarioCatalog, useScenarioCatalogIndustries } from '@/api/hooks/useScenarios'
+import { useAssignedScenarios, useScenarioCatalog, useScenarioCatalogIndustries } from '@/api/hooks/useScenarios'
 import { usePortfolioSummary } from '@/api/hooks/usePortfolio'
 import type { Engagement, ScenarioCatalogPage, ScenarioSummary } from '@/api/types'
 
@@ -14,6 +14,7 @@ vi.mock('@/api/hooks/useEngagements', () => ({
   useStartEngagement: vi.fn(),
 }))
 vi.mock('@/api/hooks/useScenarios', () => ({
+  useAssignedScenarios: vi.fn(),
   useScenarioCatalog: vi.fn(),
   useScenarioCatalogIndustries: vi.fn(),
 }))
@@ -34,6 +35,7 @@ vi.mock('@/store/authStore', () => ({
 const mockedMyEngagements = vi.mocked(useMyEngagements)
 const mockedStartEngagement = vi.mocked(useStartEngagement)
 const mockedScenarioCatalog = vi.mocked(useScenarioCatalog)
+const mockedAssignedScenarios = vi.mocked(useAssignedScenarios)
 const mockedCatalogIndustries = vi.mocked(useScenarioCatalogIndustries)
 const mockedPortfolio = vi.mocked(usePortfolioSummary)
 
@@ -97,6 +99,8 @@ function setup(engagements: Engagement[]) {
     isFetching: false,
     isError: false,
   } as unknown as ReturnType<typeof useScenarioCatalog>)
+
+  mockedAssignedScenarios.mockReturnValue({ data: [], isLoading: false, isError: false } as unknown as ReturnType<typeof useAssignedScenarios>)
 
   mockedCatalogIndustries.mockReturnValue({
     data: [],
@@ -398,5 +402,22 @@ describe('Office: finding an engagement', () => {
     expect(screen.queryByText('Already running')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start scenario' })).toBeInTheDocument()
     expect(screen.getByText('Recommended for you').compareDocumentPosition(screen.getByRole('heading', { name: 'Recently Completed' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows administrator-assigned scenarios between recommendations and recent completions', () => {
+    setup([])
+    const assigned = scenario({ id: 'assigned-1', title: 'Assigned retail scenario' })
+    mockedAssignedScenarios.mockReturnValue({ data: [assigned], isLoading: false, isError: false } as unknown as ReturnType<typeof useAssignedScenarios>)
+    withCatalogue([assigned, scenario({ id: 'recommended-1', title: 'Recommended healthcare scenario' })])
+    renderPage()
+
+    const recommendedHeading = screen.getByText('Recommended for you')
+    const assignedRegion = screen.getByRole('region', { name: 'Assigned Scenarios' })
+    const completedHeading = screen.getByRole('heading', { name: 'Recently Completed' })
+    expect(within(assignedRegion).getByText('Assigned retail scenario')).toBeInTheDocument()
+    expect(within(assignedRegion).getByRole('button', { name: 'Start' })).toBeInTheDocument()
+    expect(screen.getByText('Recommended healthcare scenario')).toBeInTheDocument()
+    expect(recommendedHeading.compareDocumentPosition(assignedRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(assignedRegion.compareDocumentPosition(completedHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
