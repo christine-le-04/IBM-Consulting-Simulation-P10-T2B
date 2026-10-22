@@ -59,7 +59,7 @@ export default function NotificationsPage() {
         <p className={styles.message}>{announcementMessage(item)}</p>
         <div className={styles.actions}>
           {item.scenarioId && (item.kind === 'SCENARIO_PUBLISHED' || item.kind === 'SCENARIO_ASSIGNED') &&
-            <Link to={`/dashboard/scenarios/${encodeURIComponent(item.scenarioId)}`}>View scenario</Link>}
+            <Link to="/dashboard">Open your Office</Link>}
           {item.kind === 'SCENARIO_ARCHIVED' && <Link to="/dashboard">Open your Office</Link>}
           <Button kind="ghost" size="sm" disabled={markRead.isPending || markUnread.isPending}
             onClick={() => item.read ? markUnread.mutate([item.id]) : markRead.mutate([item.id])}

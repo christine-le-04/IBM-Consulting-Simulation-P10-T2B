@@ -74,7 +74,7 @@ export default function AdminNavigation() {
         <NavLink
           to="/dashboard/admin"
           end
-          className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}
+          className={({ isActive }) => `${styles.link} ${styles.overview} ${isActive ? styles.active : ''}`}
           onClick={() => setOpen(false)}
         >
           Overview
