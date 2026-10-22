@@ -156,14 +156,16 @@ function withCatalogue(items: ScenarioSummary[]) {
 }
 
 describe('Office: engagements on the floor', () => {
-  it('keeps the welcome separate from Dana and places her guidance above recent completions', () => {
+  it('aligns Dana with the welcome and places her message above recent completions', () => {
     setup([makeEngagement({})])
     renderPage()
 
     const welcome = screen.getByRole('heading', { name: 'Welcome back, Viet.' })
     expect(within(welcome.parentElement!).queryByText('Dana')).not.toBeInTheDocument()
+    expect(welcome.closest('div')?.className).toContain('mainColumn')
+    expect(screen.getByRole('img', { name: 'Dana, your mentor' }).parentElement).toBe(welcome.parentElement)
     const sidebar = screen.getByRole('complementary', { name: 'Engagement overview' })
-    const dana = within(sidebar).getByText('Dana')
+    const dana = within(sidebar).getByText('Dana').closest('blockquote')!
     const otherEngagements = within(sidebar).getByRole('heading', { name: 'Recently Completed' })
     expect(dana.compareDocumentPosition(otherEngagements) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })

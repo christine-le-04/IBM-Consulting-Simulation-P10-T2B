@@ -281,19 +281,17 @@ export default function CommandCentrePage() {
   if (engLoading || scenLoading) return <LoadingState />
   if (engError || scenarioError) return <ErrorState title="The Office could not be opened" message="Your engagements are saved. Check your connection, then try again." actionLabel="Try again" onAction={() => { void refetchEngagements(); void refetchScenarios() }} />
 
-  const mentorNote = (
-    <figure className={styles.mentorSays}>
-      <DanaAvatar size={48} />
-      <blockquote>
+  const mentorMessage = (
+      <blockquote className={styles.mentorQuote}>
         <p>
           {firstVisit
-            ? 'Hi, I’m Dana! I’ll be your mentor for your first engagement. At every step I’ll tell you what it’s for and what you’re still missing. You start with no clients, so let’s win your first one.'
+            ? 'I’m Dana, your mentor. I’ll guide you through your first engagement.'
             : lobbyLine(featured, failed)}
         </p>
         <figcaption><strong>{MENTOR.name}</strong>, {MENTOR.role}</figcaption>
       </blockquote>
-    </figure>
   )
+  const mentorNote = <figure className={styles.mentorSays}><DanaAvatar size={48} />{mentorMessage}</figure>
 
   return (
     <ObjectiveTourProvider tourId="command-centre" objectives={COMMAND_CENTRE_OBJECTIVES}>
@@ -313,12 +311,12 @@ export default function CommandCentrePage() {
           />
         )}
 
-        <header className={`${styles.lobby} objective-command-centre`}>
-          <h1 className={styles.greeting}>{firstVisit ? `Welcome, ${displayName}.` : `Welcome back, ${displayName}.`}</h1>
-          {firstVisit && mentorNote}
-        </header>
-
         {firstVisit ? (
+          <>
+          <header className={`${styles.lobby} ${styles.firstVisitLobby} objective-command-centre`}>
+            <h1 className={styles.greeting}>Welcome, {displayName}.</h1>
+            {mentorNote}
+          </header>
           <section className={styles.floorCard} aria-labelledby="first-run">
             {starterScenario ? (
               <div className={`${styles.floorHead} objective-start-engagement`}>
@@ -356,9 +354,14 @@ export default function CommandCentrePage() {
             <p className={styles.eyebrow}>Your office — each room opens when you finish the one before</p>
             <RoomGrid large />
           </section>
+          </>
         ) : (
           <div className={styles.grid}>
             <div className={styles.mainColumn}>
+              <header className={`${styles.lobby} objective-command-centre`}>
+                <h1 className={styles.greeting}>Welcome back, {displayName}.</h1>
+                <DanaAvatar size={48} className={styles.greetingAvatar} />
+              </header>
               {featured ? (
                 <section className={styles.floorCard} aria-labelledby="in-flight">
                   <div className={styles.floorHead}>
@@ -433,7 +436,7 @@ export default function CommandCentrePage() {
             </div>
 
             <aside className={styles.side} aria-label="Engagement overview">
-              {mentorNote}
+              <figure className={styles.mentorSpeech}>{mentorMessage}</figure>
 
               {recommended && (
                 <section className={styles.panel}>
