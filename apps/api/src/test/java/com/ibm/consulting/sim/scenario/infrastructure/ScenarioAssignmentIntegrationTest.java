@@ -1,5 +1,6 @@
 package com.ibm.consulting.sim.scenario.infrastructure;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.identity.domain.User;
 import com.ibm.consulting.sim.identity.domain.UserDirectoryPage;
 import com.ibm.consulting.sim.identity.domain.UserDirectoryQuery;
@@ -176,7 +177,7 @@ class ScenarioAssignmentIntegrationTest {
         Scenario scenario = inTransaction(() -> persistScenario("Service " + token(), "Service", true));
         ScenarioAssignmentService service = new ScenarioAssignmentService(
                 assignmentRepository, scenarioRepository, new EntityManagerUserRepository(), mock(AuditLogger.class),
-                mock(com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService.class));
+                mock(com.ibm.consulting.sim.announcement.application.AssignmentAnnouncementService.class), new ObjectMapper());
 
         inTransaction(() -> service.replaceAssignments(scenario.getId(), List.of(ada.getId(), bob.getId()), author.getId()));
         ScenarioAssignmentView afterSecondSave = inTransaction(

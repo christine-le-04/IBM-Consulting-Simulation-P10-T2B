@@ -86,6 +86,43 @@ function difficultyDetails(details: string) {
   return lines.join('\n')
 }
 
+function assignmentDetails(details: string) {
+  try {
+    const value: unknown = JSON.parse(details)
+    if (!value || typeof value !== 'object') return ''
+    const record = value as { scenario?: unknown; assigned?: unknown; unassigned?: unknown }
+    if (typeof record.scenario !== 'string' || !Array.isArray(record.assigned) || !Array.isArray(record.unassigned)) return ''
+    const formatUsers = (users: unknown[]): { displayName: string; email: string }[] => users.flatMap((user) => {
+      if (!user || typeof user !== 'object') return []
+      const assignee = user as { displayName?: unknown; email?: unknown }
+      if (typeof assignee.displayName !== 'string' || typeof assignee.email !== 'string') return []
+      return [{ displayName: auditText(assignee.displayName), email: auditEmail(assignee.email) }]
+    })
+    const assigned = formatUsers(record.assigned)
+    const unassigned = formatUsers(record.unassigned)
+    const scenario = auditText(record.scenario)
+    const lines: string[] = []
+
+    if (assigned.length === 1) {
+      lines.push(`Assigned ${scenario} to ${assigned[0].displayName} (${assigned[0].email})`)
+    } else if (assigned.length > 1) {
+      lines.push(`Assigned to ${assigned.length} users.`)
+      lines.push(...assigned.map((user) => `• Assigned ${scenario} to ${user.displayName} (${user.email})`))
+    }
+
+    if (unassigned.length === 1) {
+      lines.push(`Unassigned ${scenario} from ${unassigned[0].displayName} (${unassigned[0].email})`)
+    } else if (unassigned.length > 1) {
+      lines.push(`Unassigned from ${unassigned.length} users.`)
+      lines.push(...unassigned.map((user) => `• Unassigned ${scenario} from ${user.displayName} (${user.email})`))
+    }
+
+    return lines.join('\n') || 'No assignments changed.'
+  } catch {
+    return ''
+  }
+}
+
 export function auditDetails(item: AdminAuditEvent) {
   const fallback = actions[item.action]?.summary ?? 'An administrative change was recorded.'
   if (!item.details) return item.action === 'ADMIN_ANNOUNCEMENT_PUBLISHED' ? 'No additional details' : fallback
@@ -102,6 +139,8 @@ export function auditDetails(item: AdminAuditEvent) {
     case 'ADMIN_SCENARIO_DOCUMENT_UPDATED':
     case 'ADMIN_SCENARIO_DOCUMENT_DELETED': return documentTitle(item.details) ? `Document: ${documentTitle(item.details)}` : fallback
     case 'ADMIN_SCENARIO_ASSIGNMENTS_UPDATED': {
+      const detailed = assignmentDetails(item.details)
+      if (detailed) return detailed
       const counts = /^assigned (\d+), unassigned (\d+)$/.exec(item.details)
       if (!counts) return fallback
       const lines = []

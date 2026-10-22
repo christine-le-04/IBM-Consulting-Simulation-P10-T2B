@@ -1,5 +1,7 @@
 package com.ibm.consulting.sim.scenario.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.consulting.sim.identity.domain.User;
 import com.ibm.consulting.sim.identity.domain.UserRepository;
 import com.ibm.consulting.sim.identity.domain.UserRole;
@@ -43,16 +45,19 @@ public class ScenarioAssignmentService implements ScenarioAccessPolicy {
     private final UserRepository userRepository;
     private final AuditLogger auditLogger;
     private final AssignmentAnnouncementService announcements;
+    private final ObjectMapper objectMapper;
 
     public ScenarioAssignmentService(ScenarioAssignmentRepository assignmentRepository,
                                      ScenarioRepository scenarioRepository,
                                      UserRepository userRepository,
-                                     AuditLogger auditLogger, AssignmentAnnouncementService announcements) {
+                                     AuditLogger auditLogger, AssignmentAnnouncementService announcements,
+                                     ObjectMapper objectMapper) {
         this.assignmentRepository = assignmentRepository;
         this.scenarioRepository = scenarioRepository;
         this.userRepository = userRepository;
         this.auditLogger = auditLogger;
         this.announcements = announcements;
+        this.objectMapper = objectMapper;
     }
 
     /** Assign one random Live scenario as part of a new learner's registration. */
@@ -119,9 +124,35 @@ public class ScenarioAssignmentService implements ScenarioAccessPolicy {
         if (!added.isEmpty()) announcements.record(scenario, added.stream().map(ScenarioAssignment::getUserId).toList());
 
         auditLogger.recordAdmin(AuditAction.ADMIN_SCENARIO_ASSIGNMENTS_UPDATED, "SCENARIO", lineageId.toString(),
-                "assigned " + added.size() + ", unassigned " + removed.size());
+                assignmentAuditDetails(scenario, added, removed));
         return assignments(scenarioId);
     }
+
+    private String assignmentAuditDetails(Scenario scenario, List<ScenarioAssignment> added,
+                                          List<ScenarioAssignment> removed) {
+        List<AssignmentAuditUser> assignedUsers = auditUsers(added);
+        List<AssignmentAuditUser> unassignedUsers = auditUsers(removed);
+        try {
+            return objectMapper.writeValueAsString(new AssignmentAuditDetails(
+                    scenario.getTitle(), assignedUsers, unassignedUsers));
+        } catch (JsonProcessingException serializationFailure) {
+            // Keep assignment changes successful even if audit detail serialization fails.
+            return "assigned " + added.size() + ", unassigned " + removed.size();
+        }
+    }
+
+    private List<AssignmentAuditUser> auditUsers(List<ScenarioAssignment> assignments) {
+        return assignments.stream()
+                .map(ScenarioAssignment::getUserId)
+                .map(userRepository::findById)
+                .flatMap(Optional::stream)
+                .map(user -> new AssignmentAuditUser(user.getDisplayName(), user.getEmail()))
+                .toList();
+    }
+
+    private record AssignmentAuditDetails(String scenario, List<AssignmentAuditUser> assigned,
+                                          List<AssignmentAuditUser> unassigned) { }
+    private record AssignmentAuditUser(String displayName, String email) { }
 
     /** Assignments recommend scenarios; they do not restrict starting a Live scenario. */
     @Override

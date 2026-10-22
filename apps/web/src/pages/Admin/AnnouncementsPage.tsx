@@ -8,6 +8,10 @@ import styles from './AnnouncementsPage.module.css'
 
 const PAGE_SIZE = 20
 
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+}
+
 export default function AnnouncementsPage() {
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
@@ -116,17 +120,17 @@ export default function AnnouncementsPage() {
         <Button kind="ghost" size="sm" onClick={() => void feed.refetch()}>Try again</Button></div>}
       {feed.data?.items.length === 0 && <div className={styles.empty}><h3>{hasFilters ? 'No matching announcements' : 'No announcements yet'}</h3><p>{hasFilters ? 'Try another search or clear your filters.' : 'Create an announcement to share an update with users.'}</p></div>}
       {feed.data?.items.length ? <div className={styles.tableWrap}><table className={styles.table}>
-        <thead><tr><th>Title</th><th>Message</th><th>Audience</th><th>Status</th><th>Publication</th><th>Expires</th><th aria-label="Actions" /></tr></thead>
+        <thead><tr><th>Title</th><th>Message</th><th>Audience</th><th>Status</th><th>Publication</th><th>Expires</th><th>Actions</th></tr></thead>
         <tbody>{feed.data.items.map((item) => <tr key={item.id}>
           <td className={styles.titleCell}><strong>{item.title}</strong></td>
           <td className={styles.messageCell}>{item.message}</td>
           <td>{audienceLabel(item.audience, item.targetRoles)}</td>
           <td><Tag type={item.status === 'PUBLISHED' ? 'green' : item.status === 'SCHEDULED' ? 'blue' : 'gray'}>
             {{ PUBLISHED: 'Published', WITHDRAWN: 'Withdrawn', SCHEDULED: 'Scheduled', EXPIRED: 'Expired' }[item.status]}</Tag>
-            {item.withdrawnAt && <small className={styles.subtle}>Withdrawn {new Date(item.withdrawnAt).toLocaleString()}</small>}</td>
-          <td><time dateTime={item.publishAt ?? item.createdAt}>{item.status === 'SCHEDULED' ? 'Publishes' : 'Published'}<small className={styles.subtle}>{new Date(item.publishAt ?? item.createdAt).toLocaleString()}</small></time></td>
-          <td>{item.expiresAt ? <time dateTime={item.expiresAt}>{new Date(item.expiresAt).toLocaleString()}</time> : <span className={styles.subtle}>No expiry</span>}</td>
-          <td>{item.status !== 'WITHDRAWN' && <Button kind="danger--ghost" size="sm" onClick={() => setWithdrawTarget(item)}>Withdraw</Button>}</td>
+            {item.withdrawnAt && <small className={styles.subtle}>Withdrawn {formatDateTime(item.withdrawnAt)}</small>}</td>
+          <td><time dateTime={item.publishAt ?? item.createdAt}>{item.status === 'SCHEDULED' ? 'Publishes' : 'Published'}<small className={styles.subtle}>{formatDateTime(item.publishAt ?? item.createdAt)}</small></time></td>
+          <td>{item.expiresAt ? <time dateTime={item.expiresAt}>{formatDateTime(item.expiresAt)}</time> : <span className={styles.subtle}>No expiry</span>}</td>
+          <td>{item.status !== 'WITHDRAWN' && <Button className={styles.withdrawButton} kind="danger--ghost" size="sm" onClick={() => setWithdrawTarget(item)}>Withdraw</Button>}</td>
         </tr>)}</tbody>
       </table></div> : null}
       {feed.data && feed.data.totalElements > PAGE_SIZE && <Pagination page={historyPage + 1} pageSize={PAGE_SIZE} pageSizes={[PAGE_SIZE]}

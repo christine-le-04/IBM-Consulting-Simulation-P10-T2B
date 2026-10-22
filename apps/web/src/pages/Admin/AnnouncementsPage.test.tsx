@@ -136,6 +136,21 @@ describe('AnnouncementsPage', () => {
     expect(withdraw).toHaveBeenCalledWith('notice', expect.any(Object))
   })
 
+  it('shows publication, expiry, and withdrawal times without seconds', () => {
+    vi.mocked(useAdminAnnouncements).mockReturnValue({ data: { items: [{
+      id: 'notice', title: 'Maintenance', message: 'Service update', audience: 'ALL', targetRoles: [],
+      createdAt: '2026-10-16T04:05:06Z', publishAt: '2026-10-16T04:05:06Z',
+      expiresAt: '2026-10-17T04:05:06Z', withdrawnAt: '2026-10-16T05:06:07Z', status: 'WITHDRAWN',
+    }], totalElements: 1 }, isLoading: false, isError: false } as unknown as ReturnType<typeof useAdminAnnouncements>)
+
+    render(<AnnouncementsPage />)
+
+    const table = screen.getByRole('table')
+    const displayedTimes = Array.from(table.querySelectorAll('time, td small')).map((node) => node.textContent ?? '')
+    expect(displayedTimes).toHaveLength(4)
+    expect(displayedTimes.join(' ')).not.toMatch(/\d{1,2}:\d{2}:\d{2}/)
+  })
+
   it('blocks blank text and repeat submissions while publishing', () => {
     const view = render(<AnnouncementsPage />)
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: ' ' } })

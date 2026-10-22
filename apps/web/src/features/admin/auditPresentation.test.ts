@@ -53,6 +53,33 @@ describe('audit presentation', () => {
     expect(auditDetails(event('ADMIN_SCENARIO_ASSIGNMENTS_UPDATED', 'assigned 0, unassigned 0'))).toBe('No assignments changed.')
   })
 
+  it('shows assigned scenario users and emails in the audit details', () => {
+    const details = JSON.stringify({
+      scenario: 'Retail turnaround',
+      assigned: [
+        { displayName: 'Alice Example', email: 'alice@example.com' },
+        { displayName: 'Bob Example', email: 'bob@example.com' },
+      ],
+      unassigned: [],
+    })
+
+    expect(auditDetails(event('ADMIN_SCENARIO_ASSIGNMENTS_UPDATED', details))).toBe(
+      'Assigned to 2 users.\n• Assigned Retail turnaround to Alice Example (alice@example.com)\n• Assigned Retail turnaround to Bob Example (bob@example.com)',
+    )
+  })
+
+  it('shows a single assigned user in one line', () => {
+    const details = JSON.stringify({
+      scenario: 'Retail turnaround',
+      assigned: [{ displayName: 'Alice Example', email: 'alice@example.com' }],
+      unassigned: [],
+    })
+
+    expect(auditDetails(event('ADMIN_SCENARIO_ASSIGNMENTS_UPDATED', details))).toBe(
+      'Assigned Retail turnaround to Alice Example (alice@example.com)',
+    )
+  })
+
   it('uses known titles for document targets without their scenario IDs', () => {
     const document = { ...event('ADMIN_SCENARIO_DOCUMENT_DELETED', `scenario ${id}, title: Research report`), targetType: 'KNOWLEDGE_DOCUMENT' }
     expect(auditTargetName(document)).toBe('Research report')

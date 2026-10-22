@@ -14,6 +14,7 @@ import {
 } from '@carbon/react'
 import { Logout } from '@carbon/icons-react'
 import AnnouncementCenter from '@/components/announcements/AnnouncementCenter'
+import AdminNavigation from './AdminNavigation'
 import { useAuthStore } from '@/store/authStore'
 import { useLogout } from '@/api/hooks/useAuth'
 import { isEngagementRoute } from '@/lifecycle/phases'
@@ -38,6 +39,7 @@ export default function AppShell() {
   const location = useLocation()
   const canAccessAdmin = role === 'SCENARIO_AUTHOR' || role === 'REVIEWER' || role === 'ADMINISTRATOR'
   const onEngagement = isEngagementRoute(location.pathname)
+  const onAdminWorkspace = location.pathname === '/dashboard/admin' || location.pathname.startsWith('/dashboard/admin/')
   const usesFixedCanvas = /^\/dashboard\/engagements\/[^/]+\/(intelligence|outreach|proposal)$/.test(location.pathname)
     || /^\/dashboard\/engagements\/[^/]+\/meetings\/[^/]+$/.test(location.pathname)
   // Carbon hides HeaderNavigation below 1056px and hides this button above it,
@@ -128,7 +130,12 @@ export default function AppShell() {
           {logout.isError && (
             <InlineNotification kind="error" title="Could not sign out" subtitle="Please try again." hideCloseButton />
           )}
-          <Outlet />
+          {onAdminWorkspace ? (
+            <div className={styles.adminWorkspace}>
+              <AdminNavigation />
+              <div className={styles.adminPage}><Outlet /></div>
+            </div>
+          ) : <Outlet />}
         </Content>
       </div>
 

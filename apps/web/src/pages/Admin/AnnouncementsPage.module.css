@@ -17,14 +17,24 @@
 .empty h3 { margin: 0 0 .5rem; font-size: var(--sim-font-section); font-weight: 500; }
 .empty p { margin: 0; }
 .tableWrap { overflow-x: auto; border: 1px solid #e0e0e0; margin-top: 1rem; }
-.table { width: 100%; min-width: 1200px; border-collapse: collapse; text-align: left; }
+.table { width: 100%; min-width: 1100px; table-layout: fixed; border-collapse: collapse; text-align: left; }
 .table th { background: #f4f4f4; color: #525252; font-size: var(--sim-font-body); font-weight: 600; }
 .table th, .table td { padding: 1rem; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
 .table td { font-size: var(--sim-font-body); }
+.table th:nth-child(1), .table td:nth-child(1) { width: 16%; }
+.table th:nth-child(2), .table td:nth-child(2) { width: 22%; }
+.table th:nth-child(3), .table td:nth-child(3) { width: 13%; }
+.table th:nth-child(4), .table td:nth-child(4) { width: 12%; }
+.table th:nth-child(5), .table td:nth-child(5) { width: 15%; }
+.table th:nth-child(6), .table td:nth-child(6) { width: 12%; }
+.table th:nth-child(7), .table td:nth-child(7) { width: 8%; }
 .table td time { display: block; white-space: nowrap; }
 .table td > span, .table td small { display: block; margin-top: .25rem; color: #525252; font-size: var(--sim-font-caption); }
-.titleCell { min-width: 14rem; max-width: 22rem; font-weight: 600; overflow-wrap: anywhere; }
-.messageCell { min-width: 20rem; max-width: 34rem; color: #525252; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
+.table td:nth-child(6) { padding-right: .5rem; }
+.table td:nth-child(7) { padding-inline: .5rem; text-align: center; }
+.withdrawButton { inline-size: max-content !important; min-inline-size: 0 !important; padding-inline: .5rem !important; }
+.titleCell { font-weight: 600; overflow-wrap: anywhere; }
+.messageCell { color: #525252; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
 .subtle { color: #525252; }
 .message { margin: .75rem 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .form { display: grid; gap: 1.25rem; }
