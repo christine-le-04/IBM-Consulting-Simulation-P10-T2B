@@ -1,5 +1,7 @@
 package com.ibm.consulting.sim.admin.api;
 
+import com.ibm.consulting.sim.admin.application.CohortAnalytics;
+import com.ibm.consulting.sim.admin.application.CohortAnalyticsService;
 import com.ibm.consulting.sim.admin.application.LearnerProgressEntry;
 import com.ibm.consulting.sim.admin.application.LearnerProgressService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,8 +21,12 @@ import java.util.UUID;
 @Validated
 public class AdminLearnerController {
     private final LearnerProgressService progressService;
+    private final CohortAnalyticsService cohortService;
 
-    public AdminLearnerController(LearnerProgressService progressService) { this.progressService = progressService; }
+    public AdminLearnerController(LearnerProgressService progressService, CohortAnalyticsService cohortService) {
+        this.progressService = progressService;
+        this.cohortService = cohortService;
+    }
 
     @GetMapping("/progress")
     LearnerProgressService.ProgressPage progress(
@@ -35,4 +41,7 @@ public class AdminLearnerController {
 
     @GetMapping("/{engagementId}")
     LearnerProgressEntry run(@PathVariable UUID engagementId) { return progressService.getRun(engagementId); }
+
+    @GetMapping("/cohorts")
+    CohortAnalytics.Response cohorts() { return cohortService.getCohorts(); }
 }

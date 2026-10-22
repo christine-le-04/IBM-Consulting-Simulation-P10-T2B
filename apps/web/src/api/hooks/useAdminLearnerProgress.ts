@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import apiClient from '@/api/client'
-import type { Assessment, LearnerProgressEntry } from '@/api/types'
+import type { Assessment, CohortAnalyticsResponse, LearnerProgressEntry } from '@/api/types'
 import type { LearnerStage, LearnerStatus } from '@/features/admin/learnerProgress'
 
 export interface LearnerProgressFilters {
@@ -26,6 +26,7 @@ export interface LearnerProgressPage {
 export const adminLearnerKeys = {
   progress: ['admin', 'learners', 'progress'] as const,
   run: (engagementId: string) => ['admin', 'learners', 'run', engagementId] as const,
+  cohorts: ['admin', 'learners', 'cohorts'] as const,
   assessment: (engagementId: string) => ['admin', 'learners', 'assessment', engagementId] as const,
 }
 
@@ -48,6 +49,16 @@ export function useAdminLearnerRun(engagementId: string) {
     queryFn: async ({ signal }) => (await apiClient.get<LearnerProgressEntry | null>(`/api/v1/admin/learners/${engagementId}`, { signal })).data,
     staleTime: 60_000,
     refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useAdminCohortAnalytics(enabled: boolean) {
+  return useQuery({
+    queryKey: adminLearnerKeys.cohorts,
+    enabled,
+    queryFn: async () => (await apiClient.get<CohortAnalyticsResponse>('/api/v1/admin/learners/cohorts')).data,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   })
 }

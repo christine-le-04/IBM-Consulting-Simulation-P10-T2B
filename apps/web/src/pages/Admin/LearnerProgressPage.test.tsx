@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import apiClient from '@/api/client'
 import { useAdminLearnerProgress, type LearnerProgressPage as ProgressPage } from '@/api/hooks/useAdminLearnerProgress'
 import type { LearnerProgressEntry } from '@/api/types'
 import LearnerProgressPage from './LearnerProgressPage'
 
 vi.mock('@/api/hooks/useAdminLearnerProgress', () => ({ useAdminLearnerProgress: vi.fn() }))
+vi.mock('@/api/client', () => ({ default: { get: vi.fn() } }))
 vi.mock('@/components/shared/LoadingState', () => ({ default: () => <div>Loading...</div> }))
 vi.mock('@/components/shared/ErrorState', () => ({ default: ({ onAction }: { onAction?: () => void }) => <button onClick={onAction}>Error...</button> }))
 
@@ -135,5 +137,34 @@ describe('LearnerProgressPage', () => {
     expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, size: 25 }))
     fireEvent.change(screen.getByLabelText('Stage'), { target: { value: 'Outreach' } })
     expect(mockedProgress).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0, stage: 'Outreach' }))
+  })
+
+  it('exports all server-filtered learners as CSV', async () => {
+    setup(learners)
+    vi.mocked(apiClient.get).mockResolvedValue({ data: {
+      items: [learners[1]], totalElements: 1, page: 0, size: 100, totalPages: 1,
+      asOf: new Date().toISOString(), summary: { inProgress: 0, stuck: 1, completed: 0, meetingFailed: 0, averageScore: null, totalRuns: 1 },
+      scenarios: [],
+    } } as never)
+    const createUrl = vi.fn<(blob: Blob) => string>(() => 'blob:learners')
+    Object.assign(URL, { createObjectURL: createUrl, revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Stuck\s*1/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Export filtered CSV' }))
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/api/v1/admin/learners/progress', expect.objectContaining({
+      params: expect.objectContaining({ status: 'STUCK', page: 0, size: 100 }),
+    })))
+    expect(click).toHaveBeenCalled()
+    const csv = await createUrl.mock.calls[0][0].text()
+    expect(csv).toContain('Ben Ng')
+    expect(csv).not.toContain('Ana Lee')
+    click.mockRestore()
+  })
+
+  it('disables export when no learner matches', () => {
+    setup([])
+    renderPage()
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
   })
 })

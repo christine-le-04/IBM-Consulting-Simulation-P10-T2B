@@ -1,4 +1,4 @@
-import type { EngagementState, LearnerProgressEntry } from '@/api/types'
+import type { CohortAnalytics, EngagementState, LearnerProgressEntry } from '@/api/types'
 
 export const LEARNER_STAGES = ['Research', 'Outreach', 'Preparation', 'Meeting', 'Proposal', 'Review'] as const
 export type LearnerStage = typeof LEARNER_STAGES[number]
@@ -73,3 +73,42 @@ export function relativeTime(iso: string, now: number) {
   const days = Math.floor(hours / 24)
   return days === 1 ? 'Yesterday' : `${days} days ago`
 }
+
+const CSV_HEADERS = ['Learner', 'Email', 'Scenario', 'Stage', 'Engagement state', 'Status', 'Score', 'Last activity', 'Completed at', 'Engagement ID']
+
+// Quotes every cell and neutralises leading =, +, - or @ so spreadsheets do not run learner text as a formula.
+function csvCell(value: string | number | null) {
+  const text = value == null ? '' : String(value)
+  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text
+  return `"${safe.replace(/"/g, '""')}"`
+}
+
+export function toLearnerProgressCsv(entries: LearnerProgressEntry[], now: number) {
+  const rows = entries.map((entry) => [
+    entry.displayName,
+    entry.email,
+    entry.scenarioTitle,
+    stageOf(entry.state),
+    stateLabel(entry.state),
+    STATUS_LABEL[statusOf(entry, now)],
+    entry.overallScore,
+    entry.lastActivityAt,
+    entry.completedAt,
+    entry.engagementId,
+  ])
+  return [CSV_HEADERS, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')
+}
+
+export const learnerProgressCsvName = (now: number) => `learner-progress-${new Date(now).toISOString().slice(0, 10)}.csv`
+
+/** Runs currently sitting in each stage, in journey order. */
+export function stageCounts(cohort: CohortAnalytics) {
+  const counts = Object.fromEntries(LEARNER_STAGES.map((stage) => [stage, 0])) as Record<LearnerStage, number>
+  for (const [state, count] of Object.entries(cohort.stateCounts) as [EngagementState, number][]) {
+    if (STAGE_BY_STATE[state]) counts[STAGE_BY_STATE[state]] += count
+  }
+  return LEARNER_STAGES.map((stage) => ({ stage, count: counts[stage] }))
+}
+
+export const completionRate = (cohort: CohortAnalytics) =>
+  cohort.runCount ? Math.round((cohort.completedCount / cohort.runCount) * 100) : null

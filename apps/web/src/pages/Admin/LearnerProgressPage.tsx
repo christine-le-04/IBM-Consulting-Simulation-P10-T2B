@@ -1,26 +1,39 @@
-import { Button, Column, Grid, Heading, InlineLoading, Pagination, Select, SelectItem, Tag, TextInput } from '@carbon/react'
-import { Renew, UserMultiple } from '@carbon/icons-react'
+import { Button, Column, Grid, Heading, InlineLoading, InlineNotification, Pagination, Select, SelectItem, Tag, TextInput } from '@carbon/react'
+import { ChartLine, Download, Renew, UserMultiple } from '@carbon/icons-react'
 import { useDeferredValue, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useAdminLearnerProgress } from '@/api/hooks/useAdminLearnerProgress'
+import apiClient from '@/api/client'
+import { useAdminLearnerProgress, type LearnerProgressFilters, type LearnerProgressPage as ProgressPage } from '@/api/hooks/useAdminLearnerProgress'
 import ErrorState from '@/components/shared/ErrorState'
 import LoadingState from '@/components/shared/LoadingState'
 import {
   DEFAULT_STUCK_DAYS,
   LEARNER_STAGES,
   LEARNER_STATUSES as STATUSES,
+  learnerProgressCsvName,
   type LearnerStage,
   type LearnerStatus,
   relativeTime,
   STATUS_LABEL,
   STATUS_TAG,
   statusOf,
+  toLearnerProgressCsv,
 } from '@/features/admin/learnerProgress'
 import LearnerStageBar from './LearnerStageBar'
 import shared from './AdminOperationsPage.module.css'
 import styles from './LearnerProgressPage.module.css'
 
 const PAGE_SIZES = [25, 50, 100]
+
+function downloadCsv(fileName: string, csv: string) {
+  // The byte-order mark makes Excel open the file as UTF-8 so accented names survive.
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
 const isStatus = (value: string | null): value is LearnerStatus => STATUSES.includes(value as LearnerStatus)
 
@@ -45,15 +58,42 @@ export default function LearnerProgressPage() {
   const [statusFilter, setStatusFilter] = useState<LearnerStatus | ''>(isStatus(initialStatus) ? initialStatus : '')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportFailed, setExportFailed] = useState(false)
   const deferredSearch = useDeferredValue(search)
-  const progress = useAdminLearnerProgress({
+  const filters: LearnerProgressFilters = {
     page: page - 1, size: pageSize,
     search: deferredSearch.trim() || undefined,
     scenarioId: scenarioFilter || undefined,
     stage: stageFilter || undefined,
     status: statusFilter || undefined,
-  })
+  }
+  const progress = useAdminLearnerProgress(filters)
   const now = useMemo(() => progress.data ? new Date(progress.data.asOf).getTime() : Date.now(), [progress.data])
+
+  const exportFilteredRuns = async () => {
+    if (!progress.data || isExporting) return
+    setIsExporting(true)
+    setExportFailed(false)
+    try {
+      const exportSize = 100
+      const firstPage = (await apiClient.get<ProgressPage>('/api/v1/admin/learners/progress', {
+        params: { ...filters, page: 0, size: exportSize },
+      })).data
+      const allItems = [...firstPage.items]
+      for (let exportPage = 1; exportPage < firstPage.totalPages; exportPage += 1) {
+        const nextPage = (await apiClient.get<ProgressPage>('/api/v1/admin/learners/progress', {
+          params: { ...filters, page: exportPage, size: exportSize },
+        })).data
+        allItems.push(...nextPage.items)
+      }
+      downloadCsv(learnerProgressCsvName(new Date(firstPage.asOf).getTime()), toLearnerProgressCsv(allItems, new Date(firstPage.asOf).getTime()))
+    } catch {
+      setExportFailed(true)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   if (progress.isLoading) return <LoadingState />
   if (progress.isError) return <ErrorState actionLabel="Retry" onAction={() => void progress.refetch()} />
@@ -86,9 +126,15 @@ export default function LearnerProgressPage() {
           <p>See where every learner is in their engagement, how they scored, and who needs a nudge.</p>
         </div>
         <div className={shared.headerActions}>
+          <Button kind="tertiary" renderIcon={ChartLine} as={Link} to="/dashboard/admin/cohorts">Cohort analytics</Button>
+          <Button kind="tertiary" renderIcon={Download} disabled={totalElements === 0 || isExporting} onClick={() => void exportFilteredRuns()}>
+            {isExporting ? 'Preparing CSV...' : hasFilters ? 'Export filtered CSV' : 'Export CSV'}
+          </Button>
           <Button kind="tertiary" renderIcon={Renew} disabled={progress.isFetching} onClick={() => progress.refetch()}>Refresh</Button>
         </div>
       </header>
+
+      {exportFailed && <InlineNotification kind="error" title="CSV export failed" subtitle="Try again in a moment." hideCloseButton />}
 
       {summary.totalRuns === 0 ? (
         <section className={styles.empty}>

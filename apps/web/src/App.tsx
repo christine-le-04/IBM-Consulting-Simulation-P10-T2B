@@ -33,6 +33,7 @@ const LearnerProgressPage = lazy(() => import('@/pages/Admin/LearnerProgressPage
 const AuditLogPage = lazy(() => import('@/pages/Admin/AuditLogPage'))
 const AnnouncementsPage = lazy(() => import('@/pages/Admin/AnnouncementsPage'))
 const LearnerRunPage = lazy(() => import('@/pages/Admin/LearnerRunPage'))
+const CohortAnalyticsPage = lazy(() => import('@/pages/Admin/CohortAnalyticsPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -163,6 +164,10 @@ export default function App() {
           <Route
             path="admin/learners"
             element={<RequireRole roles={['ADMINISTRATOR']}><LearnerProgressPage /></RequireRole>}
+          />
+          <Route
+            path="admin/cohorts"
+            element={<RequireRole roles={['ADMINISTRATOR']}><CohortAnalyticsPage /></RequireRole>}
           />
           <Route
             path="admin/learners/:engagementId"

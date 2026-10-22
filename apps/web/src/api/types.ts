@@ -104,6 +104,32 @@ export interface LearnerProgressEntry {
   completedAt: string | null
 }
 
+export interface CohortCompetencyAverage {
+  name: string
+  averageScore: number
+  belowTargetCount: number
+  assessedCount: number
+}
+
+export interface CohortAnalytics {
+  scenarioId: string | null
+  scenarioTitle: string
+  learnerCount: number
+  runCount: number
+  completedCount: number
+  meetingFailedCount: number
+  averageScore: number | null
+  stateCounts: Partial<Record<EngagementState, number>>
+  competencies: CohortCompetencyAverage[]
+  commonImprovementAreas: { text: string; runCount: number }[]
+}
+
+export interface CohortAnalyticsResponse {
+  targetScore: number
+  overall: CohortAnalytics
+  scenarios: CohortAnalytics[]
+}
+
 export interface GameplayDifficultyProfile {
   level: 'EASY' | 'MEDIUM' | 'HARD'
   researchArtifactsPerAction: number
