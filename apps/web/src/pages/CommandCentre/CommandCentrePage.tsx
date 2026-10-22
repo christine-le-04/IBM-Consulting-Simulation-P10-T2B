@@ -132,6 +132,12 @@ function lobbyLine(featured: Engagement | undefined, failed: Engagement[]): stri
   return 'Nothing on the floor right now. Pick your next client — a new industry is the fastest way to grow.'
 }
 
+function WelcomeHeading({ displayName, firstVisit }: { displayName: string; firstVisit: boolean }) {
+  return <h1 className={`${styles.greeting} objective-command-centre`}>
+    {firstVisit ? `Welcome, ${displayName}.` : `Welcome back, ${displayName}.`}
+  </h1>
+}
+
 function EngagementRow({ engagement, attemptLabel }: { engagement: Engagement; attemptLabel?: string }) {
   const navigate = useNavigate()
   const status = statusOf(engagement)
@@ -338,8 +344,8 @@ export default function CommandCentrePage() {
 
         {firstVisit ? (
           <>
-          <header className={`${styles.lobby} ${styles.firstVisitLobby} objective-command-centre`}>
-            <h1 className={styles.greeting}>Welcome, {displayName}.</h1>
+          <header className={`${styles.lobby} ${styles.firstVisitLobby}`}>
+            <WelcomeHeading displayName={displayName} firstVisit />
             {mentorNote}
           </header>
           <section className={styles.floorCard} aria-labelledby="first-run">
@@ -383,8 +389,8 @@ export default function CommandCentrePage() {
         ) : (
           <div className={styles.grid}>
             <div className={styles.mainColumn}>
-              <header className={`${styles.lobby} objective-command-centre`}>
-                <h1 className={styles.greeting}>Welcome back, {displayName}.</h1>
+              <header className={styles.lobby}>
+                <WelcomeHeading displayName={displayName} firstVisit={false} />
                 <DanaAvatar size={48} className={styles.greetingAvatar} />
               </header>
               {featured ? (

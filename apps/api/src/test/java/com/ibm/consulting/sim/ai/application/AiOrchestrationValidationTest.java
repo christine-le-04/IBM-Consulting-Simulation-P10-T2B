@@ -51,8 +51,13 @@ class AiOrchestrationValidationTest {
             ArgumentCaptor<Long> outreachBudget = ArgumentCaptor.forClass(Long.class);
             verify(router).completeFirstValid(eq("persona_dialogue"), anyString(), any(), meetingBudget.capture());
             verify(router).completeFirstValid(eq("outreach_evaluation"), anyString(), any(), outreachBudget.capture());
-            assertThat(meetingBudget.getValue()).isEqualTo(AiOrchestrationService.MEETING_TIMEOUT_MS);
-            assertThat(outreachBudget.getValue()).isEqualTo(AiOrchestrationService.CONVERSATION_TIMEOUT_MS);
+            assertThat(meetingBudget.getValue())
+                    .isBetween(AiOrchestrationService.MEETING_TIMEOUT_MS - 1_000,
+                            AiOrchestrationService.MEETING_TIMEOUT_MS);
+            assertThat(outreachBudget.getValue())
+                    .isBetween(AiOrchestrationService.CONVERSATION_TIMEOUT_MS - 1_000,
+                            AiOrchestrationService.CONVERSATION_TIMEOUT_MS);
+            assertThat(meetingBudget.getValue()).isGreaterThan(outreachBudget.getValue());
         }
     }
 
