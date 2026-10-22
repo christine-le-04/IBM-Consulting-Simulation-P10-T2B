@@ -132,7 +132,7 @@ function lobbyLine(featured: Engagement | undefined, failed: Engagement[]): stri
   return 'Nothing on the floor right now. Pick your next client — a new industry is the fastest way to grow.'
 }
 
-function WelcomeHeading({ displayName, firstVisit }: { displayName: string; firstVisit: boolean }) {
+function WelcomeHeading({ displayName, firstVisit }: { displayName: string | null; firstVisit: boolean }) {
   return <h1 className={`${styles.greeting} objective-command-centre`}>
     {firstVisit ? `Welcome, ${displayName}.` : `Welcome back, ${displayName}.`}
   </h1>

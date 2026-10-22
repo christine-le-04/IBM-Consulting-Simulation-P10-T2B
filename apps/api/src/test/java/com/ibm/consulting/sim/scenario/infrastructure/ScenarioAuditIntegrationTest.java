@@ -109,7 +109,7 @@ class ScenarioAuditIntegrationTest {
             "ADMIN_SCENARIO_AUTHORING_CONFIG_CHANGED", "ADMIN_SCENARIO_REVISION_CREATED", "ADMIN_SCENARIO_LEAD_DELETED",
             "ADMIN_SCENARIO_ASSIGNMENTS_UPDATED"
     })
-    void actualScenarioOperationPersistsItsMatchingAuditRecord(AuditAction action) {
+    void actualScenarioOperationPersistsItsMatchingAuditRecord(AuditAction action) throws Exception {
         UUID target = scenarioId;
         String type = "SCENARIO";
         String details = null;
@@ -171,7 +171,6 @@ class ScenarioAuditIntegrationTest {
             case ADMIN_SCENARIO_ASSIGNMENTS_UPDATED -> {
                 activateFixture();
                 assignments.replaceAssignments(scenarioId, List.of(learner.getId()), actor.getId());
-                details = "assigned 1, unassigned 0";
                 assertThat(jdbc.queryForObject("SELECT count(*) FROM scenario_assignments WHERE scenario_lineage_id = ? AND user_id = ?",
                         Long.class, scenarioId, learner.getId())).isEqualTo(1);
             }
@@ -183,7 +182,16 @@ class ScenarioAuditIntegrationTest {
         assertThat(event.getAction()).isEqualTo(action);
         assertThat(event.getTargetType()).isEqualTo(type);
         assertThat(event.getTargetId()).isEqualTo(target.toString());
-        assertThat(event.getDetails()).isEqualTo(details);
+        if (action == AuditAction.ADMIN_SCENARIO_ASSIGNMENTS_UPDATED) {
+            var assignmentDetails = new com.fasterxml.jackson.databind.ObjectMapper().readTree(event.getDetails());
+            assertThat(assignmentDetails.path("scenario").asText()).isEqualTo("Original scenario");
+            assertThat(assignmentDetails.path("assigned").size()).isEqualTo(1);
+            assertThat(assignmentDetails.path("assigned").get(0).path("displayName").asText()).isEqualTo("Assigned learner");
+            assertThat(assignmentDetails.path("assigned").get(0).path("email").asText()).isEqualTo(learner.getEmail());
+            assertThat(assignmentDetails.path("unassigned").size()).isZero();
+        } else {
+            assertThat(event.getDetails()).isEqualTo(details);
+        }
         assertThat(event.getActorId()).isEqualTo(actor.getId());
         assertThat(event.getActorDisplayName()).isEqualTo("Scenario administrator");
         assertThat(event.getActorEmail()).isEqualTo(actor.getEmail());
