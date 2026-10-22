@@ -34,8 +34,6 @@ export default function AnnouncementsPage() {
     setMessage('')
     setPublishAt('')
     setExpiresAt('')
-    setAudience('ALL')
-    setTargetRoles([])
     setDateError('')
   }
 
@@ -67,7 +65,6 @@ export default function AnnouncementsPage() {
         setStatusFilter('')
         setAudienceFilter('')
         setPreview(null)
-        void feed.refetch()
       },
     })
   }
@@ -167,7 +164,7 @@ export default function AnnouncementsPage() {
       </Form>
     </Modal>
 
-    {preview && <Modal open modalHeading="Preview announcement" primaryButtonText={preview.input.publishAt ? 'Confirm schedule' : 'Confirm publication'}
+    {preview && <Modal open modalHeading="Preview announcement" primaryButtonText={publish.isPending ? 'Publishing…' : preview.input.publishAt ? 'Confirm schedule' : 'Confirm publication'}
       secondaryButtonText="Keep editing" primaryButtonDisabled={publish.isPending} onRequestSubmit={confirmPublish} onSecondarySubmit={reopenComposer}
       onRequestClose={reopenComposer}>
       <h3>{preview.input.title}</h3>
@@ -181,7 +178,7 @@ export default function AnnouncementsPage() {
 
     {withdrawTarget && <Modal danger open modalHeading="Withdraw announcement?" primaryButtonText="Withdraw announcement" secondaryButtonText="Cancel"
       primaryButtonDisabled={withdraw.isPending} onRequestClose={() => !withdraw.isPending && setWithdrawTarget(null)}
-      onRequestSubmit={() => { if (!withdraw.isPending) withdraw.mutate(withdrawTarget.id, { onSuccess: () => { setWithdrawTarget(null); void feed.refetch() } }) }}>
+      onRequestSubmit={() => { if (!withdraw.isPending) withdraw.mutate(withdrawTarget.id, { onSuccess: () => setWithdrawTarget(null) }) }}>
       <p className={styles.modalIntro}>Withdraw “{withdrawTarget.title}” from recipient feeds? The message and audit record will remain in sent history.</p>
       {withdraw.isError && <InlineNotification kind="error" title="Could not withdraw announcement" subtitle="Please try again." hideCloseButton />}
     </Modal>}

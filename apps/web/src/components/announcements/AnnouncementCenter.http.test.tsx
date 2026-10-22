@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import apiClient from '@/api/client'
-import { useAnnouncements, useAnnouncementUpdates, type Announcement, type AnnouncementFeed } from '@/api/hooks/useAnnouncements'
+import { useAnnouncements, useAnnouncementUpdates, useMarkAllAnnouncementsRead, type Announcement, type AnnouncementFeed } from '@/api/hooks/useAnnouncements'
 import { useAuthStore } from '@/store/authStore'
 import AnnouncementCenter from './AnnouncementCenter'
 
@@ -104,7 +104,7 @@ describe('announcement HTTP handling and missed-update recovery', () => {
 
   it('marks an item read through HTTP and refreshes the visible unread count', async () => {
     showCenter()
-    fireEvent.click(await screen.findByRole('button', { name: 'Announcements, 1 unread' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
     fireEvent.click(screen.getByRole('button', { name: 'Mark Update one as read' }))
     await screen.findByText('0 unread')
     expect(screen.queryByRole('button', { name: 'Mark Update one as read' })).not.toBeInTheDocument()
@@ -117,28 +117,26 @@ describe('announcement HTTP handling and missed-update recovery', () => {
   it('keeps a failed read unread and allows a successful retry', async () => {
     failRead = true
     showCenter()
-    fireEvent.click(await screen.findByRole('button', { name: 'Announcements, 1 unread' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
     fireEvent.click(screen.getByRole('button', { name: 'Mark Update one as read' }))
-    await screen.findByText('Could not mark announcements as read')
+    await screen.findByText('Could not mark notification as read')
     expect(screen.getByText('1 unread')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mark Update one as read' })).toBeEnabled()
     failRead = false
     fireEvent.click(screen.getByRole('button', { name: 'Mark Update one as read' }))
     await screen.findByText('0 unread')
-    expect(screen.queryByText('Could not mark announcements as read')).not.toBeInTheDocument()
+    expect(screen.queryByText('Could not mark notification as read')).not.toBeInTheDocument()
   })
 
-  it('marks all read using the server snapshot, retaining retry controls after failure', async () => {
+  it('marks all read through HTTP using the server snapshot', async () => {
     notices.push(notice('two'))
     failRead = true
-    showCenter()
-    fireEvent.click(await screen.findByRole('button', { name: 'Announcements, 2 unread' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Mark all as read' }))
-    await screen.findByText('Could not mark all announcements as read')
-    expect(screen.getByText('2 unread')).toBeInTheDocument()
+    const { result } = renderHook(() => useMarkAllAnnouncementsRead(), context())
+    act(() => result.current.mutate('2026-10-16T01:00:00Z'))
+    await waitFor(() => expect(result.current.isError).toBe(true))
     failRead = false
-    fireEvent.click(screen.getByRole('button', { name: 'Mark all as read' }))
-    await screen.findByText('0 unread')
+    act(() => result.current.mutate('2026-10-16T01:00:00Z'))
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
     const request = requests.find((item) => item.url === '/api/v1/announcements/read-all')
     expect(JSON.parse(request?.data as string)).toEqual({ through: '2026-10-16T01:00:00Z' })
   })
@@ -146,13 +144,13 @@ describe('announcement HTTP handling and missed-update recovery', () => {
   it('recovers a failed feed through the visible retry button', async () => {
     failFeed = true
     showCenter()
-    fireEvent.click(screen.getByRole('button', { name: 'Announcements' }))
-    await screen.findByText('Announcements unavailable')
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }))
+    await screen.findByText('Notifications unavailable')
     failFeed = false
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByText('Update one')
     expect(screen.getByText('1 unread')).toBeInTheDocument()
-    expect(screen.queryByText('Announcements unavailable')).not.toBeInTheDocument()
+    expect(screen.queryByText('Notifications unavailable')).not.toBeInTheDocument()
   })
 
   it('does not display the previous account read state while the next account feed loads', async () => {

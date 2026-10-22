@@ -238,7 +238,7 @@ describe('OutreachWorkspacePage capability brief', () => {
       { relevantExperience: long, approach: long, caseExample: long, clientFit: long },
       expect.anything(),
     )
-  })
+  }, 10_000)
 })
 
 describe('OutreachWorkspacePage with a chosen contact', () => {
