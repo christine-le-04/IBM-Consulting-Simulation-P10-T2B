@@ -1,8 +1,31 @@
 .page {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
   min-width: 0;
   width: 100%;
   padding: clamp(1rem, 1.4vw, 1.5rem) clamp(1rem, 3vw, 3rem) 1rem;
   overflow-wrap: anywhere;
+}
+
+.page h1,
+.scenarioInfo p {
+  margin: 0;
+}
+
+.unavailable,
+.scenarioInfo {
+  display: grid;
+  justify-items: start;
+  gap: .75rem;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1rem;
 }
 
 @media (max-width: 672px) {
