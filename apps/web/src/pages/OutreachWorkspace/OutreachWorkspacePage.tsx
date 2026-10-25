@@ -156,6 +156,19 @@ export default function OutreachWorkspacePage() {
   const clientName = choice?.name ?? persona?.name ?? stakeholderNameFrom(intelligence?.decisionMaker?.value) ?? 'Client stakeholder'
   const company = intelligence?.companyName ?? engagement?.leadCompanyName ?? 'Client organisation'
   const clientLine = [choice?.jobTitle ?? persona?.jobTitle, company].filter(Boolean).join(' · ')
+  /**
+   * Who a message was exchanged with: the contact it was sent to, not whoever is
+   * chosen now. Briefs and emails from before Choose contact fall back to the
+   * current contact.
+   */
+  const correspondentOf = (item: MailItem) => {
+    const sentTo = item.attempt?.personaId
+      ? scenario?.personas.find((p) => p.id === item.attempt?.personaId)
+      : undefined
+    return sentTo
+      ? { name: sentTo.name, line: [sentTo.jobTitle, company].filter(Boolean).join(' · ') }
+      : { name: clientName, line: clientLine }
+  }
   const me = displayName ?? 'You'
 
   const rubricContext = useMemo(() => ({
@@ -261,7 +274,7 @@ export default function OutreachWorkspacePage() {
                     onClick={() => setSelected(item.id)}
                   >
                     <span className={styles.listTop}>
-                      <strong>{item.mine ? 'You' : clientName}</strong>
+                      <strong>{item.mine ? 'You' : correspondentOf(item).name}</strong>
                       <time>{stamp(item.at)}</time>
                     </span>
                     <span className={styles.listSubject}>{item.subject}</span>
@@ -363,16 +376,18 @@ export default function OutreachWorkspacePage() {
             </>
           )}
 
-          {open && (
+          {open && (() => {
+            const correspondent = correspondentOf(open)
+            return (
             <>
               <h2 className={styles.threadSubject}>{open.subject}</h2>
               <article className={styles.message}>
                 <header className={styles.messageHead}>
-                  <span className={styles.avatar} aria-hidden="true">{initials(open.mine ? me : clientName)}</span>
+                  <span className={styles.avatar} aria-hidden="true">{initials(open.mine ? me : correspondent.name)}</span>
                   <div>
-                    <strong>{open.mine ? me : clientName}</strong>{' '}
-                    <span className={styles.address}>{open.mine ? 'Associate Consultant · IBM Consulting' : clientLine}</span>
-                    <small>To: {open.mine ? clientName : me}</small>
+                    <strong>{open.mine ? me : correspondent.name}</strong>{' '}
+                    <span className={styles.address}>{open.mine ? 'Associate Consultant · IBM Consulting' : correspondent.line}</span>
+                    <small>To: {open.mine ? correspondent.name : me}</small>
                   </div>
                   <span className={styles.messageTime}>{stamp(open.at, true)}</span>
                   {open.tag && <Tag type={open.tag.type} size="sm">{open.tag.label}</Tag>}
@@ -399,7 +414,7 @@ export default function OutreachWorkspacePage() {
                     </>
                   ) : (
                     <>
-                      <pre className={styles.plain}>{formatClientEmail(open.preview, displayName, clientName)}</pre>
+                      <pre className={styles.plain}>{formatClientEmail(open.preview, displayName, correspondent.name)}</pre>
                       {open.attempt && !open.brief && open.attempt.requestTitle && stage !== 'brief' && (
                         <aside className={styles.request}>
                           <p className={styles.requestTitle}>{open.attempt.requestTitle}</p>
@@ -411,7 +426,8 @@ export default function OutreachWorkspacePage() {
                 </div>
               </article>
             </>
-          )}
+            )
+          })()}
         </section>
       </div>
     </ObjectiveTourProvider>
