@@ -6,6 +6,7 @@ button.tile { cursor: pointer; }button.tile:hover { border-color: #78a9ff; }
 .tile strong { font-size: 1.75rem; font-weight: 400; line-height: 1.2; }
 .controls { display: grid; grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(10rem, 1fr)); gap: 1rem; align-items: end; margin-bottom: 1.5rem; }
 .table { min-width: 960px; }
+.table th { white-space: nowrap; }
 .stage { display: flex; flex-direction: column; gap: .4rem; min-width: 11rem; }
 .stageBar { display: flex; gap: 3px; }
 .segment { width: 1.4rem; height: .375rem; background: #e0e0e0; }
