@@ -269,6 +269,31 @@ describe('OutreachWorkspacePage with a chosen contact', () => {
     expect(screen.getByText(/you can write 2 more times/)).toBeInTheDocument()
   })
 
+  it('keeps each reply under the contact who sent it after a new contact is chosen', async () => {
+    // John declined twice, then Jane was chosen: John's replies must stay John's.
+    chosen('p-2', 'Jane Roe', 'CFO')
+    setup({
+      attempts: [
+        attempt(1, { personaId: 'p-1', outreachRound: 1 }),
+        attempt(2, { personaId: 'p-1', outreachRound: 1 }),
+        attempt(3, { personaId: 'p-2', outreachRound: 1 }),
+      ],
+    })
+    renderPage()
+    const reply = (n: number) => screen.getAllByRole('button').find((b) => b.textContent?.includes(`Reply to email ${n}`))!
+
+    expect(reply(1)).toHaveTextContent('John Doe')
+    expect(reply(1)).not.toHaveTextContent('Jane Roe')
+    expect(reply(2)).toHaveTextContent('John Doe')
+    expect(reply(3)).toHaveTextContent('Jane Roe')
+
+    await userEvent.click(reply(1))
+    const message = screen.getByRole('article')
+    expect(within(message).getAllByText(/John Doe/).length).toBeGreaterThan(0)
+    expect(within(message).queryByText(/Jane Roe/)).not.toBeInTheDocument()
+    expect(within(message).getByText(/CEO/)).toBeInTheDocument()
+  })
+
   it('offers another contact after three emails to one person', () => {
     chosen('p-1', 'John Doe', 'CEO')
     setup({
