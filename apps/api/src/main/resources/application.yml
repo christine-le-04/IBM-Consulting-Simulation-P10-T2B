@@ -93,7 +93,7 @@ app:
       global: ${AUTH_GLOBAL_REQUESTS_PER_MINUTE:1000}
       maximum-tracked-clients: ${AUTH_MAX_TRACKED_CLIENTS:10000}
     refresh:
-      lifetime: ${REFRESH_SESSION_LIFETIME:7d}
+      lifetime: ${REFRESH_SESSION_LIFETIME:8h}
       secure-cookie: ${REFRESH_COOKIE_SECURE:true}
       same-site: ${REFRESH_COOKIE_SAME_SITE:Lax}
     login-attempts:

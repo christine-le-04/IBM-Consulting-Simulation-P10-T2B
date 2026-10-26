@@ -5,7 +5,7 @@ import java.time.Duration;
 
 @ConfigurationProperties(prefix = "app.identity.refresh")
 public class RefreshSessionProperties {
-    private Duration lifetime = Duration.ofDays(7);
+    private Duration lifetime = Duration.ofHours(8);
     private boolean secureCookie = true;
     private String sameSite = "Lax";
     public Duration getLifetime() { return lifetime; }

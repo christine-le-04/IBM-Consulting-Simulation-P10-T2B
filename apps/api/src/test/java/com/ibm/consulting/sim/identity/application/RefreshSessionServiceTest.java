@@ -65,6 +65,7 @@ class RefreshSessionServiceTest {
 
     @Test
     void browserAccessIsShortLivedAndRefreshCredentialsAreStoredOnlyAsHashes() {
+        Instant beforeSignIn = Instant.now();
         var issued = open();
         var claims = tokens.parseToken(issued.access().accessToken());
         assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime()).isLessThanOrEqualTo(900000);
@@ -73,7 +74,9 @@ class RefreshSessionServiceTest {
         RefreshSession row = rows.get(UUID.fromString(issued.access().sessionId()));
         assertThat(row.getSecretHash()).isNotEqualTo(issued.refreshCookie());
         assertThat(row.getSecretHash()).doesNotContain(credentials.parse(issued.refreshCookie()).secret());
-        assertThat(issued.expiresAt()).isAfter(Instant.now().plusSeconds(6 * 86400));
+        assertThat(issued.expiresAt()).isBetween(
+                beforeSignIn.plus(java.time.Duration.ofHours(8)),
+                Instant.now().plus(java.time.Duration.ofHours(8)));
     }
 
     @Test
